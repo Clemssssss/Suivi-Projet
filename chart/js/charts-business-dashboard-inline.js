@@ -52,21 +52,38 @@
     return null;
   }
 
-  function currentSelectedYear() {
+  function explicitSelectedYear() {
     var el = document.getElementById('year-filter');
     var y = el && el.value ? parseInt(el.value, 10) : NaN;
-    if (isFinite(y)) return y;
+    return isFinite(y) ? y : null;
+  }
 
+  function currentSelectedYear() {
+    var explicit = explicitSelectedYear();
+    if (isFinite(explicit)) return explicit;
     var raw = (typeof AE !== 'undefined' && AE.getRaw) ? AE.getRaw() : [];
     var years = raw.map(getYear).filter(function(v) { return isFinite(v); });
     if (!years.length) return new Date().getFullYear();
     return Math.max.apply(null, years);
   }
 
+  function resolveReferenceYear(projects, mode) {
+    var explicit = explicitSelectedYear();
+    if (isFinite(explicit)) return explicit;
+
+    var relevant = modeScopeProjects(Array.isArray(projects) ? projects : [], mode);
+    var relevantYears = relevant.map(getYear).filter(function(v) { return isFinite(v); });
+    if (relevantYears.length) return Math.max.apply(null, relevantYears);
+
+    var years = (Array.isArray(projects) ? projects : []).map(getYear).filter(function(v) { return isFinite(v); });
+    if (years.length) return Math.max.apply(null, years);
+    return new Date().getFullYear();
+  }
+
   function applyEngineLikeFilters(projects, opts) {
     opts = opts || {};
     var data = Array.isArray(projects) ? projects.slice() : [];
-    var year = currentSelectedYear();
+    var year = isFinite(opts.year) ? opts.year : currentSelectedYear();
     var search = (document.getElementById('search-bar') || {}).value || '';
     var filters = (typeof AE !== 'undefined' && AE.getFilters) ? AE.getFilters() : {};
     var energy = (typeof AE !== 'undefined' && AE.getEnergyType) ? AE.getEnergyType() : '';
@@ -330,6 +347,15 @@
       dataset.borderRadius = opts.indexAxis === 'y' ? 8 : 12;
     }
 
+    var isHorizontal = opts.indexAxis === 'y';
+    var numericTicks = function(value) {
+      return formatValue(Number(value) || 0, mode);
+    };
+    var categoryTicks = function(value) {
+      var raw = this && this.getLabelForValue ? this.getLabelForValue(value) : value;
+      return String(raw == null ? '' : raw).slice(0, 32);
+    };
+
     CM.create(id, {
       type: chartType,
       data: {
@@ -346,20 +372,15 @@
           x: {
             ticks: {
               color: '#a8bdd3',
-              callback: function(value) {
-                var raw = this.getLabelForValue ? this.getLabelForValue(value) : value;
-                return opts.indexAxis === 'y' ? String(raw).slice(0, 32) : undefined;
-              }
+              callback: isHorizontal ? numericTicks : categoryTicks
             },
             grid: { color: 'rgba(255,255,255,.06)' }
           },
           y: {
-            beginAtZero: true,
+            beginAtZero: !isHorizontal,
             ticks: {
               color: '#a8bdd3',
-              callback: function(value) {
-                return formatValue(value, mode);
-              }
+              callback: isHorizontal ? categoryTicks : numericTicks
             },
             grid: { color: 'rgba(255,255,255,.06)' }
           }
@@ -404,9 +425,9 @@
   function renderPerformance(rawFiltered, rawAll) {
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
     var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'year';
-    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true });
+    var activeYear = resolveReferenceYear(rawAll, view);
+    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true, year: activeYear });
     var filteredAll = applyEngineLikeFilters(rawAll, { respectYear: false });
-    var activeYear = currentSelectedYear();
 
     updateTitles('biz-title-perf-', view);
     var monthHint = document.getElementById('biz-hint-perf-month');
@@ -447,7 +468,8 @@
 
   function renderPipeline(rawAll) {
     var view = (document.getElementById('biz-pipe-view') || {}).value || 'pipe_bud';
-    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true });
+    var activeYear = resolveReferenceYear(rawAll, view);
+    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true, year: activeYear });
     var offers = filteredYear.filter(isOffer);
 
     updateTitles('biz-title-pipe-', view);
