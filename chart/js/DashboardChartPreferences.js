@@ -6,7 +6,7 @@ window.DashboardChartPreferences = (() => {
   var PAGE_KEY = 'chart';
   var REMOTE_SCOPE = 'chart';
   var REMOTE_DOC_TYPE = 'chart-preferences';
-  var REMOTE_DOC_KEY = 'shared';
+  var REMOTE_DOC_KEY_LEGACY = 'shared';
   var _state = { charts: {} };
   var _defaults = {};
   var _restoredDataCharts = {};
@@ -25,6 +25,10 @@ window.DashboardChartPreferences = (() => {
     return STORAGE_PREFIX + '::' + _userKey();
   }
 
+  function _remoteDocKey() {
+    return 'user::' + _userKey();
+  }
+
   function _loadState() {
     try {
       var raw = localStorage.getItem(_storageKey());
@@ -41,7 +45,7 @@ window.DashboardChartPreferences = (() => {
     try {
       localStorage.setItem(_storageKey(), JSON.stringify(_state));
       if (typeof DashboardSharedStore !== 'undefined') {
-        DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _state, REMOTE_SCOPE)
+        DashboardSharedStore.upsert(REMOTE_DOC_TYPE, _remoteDocKey(), _state, REMOTE_SCOPE)
           .catch(function(err) { console.warn('[ChartPrefs] Sync DB impossible', err); });
       }
       return true;
@@ -726,7 +730,10 @@ window.DashboardChartPreferences = (() => {
     setTimeout(async function() {
       if (typeof DashboardSharedStore !== 'undefined') {
         try {
-          var remote = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+          var remote = await DashboardSharedStore.get(REMOTE_DOC_TYPE, _remoteDocKey(), REMOTE_SCOPE);
+          if ((!remote || !remote.payload || typeof remote.payload !== 'object') && (!_state || !_state.charts || !Object.keys(_state.charts).length)) {
+            remote = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY_LEGACY, REMOTE_SCOPE);
+          }
           if (remote && remote.payload && typeof remote.payload === 'object') {
             _state = remote.payload;
             try { localStorage.setItem(_storageKey(), JSON.stringify(_state)); } catch (_) {}

@@ -103,6 +103,10 @@
     if (!ch||!ch.canvas) return;
     var cfg = DRILL_MAP[id];
     if (!cfg||cfg.skip) return;
+    if (ch.canvas._cfcChartFilterController) {
+      _injectChartExcelBtn(id, ch, cfg);
+      return;
+    }
     if (ch.canvas._uniDrillBound) return;
     ch.canvas._uniDrillBound = true;
     ch.canvas.style.cursor = 'pointer';

@@ -86,6 +86,8 @@ if (!window.ChartFilterController) {
     const listener = (e) => _handleClick(e, chartId, chartInstance, filterType);
     const cv = document.getElementById(chartId);
     if (cv) {
+      cv._cfcChartFilterController = true;
+      cv._cfcListener = listener;
       cv.addEventListener('click', listener);
       cv.style.cursor = 'pointer';
     }
@@ -100,6 +102,8 @@ if (!window.ChartFilterController) {
     var cv = document.getElementById(chartId);
     if (cv && entry.listener) {
       cv.removeEventListener('click', entry.listener);
+      delete cv._cfcListener;
+      delete cv._cfcChartFilterController;
     }
     delete _registry[chartId];
     return true;

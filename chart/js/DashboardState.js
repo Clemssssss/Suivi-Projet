@@ -27,7 +27,7 @@ window.DashboardState = (() => {
   const STORAGE_KEY  = 'cahors_dashboard_state';
   const REMOTE_SCOPE = 'chart';
   const REMOTE_DOC_TYPE = 'dashboard-state';
-  const REMOTE_DOC_KEY = 'shared';
+  const REMOTE_DOC_KEY_LEGACY = 'shared';
   const DEBOUNCE_MS  = 1500;
   let _saveTimer     = null;
   let _isInit        = false;
@@ -41,13 +41,22 @@ window.DashboardState = (() => {
       return raw ? JSON.parse(raw) : {};
     } catch (e) { return {}; }
   }
+  function _userKey() {
+    if (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function') {
+      return window.AuthClient.getCurrentUser() || 'anonymous';
+    }
+    return 'anonymous';
+  }
+  function _remoteDocKey() {
+    return 'user::' + _userKey();
+  }
 
   function _write(state) {
     _cachedState = state || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { console.warn('[DashboardState] Erreur localStorage:', e); }
     if (typeof DashboardSharedStore !== 'undefined') {
-      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _cachedState, REMOTE_SCOPE)
+      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, _remoteDocKey(), _cachedState, REMOTE_SCOPE)
         .catch(function(err) { console.warn('[DashboardState] Sync DB impossible', err); });
     }
   }
@@ -55,7 +64,10 @@ window.DashboardState = (() => {
   async function _loadRemote() {
     if (typeof DashboardSharedStore === 'undefined') return null;
     try {
-      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, _remoteDocKey(), REMOTE_SCOPE);
+      if ((!doc || !doc.payload || typeof doc.payload !== 'object') && !_cachedState) {
+        doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY_LEGACY, REMOTE_SCOPE);
+      }
       if (doc && doc.payload && typeof doc.payload === 'object') {
         _cachedState = doc.payload;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState)); } catch (_) {}
@@ -201,7 +213,7 @@ window.DashboardState = (() => {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
     _cachedState = null;
     if (typeof DashboardSharedStore !== 'undefined') {
-      DashboardSharedStore.remove(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+      DashboardSharedStore.remove(REMOTE_DOC_TYPE, _remoteDocKey(), REMOTE_SCOPE)
         .catch(function(err) { console.warn('[DashboardState] Suppression DB impossible', err); });
     }
     console.log('[DashboardState] État effacé — rechargement...');

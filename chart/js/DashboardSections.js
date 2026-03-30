@@ -35,7 +35,7 @@ window.DashboardSections = (() => {
   const STORAGE_KEY = 'dashboard_sections_state';
   const REMOTE_SCOPE = 'chart';
   const REMOTE_DOC_TYPE = 'dashboard-sections';
-  const REMOTE_DOC_KEY = 'shared';
+  const REMOTE_DOC_KEY_LEGACY = 'shared';
   let _isInit = false;
   let _cachedState = null;
 
@@ -44,18 +44,30 @@ window.DashboardSections = (() => {
     if (_cachedState && typeof _cachedState === 'object') return _cachedState;
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
   }
+  function _userKey() {
+    if (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function') {
+      return window.AuthClient.getCurrentUser() || 'anonymous';
+    }
+    return 'anonymous';
+  }
+  function _remoteDocKey() {
+    return 'user::' + _userKey();
+  }
   function _save(state) {
     _cachedState = state || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
     if (typeof DashboardSharedStore !== 'undefined') {
-      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _cachedState, REMOTE_SCOPE)
+      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, _remoteDocKey(), _cachedState, REMOTE_SCOPE)
         .catch(function(err) { console.warn('[DashboardSections] Sync DB impossible', err); });
     }
   }
   async function _loadRemote() {
     if (typeof DashboardSharedStore === 'undefined') return null;
     try {
-      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, _remoteDocKey(), REMOTE_SCOPE);
+      if ((!doc || !doc.payload || typeof doc.payload !== 'object') && !_cachedState) {
+        doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY_LEGACY, REMOTE_SCOPE);
+      }
       if (doc && doc.payload && typeof doc.payload === 'object') {
         _cachedState = doc.payload;
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState)); } catch (_) {}

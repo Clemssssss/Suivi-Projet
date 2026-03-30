@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" style="color-scheme: dark;" class="auth-pending">
+<html lang="fr" style="color-scheme: dark;" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,17 +8,30 @@
 <title>Analytics Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap&display=swap" rel="stylesheet">
-<style>
-html.auth-pending body { visibility: hidden; }
-</style>
-<script src="js/AuthClient.js"></script>
-<script src="js/chart-auth-guard.js"></script>
-<script src="js/DashboardLocalData.js"></script>
-<script src="js/DashboardSharedStore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
 <link rel="stylesheet" href="css/charts-theme-layout.css">
+
+<!--[if gte mso 9]><xml>
+<mso:CustomDocumentProperties>
+<mso:xd_Signature msdt:dt="string"></mso:xd_Signature>
+<mso:display_urn_x003a_schemas-microsoft-com_x003a_office_x003a_office_x0023_Editor msdt:dt="string">Clement Gil</mso:display_urn_x003a_schemas-microsoft-com_x003a_office_x003a_office_x0023_Editor>
+<mso:xd_ProgID msdt:dt="string"></mso:xd_ProgID>
+<mso:ComplianceAssetId msdt:dt="string"></mso:ComplianceAssetId>
+<mso:TemplateUrl msdt:dt="string"></mso:TemplateUrl>
+<mso:_ExtendedDescription msdt:dt="string"></mso:_ExtendedDescription>
+<mso:display_urn_x003a_schemas-microsoft-com_x003a_office_x003a_office_x0023_Author msdt:dt="string">Clement Gil</mso:display_urn_x003a_schemas-microsoft-com_x003a_office_x003a_office_x0023_Author>
+<mso:ContentTypeId msdt:dt="string">0x0101009E8E45D54FA6C44699C8F19B13F54DA7</mso:ContentTypeId>
+<mso:TriggerFlowInfo msdt:dt="string"></mso:TriggerFlowInfo>
+<mso:_SourceUrl msdt:dt="string"></mso:_SourceUrl>
+<mso:_SharedFileIndex msdt:dt="string"></mso:_SharedFileIndex>
+<mso:TaxCatchAll msdt:dt="string"></mso:TaxCatchAll>
+<mso:MediaLengthInSeconds msdt:dt="string"></mso:MediaLengthInSeconds>
+<mso:MediaServiceImageTags msdt:dt="string"></mso:MediaServiceImageTags>
+<mso:lcf76f155ced4ddcb4097134ff3c332f msdt:dt="string"></mso:lcf76f155ced4ddcb4097134ff3c332f>
+</mso:CustomDocumentProperties>
+</xml><![endif]-->
 </head>
 <body>
 
@@ -33,25 +46,18 @@ html.auth-pending body { visibility: hidden; }
   <div class="hdr-brand">Analytics <em>Dashboard</em></div>
   <div class="hdr-sep"></div>
   <div class="hdr-sub">📊 Tableau de bord interactif</div>
-    <div class="hdr-right">
-      <div class="hdr-actions-main">
-        <button class="btn-hdr" id="btn-share">🔗 Partager</button>
-        <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
-        <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
-      <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
-      <label class="btn-hdr btn-hdr-accent" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
-        📥 Import fichier
-        <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
-      </label>
-    </div>
-    <div class="hdr-actions-status">
-      <span class="hdr-pill" id="auth-user-label">🔒 Session</span>
-      <span class="hdr-pill hdr-pill-muted" id="local-data-status" style="display:none;"></span>
-      <button class="btn-hdr" id="btn-clear-local-data" type="button" title="Supprimer les données locales de cet utilisateur">🗑 Mes données locales</button>
-      <button class="btn-hdr" id="btn-logout" type="button">↩ Déconnexion</button>
-      <div class="hdr-pill" id="project-count">-- projets</div>
-      <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
-    </div>
+  <div class="hdr-right">
+    <a href="../index/index.html" class="btn-back-map">← Cartographie</a>
+    <button class="btn-hdr" id="btn-share">🔗 Partager</button>
+    <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
+    <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
+    <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
+    <label class="btn-hdr" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV">
+      📥 Import CSV
+      <input type="file" id="csv-import-input" accept=".csv" style="display:none">
+    </label>
+    <div class="hdr-pill" id="project-count">-- projets</div>
+    <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
   </div>
 </header>
 
@@ -1407,20 +1413,26 @@ html.auth-pending body { visibility: hidden; }
 </div><!-- /section-collapsible Graphiques -->
 
 <!-- ── Boutons utilitaires v3 ── -->
-<div class="dashboard-utility-bar">
-  <button class="dashboard-utility-btn is-share" id="btn-dashboard-share" onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
+<div style="margin:0 2.5rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+  <button onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,153,255,.08);border:1px solid rgba(0,153,255,.25);
     color:#0099ff;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Copier le lien avec filtres actifs">🔗 Partager</button>
-  <button class="dashboard-utility-btn is-save" id="btn-dashboard-save" onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
+  <a href="/chart/logs.html" style="
+    display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;
+    background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
+    color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
+    font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
+  " title="Consulter les journaux d'accès">🧾 Logs</a>
+  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
     color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Sauvegarder l'état du dashboard">💾 Sauvegarder</button>
-  <button class="dashboard-utility-btn is-reset" id="btn-dashboard-reset" onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
+  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(245,183,64,.08);border:1px solid rgba(245,183,64,.25);
     color:#f5b740;border-radius:8px;padding:.35rem .8rem;
@@ -1432,9 +1444,7 @@ html.auth-pending body { visibility: hidden; }
 
 </div><!-- /.shell -->
 
-<!-- Variante Netlify par défaut : démarrage sans données embarquées.
-     Pour revenir à une version locale préchargée, remplacer par ./js/data.js -->
-<script src="./js/data-empty.js"></script>
+<script src="./js/data.js"></script>
 <script src="./js/projectUtils.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
@@ -1575,6 +1585,7 @@ html.auth-pending body { visibility: hidden; }
 <script src="js/DashboardNotes.js"></script>
 <script src="js/DashboardChartPreferences.js"></script>
 <script src="js/charts-modules-init-inline.js"></script>
+<script src="js/charts-mobile-shell-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      POINT 8 — Audit de registration des graphiques Chart.js
