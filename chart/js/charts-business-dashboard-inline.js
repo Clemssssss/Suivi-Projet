@@ -55,6 +55,10 @@
     return null;
   }
 
+  function isSimplifiedDashboard() {
+    return !!(document.body && document.body.classList && document.body.classList.contains('business-dashboard-simplified'));
+  }
+
   function explicitSelectedYear() {
     var el = document.getElementById('year-filter');
     var y = el && el.value ? parseInt(el.value, 10) : NaN;
@@ -74,12 +78,17 @@
     var explicit = explicitSelectedYear();
     if (isFinite(explicit)) return explicit;
 
-    var relevant = modeScopeProjects(Array.isArray(projects) ? projects : [], mode);
-    var relevantYears = relevant.map(getYear).filter(function(v) { return isFinite(v); });
-    if (relevantYears.length) return Math.max.apply(null, relevantYears);
+    var base = Array.isArray(projects) ? projects.slice() : [];
+    var years = base.map(getYear).filter(function(v) { return isFinite(v); });
+    var uniqueYears = Array.from(new Set(years)).sort(function(a, b) { return b - a; });
 
-    var years = (Array.isArray(projects) ? projects : []).map(getYear).filter(function(v) { return isFinite(v); });
-    if (years.length) return Math.max.apply(null, years);
+    for (var i = 0; i < uniqueYears.length; i++) {
+      var year = uniqueYears[i];
+      var scoped = base.filter(function(p) { return getYear(p) === year; });
+      if (computeValue(scoped, mode) > 0) return year;
+    }
+
+    if (uniqueYears.length) return uniqueYears[0];
     return new Date().getFullYear();
   }
 
@@ -87,8 +96,9 @@
     opts = opts || {};
     var data = Array.isArray(projects) ? projects.slice() : [];
     var year = isFinite(opts.year) ? opts.year : currentSelectedYear();
-    var search = (document.getElementById('search-bar') || {}).value || '';
-    var filters = (typeof AE !== 'undefined' && AE.getFilters) ? AE.getFilters() : {};
+    var search = (document.getElementById('search-input') || document.getElementById('search-bar') || {}).value || '';
+    var includeEngineFilters = opts.includeEngineFilters === true || (!isSimplifiedDashboard() && opts.includeEngineFilters !== false);
+    var filters = (includeEngineFilters && typeof AE !== 'undefined' && AE.getFilters) ? AE.getFilters() : {};
     var energy = (typeof AE !== 'undefined' && AE.getEnergyType) ? AE.getEnergyType() : '';
     var nv = (typeof AE !== 'undefined' && AE.nv) ? AE.nv : function(v) {
       if (v == null) return null;
@@ -429,9 +439,10 @@
   function renderPerformance(rawFiltered, rawAll) {
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
     var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'year';
-    var activeYear = resolveReferenceYear(rawAll, view);
-    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true, year: activeYear });
-    var filteredAll = applyEngineLikeFilters(rawAll, { respectYear: false });
+    var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
+    var activeYear = resolveReferenceYear(baseVisible, view);
+    var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
+    var filteredAll = baseVisible.slice();
 
     updateTitles('biz-title-perf-', view);
     var monthHint = document.getElementById('biz-hint-perf-month');
@@ -472,8 +483,9 @@
 
   function renderPipeline(rawAll) {
     var view = (document.getElementById('biz-pipe-view') || {}).value || 'pipe_bud';
-    var activeYear = resolveReferenceYear(rawAll, view);
-    var filteredYear = applyEngineLikeFilters(rawAll, { respectYear: true, year: activeYear });
+    var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
+    var activeYear = resolveReferenceYear(baseVisible, view);
+    var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
     var offers = filteredYear.filter(isOffer);
 
     updateTitles('biz-title-pipe-', view);
