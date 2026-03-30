@@ -1,6 +1,9 @@
 (function() {
   'use strict';
 
+  var _viewportRefreshTimer = null;
+  var _viewportRefreshFallbackTimer = null;
+
   function syncShellPadding() {
     var hdr  = document.querySelector('.hdr');
     var bar  = document.getElementById('ctrl-bars-sticky');
@@ -10,6 +13,58 @@
     var barPos = bar ? window.getComputedStyle(bar).position : '';
     var barH = (bar && barPos === 'fixed') ? bar.offsetHeight : 0;
     shell.style.paddingTop = (hdrH + barH + 4) + 'px';
+  }
+
+  function refreshVisibleCharts() {
+    var hadInstance = false;
+    var canvases = Array.prototype.slice.call(document.querySelectorAll('.chart-card canvas[id], .business-chart-card canvas[id]'));
+
+    canvases.forEach(function(canvas) {
+      if (!canvas || canvas.offsetParent === null) return;
+      var instance = null;
+      try {
+        if (typeof Chart !== 'undefined') {
+          instance = (typeof Chart.getChart === 'function' ? Chart.getChart(canvas) : null)
+            || Object.values(Chart.instances || {}).find(function(item) { return item && item.canvas === canvas; })
+            || null;
+        }
+      } catch (_) {}
+
+      if (!instance) return;
+      hadInstance = true;
+      try {
+        if (instance.options) {
+          instance.options.responsive = true;
+          if (typeof instance.options.maintainAspectRatio === 'undefined') {
+            instance.options.maintainAspectRatio = false;
+          }
+        }
+        instance.resize();
+        if (typeof instance.update === 'function') instance.update('none');
+      } catch (_) {}
+    });
+
+    return hadInstance;
+  }
+
+  function scheduleViewportRefresh() {
+    syncShellPadding();
+    if (_viewportRefreshTimer) clearTimeout(_viewportRefreshTimer);
+    if (_viewportRefreshFallbackTimer) clearTimeout(_viewportRefreshFallbackTimer);
+
+    _viewportRefreshTimer = setTimeout(function() {
+      var hadInstance = refreshVisibleCharts();
+      setTimeout(refreshVisibleCharts, 90);
+      setTimeout(refreshVisibleCharts, 220);
+
+      _viewportRefreshFallbackTimer = setTimeout(function() {
+        if (!hadInstance && typeof window.update === 'function') {
+          try { window.update(); } catch (_) {}
+        } else {
+          refreshVisibleCharts();
+        }
+      }, 320);
+    }, 40);
   }
 
   /* Exécution immédiate dès que le DOM est prêt */
@@ -35,7 +90,11 @@
     }
     observeWhenReady();
   }
-  window.addEventListener('resize', syncShellPadding);
+  window.addEventListener('resize', scheduleViewportRefresh);
+  window.addEventListener('orientationchange', scheduleViewportRefresh);
+  if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+    window.visualViewport.addEventListener('resize', scheduleViewportRefresh);
+  }
 
   /* Hook update() */
   var _origU = window.update;
@@ -48,4 +107,5 @@
   }
 
   window._syncShellPadding = syncShellPadding;
+  window._scheduleViewportRefresh = scheduleViewportRefresh;
 })();
