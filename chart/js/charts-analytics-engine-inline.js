@@ -692,23 +692,38 @@ function renderVelocity(data) {
   const d30 = new Date(now - 30 * 86400000);
   const d60 = new Date(now - 60 * 86400000);
   const d90 = new Date(now - 90 * 86400000);
+  const parseDateSafe = (raw) => {
+    if (!raw) return null;
+    if (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate) {
+      return ProjectUtils.parseDate(raw);
+    }
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  const formatDateSafe = (raw) => {
+    const d = parseDateSafe(raw);
+    return d ? d.toLocaleDateString('fr-FR') : (raw ? String(raw).trim() : '—');
+  };
 
   const decided = data.filter(p => ['obtenu','perdu'].includes(ProjectUtils.getStatus(p)));
 
   function cnt(since) {
     return decided.filter(p => {
-      const d = p['Date de retour demandée'] || p['Date réception'];
-      return d && new Date(d) >= since;
+      const d = parseDateSafe(p['Date de retour demandée'] || p['Date réception']);
+      return d && d >= since;
     }).length;
   }
 
   const v30     = cnt(d30), v60 = cnt(d60), v90 = cnt(d90);
   const overdue = data.filter(p =>
-    ProjectUtils.getStatus(p) === 'offre' && p['Date de retour demandée'] && new Date(p['Date de retour demandée']) < now
+    ProjectUtils.getStatus(p) === 'offre' && parseDateSafe(p['Date de retour demandée']) && parseDateSafe(p['Date de retour demandée']) < now
   ).length;
   const cm   = AE.getCAMode();
   const ca90 = data
-    .filter(p => ProjectUtils.getStatus(p) === 'obtenu' && p['Date de retour demandée'] && new Date(p['Date de retour demandée']) >= d90)
+    .filter(p => {
+      const d = parseDateSafe(p['Date de retour demandée']);
+      return ProjectUtils.getStatus(p) === 'obtenu' && d && d >= d90;
+    })
     .reduce((s, p) => s + getCAValue(p, cm), 0);
 
   function sv(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
@@ -784,8 +799,12 @@ var TABLE_COLUMNS = [
     key: 'echeance', label: 'Échéance', sort: 'echeance', visible: true,
     render: function(p) {
       const s = ProjectUtils.getStatus(p);
-      const overdue = p['Date de retour demandée'] && s === 'offre' && new Date(p['Date de retour demandée']) < new Date();
-      const ech = p['Date de retour demandée'] ? new Date(p['Date de retour demandée']).toLocaleDateString('fr-FR') : '—';
+      const parsed = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      const isValid = parsed && !isNaN(parsed.getTime());
+      const overdue = isValid && s === 'offre' && parsed < new Date();
+      const ech = isValid ? parsed.toLocaleDateString('fr-FR') : (p['Date de retour demandée'] ? String(p['Date de retour demandée']).trim() : '—');
       return `<td style="${overdue ? 'color:var(--heat)' : ''}">${ech}${overdue ? ' ⚠️' : ''}</td>`;
     }
   },

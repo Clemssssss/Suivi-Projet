@@ -104,7 +104,7 @@ function _getProjects(useRaw) {
     if (!raw || raw === 'x' || raw === 'X' || raw === '') return '—';
     if (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate) {
       const d = ProjectUtils.parseDate(raw);
-      if (!d) return '—';
+      if (!d) return String(raw).trim() || '—';
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yy = d.getFullYear();
@@ -112,7 +112,7 @@ function _getProjects(useRaw) {
     }
     // Fallback
     const d = new Date(raw);
-    if (isNaN(d.getTime())) return '—';
+    if (isNaN(d.getTime())) return String(raw).trim() || '—';
     return d.toLocaleDateString('fr-FR');
   }
 

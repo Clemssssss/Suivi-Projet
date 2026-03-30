@@ -228,7 +228,12 @@ if (!window.ChartDrillDown) {
       const caFmt = ca > 0 ? (typeof ProjectUtils !== 'undefined'
         ? ProjectUtils.formatMontant(ca, true)
         : ca.toLocaleString('fr-FR') + '€') : '—';
-      const ech = p['Date de retour demandée'] ? new Date(p['Date de retour demandée']).toLocaleDateString('fr-FR') : '—';
+      const parsedEnd = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      const ech = (parsedEnd && !isNaN(parsedEnd.getTime()))
+        ? parsedEnd.toLocaleDateString('fr-FR')
+        : (p['Date de retour demandée'] ? String(p['Date de retour demandée']).trim() : '—');
       return `<tr onmouseover="this.style.background='rgba(255,255,255,.025)'" onmouseout="this.style.background=''">
         <td style="padding:.38rem .7rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--snow);" title="${(p['Dénomination']||'').replace(/"/g,'')}">${p['Dénomination'] || '—'}</td>
         <td style="padding:.38rem .7rem;"><span style="display:inline-block;padding:.1rem .4rem;border-radius:99px;font-size:.65rem;font-weight:700;font-family:var(--mono);background:${bc}22;color:${bc};">${s}</span></td>

@@ -208,29 +208,88 @@
    */
   function parseDate(dateStr) {
     if (!dateStr) return null;
-    if (dateStr instanceof Date) return dateStr;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
     
     const s = String(dateStr).trim();
-    
-    // Format YYYY-MM-DD (storage)
-    if (s.includes('-')) {
-      const d = new Date(s + 'T00:00:00Z');
-      if (!isNaN(d)) return d;
+    if (!s || s === 'x' || s === 'X') return null;
+
+    function isValidDateParts(year, month, day) {
+      if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+      if (year < 1900 || year > 2100) return false;
+      if (month < 1 || month > 12) return false;
+      if (day < 1 || day > 31) return false;
+      const d = new Date(year, month - 1, day);
+      return d.getFullYear() === year && d.getMonth() === (month - 1) && d.getDate() === day;
+    }
+
+    function buildDate(year, month, day) {
+      if (year < 100) year += 2000;
+      if (!isValidDateParts(year, month, day)) return null;
+      return new Date(year, month - 1, day);
     }
     
-    // Format DD/MM/YYYY ou DD/MM/YY (affichage)
-    if (s.includes('/')) {
-      const parts = s.split('/');
-      if (parts.length === 3) {
-        let [day, month, year] = parts.map(p => parseInt(p, 10));
-        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-          if (year < 100) year += 2000; // 25 → 2025
-          const d = new Date(year, month - 1, day);
-          if (!isNaN(d)) return d;
-        }
+    // Excel serial date
+    if (/^\d{5,6}$/.test(s)) {
+      const serial = parseInt(s, 10);
+      if (serial > 20000 && serial < 80000) {
+        const excelEpoch = new Date(1899, 11, 30);
+        const d = new Date(excelEpoch.getTime() + serial * 86400000);
+        if (!isNaN(d.getTime())) return d;
       }
     }
-    
+
+    // Format YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD avec heure optionnelle
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
+    if (m) {
+      const d = buildDate(parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10));
+      if (d) return d;
+    }
+
+    // Format DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY avec heure optionnelle
+    m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[T\s].*)?$/);
+    if (m) {
+      const d = buildDate(parseInt(m[3], 10), parseInt(m[2], 10), parseInt(m[1], 10));
+      if (d) return d;
+    }
+
+    // Formats texte ex: "17 juillet 2025", "17 Jul 2025"
+    const normalized = s
+      .toLowerCase()
+      .replace(/é|è|ê/g, 'e')
+      .replace(/à/g, 'a')
+      .replace(/û|ù/g, 'u')
+      .replace(/ô/g, 'o')
+      .replace(/î|ï/g, 'i')
+      .replace(/ç/g, 'c')
+      .replace(/,/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const monthNames = {
+      jan: 1, janvier: 1,
+      fev: 2, fevr: 2, fevrier: 2, feb: 2, february: 2,
+      mar: 3, mars: 3, march: 3,
+      avr: 4, avril: 4, apr: 4, april: 4,
+      mai: 5, may: 5,
+      jun: 6, juin: 6, june: 6,
+      jul: 7, juil: 7, juillet: 7, july: 7,
+      aou: 8, aout: 8, aug: 8, august: 8,
+      sep: 9, sept: 9, septembre: 9, september: 9,
+      oct: 10, octobre: 10, october: 10,
+      nov: 11, novembre: 11, november: 11,
+      dec: 12, decembre: 12, december: 12
+    };
+    m = normalized.match(/^(\d{1,2})\s+([a-z]+)\s+(\d{2,4})(?:\s+.*)?$/);
+    if (m) {
+      const month = monthNames[m[2]];
+      if (month) {
+        const d = buildDate(parseInt(m[3], 10), month, parseInt(m[1], 10));
+        if (d) return d;
+      }
+    }
+
+    const native = new Date(s);
+    if (!isNaN(native.getTime())) return native;
+
     return null;
   }
 
@@ -242,7 +301,10 @@
    */
   function formatDateDisplay(dateStr) {
     const d = parseDate(dateStr);
-    if (!d) return '—';
+    if (!d) {
+      const raw = dateStr == null ? '' : String(dateStr).trim();
+      return raw || '—';
+    }
     
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -258,7 +320,10 @@
    */
   function formatDateFull(dateStr) {
     const d = parseDate(dateStr);
-    if (!d) return '—';
+    if (!d) {
+      const raw = dateStr == null ? '' : String(dateStr).trim();
+      return raw || '—';
+    }
     
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');

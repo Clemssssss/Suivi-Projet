@@ -170,11 +170,11 @@ window.DashboardPDF = (() => {
     if (!raw || raw === 'x' || raw === 'X') return '—';
     if (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate) {
       const d = ProjectUtils.parseDate(raw);
-      if (!d) return '—';
+      if (!d) return String(raw).trim() || '—';
       return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     }
     const d = new Date(raw);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('fr-FR');
+    return isNaN(d.getTime()) ? (String(raw).trim() || '—') : d.toLocaleDateString('fr-FR');
   }
 
   /* ── Barre de progression (export) ──────────────────────────── */

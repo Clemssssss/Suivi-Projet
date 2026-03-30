@@ -60,7 +60,12 @@
     // 5. Délai Décision
     const decP = data.filter(p => ['obtenu','perdu'].includes(_st(p)) && p['Date réception'] && p['Date de retour demandée']);
     const avgDelay = decP.length > 0
-      ? Math.round(decP.reduce((s,p) => s + Math.max(0, (new Date(p['Date de retour demandée']) - new Date(p['Date réception'])) / 86400000), 0) / decP.length)
+      ? Math.round(decP.reduce((s,p) => {
+          const days = (typeof ProjectUtils !== 'undefined' && ProjectUtils.daysBetween)
+            ? ProjectUtils.daysBetween(p['Date réception'], p['Date de retour demandée'])
+            : null;
+          return s + Math.max(0, days || 0);
+        }, 0) / decP.length)
       : null;
 
     // 6. Concentration Client

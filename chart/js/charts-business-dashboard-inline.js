@@ -10,6 +10,7 @@
     'Performance zone × statut',
     'Graphiques interactifs — cliquez pour filtrer'
   ];
+  var INLINE_DRILL_STATE = {};
 
   function cleanLabel(value) {
     var raw = value == null ? '' : String(value).trim();
@@ -431,8 +432,181 @@
     };
   }
 
-  function openDetails(projects, title) {
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatDateLabel(project) {
+    var dt = getDate(project);
+    if (dt && typeof dt.toLocaleDateString === 'function') {
+      return dt.toLocaleDateString('fr-FR');
+    }
+    return cleanLabel(project['Date réception'] || project['Date Reception'] || project['Date de réception']);
+  }
+
+  function uniqueProjects(projects) {
+    var seen = new Set();
+    var list = [];
+    (Array.isArray(projects) ? projects : []).forEach(function(project) {
+      if (!project || seen.has(project)) return;
+      seen.add(project);
+      list.push(project);
+    });
+    return list;
+  }
+
+  function collectProjectsFromEntries(entries) {
+    var acc = [];
+    (Array.isArray(entries) ? entries : []).forEach(function(entry) {
+      if (Array.isArray(entry && entry.projects)) {
+        acc = acc.concat(entry.projects);
+      }
+    });
+    return uniqueProjects(acc);
+  }
+
+  function getInlineCard(chartId) {
+    return document.querySelector('.chart-card[data-chart-id="' + chartId + '"]');
+  }
+
+  function getInlineActions(chartId) {
+    var card = getInlineCard(chartId);
+    if (!card) return null;
+    var actions = card.querySelector('.business-drill-actions');
+    if (actions) return actions;
+
+    actions = document.createElement('div');
+    actions.className = 'business-drill-actions';
+    actions.innerHTML =
+      '<button type="button" class="business-drill-btn" data-role="show-all">Voir toutes les données du graphique</button>' +
+      '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="hide">Masquer les données</button>';
+    card.appendChild(actions);
+
+    actions.querySelector('[data-role="show-all"]').addEventListener('click', function() {
+      var state = INLINE_DRILL_STATE[chartId];
+      if (!state) return;
+      openDetails(state.allProjects, state.title, { chartId: chartId, useInline: true });
+    });
+    actions.querySelector('[data-role="hide"]').addEventListener('click', function() {
+      closeInlineDetails(chartId);
+    });
+    return actions;
+  }
+
+  function getInlinePanel(chartId) {
+    var card = getInlineCard(chartId);
+    if (!card) return null;
+    var panel = card.querySelector('.business-drill-panel');
+    if (panel) return panel;
+
+    panel = document.createElement('div');
+    panel.className = 'business-drill-panel';
+    card.appendChild(panel);
+    return panel;
+  }
+
+  function projectRowsHtml(projects) {
+    return (Array.isArray(projects) ? projects : []).map(function(project) {
+      var status = getStatus(project);
+      return (
+        '<tr>' +
+          '<td>' + escapeHtml(formatDateLabel(project)) + '</td>' +
+          '<td>' + escapeHtml(project['Client']) + '</td>' +
+          '<td>' + escapeHtml(project['Dénomination'] || project['Denomination']) + '</td>' +
+          '<td>' + escapeHtml(project['Zone Géographique']) + '</td>' +
+          '<td>' + escapeHtml(project['Type de projet (Activité)']) + '</td>' +
+          '<td>' + escapeHtml(status) + '</td>' +
+          '<td>' + escapeHtml(formatValue(getBud(project), 'won_amount')) + '</td>' +
+          '<td>' + escapeHtml(formatValue(getWeighted(project), 'pipe_weighted')) + '</td>' +
+        '</tr>'
+      );
+    }).join('');
+  }
+
+  function renderInlineDetails(chartId, projects, title) {
+    var panel = getInlinePanel(chartId);
+    if (!panel) return;
+
+    var rows = uniqueProjects(projects);
+    var totalBud = rows.reduce(function(sum, project) { return sum + getBud(project); }, 0);
+    var totalWeighted = rows.reduce(function(sum, project) { return sum + getWeighted(project); }, 0);
+
+    panel.innerHTML =
+      '<div class="business-drill-head">' +
+        '<div class="business-drill-title">' + escapeHtml(title) + '</div>' +
+        '<div class="business-drill-meta">' +
+          '<span class="business-drill-pill">' + escapeHtml(String(rows.length)) + ' projet' + (rows.length > 1 ? 's' : '') + '</span>' +
+          '<span class="business-drill-pill">Bud ' + escapeHtml(formatValue(totalBud, 'won_amount')) + '</span>' +
+          '<span class="business-drill-pill">CA win proba ' + escapeHtml(formatValue(totalWeighted, 'pipe_weighted')) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="business-drill-wrap">' +
+        '<table class="business-drill-table">' +
+          '<thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Zone</th><th>Type</th><th>Statut</th><th>Bud</th><th>CA win proba</th></tr></thead>' +
+          '<tbody>' + projectRowsHtml(rows) + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    panel.classList.add('is-open');
+    var globalSection = document.getElementById('detail-section');
+    if (globalSection) globalSection.classList.remove('active');
+  }
+
+  function closeInlineDetails(chartId) {
+    var panel = getInlinePanel(chartId);
+    if (!panel) return;
+    panel.classList.remove('is-open');
+    panel.innerHTML = '';
+    var actions = getInlineActions(chartId);
+    if (actions) {
+      var hideBtn = actions.querySelector('[data-role="hide"]');
+      if (hideBtn) hideBtn.disabled = true;
+    }
+  }
+
+  function syncInlineDrilldown(chartId, title, entries) {
+    var allProjects = collectProjectsFromEntries(entries);
+    INLINE_DRILL_STATE[chartId] = {
+      title: title,
+      allProjects: allProjects
+    };
+
+    var actions = getInlineActions(chartId);
+    var panel = getInlinePanel(chartId);
+    if (!actions || !panel) return;
+    panel.classList.remove('is-open');
+    panel.innerHTML = '';
+
+    var showAllBtn = actions.querySelector('[data-role="show-all"]');
+    var hideBtn = actions.querySelector('[data-role="hide"]');
+    if (showAllBtn) {
+      showAllBtn.disabled = !allProjects.length;
+      showAllBtn.textContent = allProjects.length
+        ? 'Voir toutes les données du graphique'
+        : 'Aucune donnée sur ce graphique';
+    }
+    if (hideBtn) {
+      hideBtn.disabled = !panel.classList.contains('is-open');
+    }
+  }
+
+  function openDetails(projects, title, options) {
+    options = options || {};
     var rows = Array.isArray(projects) ? projects.slice() : [];
+    if (options.useInline && options.chartId) {
+      renderInlineDetails(options.chartId, rows, title);
+      var actions = getInlineActions(options.chartId);
+      if (actions) {
+        var hideBtn = actions.querySelector('[data-role="hide"]');
+        if (hideBtn) hideBtn.disabled = false;
+      }
+      return;
+    }
     if (typeof showDetailTable === 'function') {
       showDetailTable(rows, title);
       return;
@@ -535,10 +709,11 @@
           var idx = elements[0].index;
           var entry = entries[idx];
           if (!entry) return;
-          openDetails(entry.projects || [], title + ' — ' + entry.label);
+          openDetails(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
         }
       }
     });
+    syncInlineDrilldown(id, title, entries);
   }
 
   function createComparisonChart(id, title, entries, mode, opts) {
@@ -624,10 +799,11 @@
             if (serie.key === 'pipe_bud' || serie.key === 'offer_count') return isOffer(project);
             return true;
           });
-          openDetails(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label);
+          openDetails(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
         }
       }
     });
+    syncInlineDrilldown(id, title, entries);
   }
 
   function updateTitles(prefix, mode) {

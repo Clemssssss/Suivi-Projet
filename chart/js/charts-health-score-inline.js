@@ -19,7 +19,12 @@
     // 3. Délai décision inversé (90j=0, 14j=20) → 20 pts
     var decP = data.filter(function(p){ var s=ProjectUtils.getStatus(p); return (s==='obtenu'||s==='perdu') && p['Date réception'] && p['Date de retour demandée']; });
     var avgDays = decP.length > 0
-      ? decP.reduce(function(s,p){ return s + Math.max(0,(new Date(p['Date de retour demandée'])-new Date(p['Date réception']))/86400000); }, 0) / decP.length
+      ? decP.reduce(function(s,p){
+          var days = (typeof ProjectUtils !== 'undefined' && ProjectUtils.daysBetween)
+            ? ProjectUtils.daysBetween(p['Date réception'], p['Date de retour demandée'])
+            : null;
+          return s + Math.max(0, days || 0);
+        }, 0) / decP.length
       : 90;
     var sc3 = Math.max(0, Math.min(20, Math.round(((90 - avgDays) / 76) * 20)));
 

@@ -1664,6 +1664,109 @@ button, a, select, input, canvas,
 .business-chart-card .chart-title {
   max-width: 90%;
 }
+.business-drill-actions {
+  display: flex;
+  gap: .55rem;
+  flex-wrap: wrap;
+  margin-top: .9rem;
+}
+.business-drill-btn {
+  appearance: none;
+  border: 1px solid rgba(0,212,170,.26);
+  background: rgba(0,212,170,.08);
+  color: var(--brand);
+  border-radius: 10px;
+  padding: .5rem .8rem;
+  font-family: var(--mono);
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .18s ease;
+}
+.business-drill-btn:hover:not(:disabled) {
+  background: rgba(0,212,170,.14);
+  border-color: rgba(0,212,170,.42);
+}
+.business-drill-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.business-drill-btn-secondary {
+  color: var(--pale);
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+}
+.business-drill-btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.2);
+}
+.business-drill-panel {
+  display: none;
+  margin-top: .8rem;
+  padding: .95rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(10,19,34,.9), rgba(13,23,39,.97));
+  border: 1px solid rgba(255,255,255,.08);
+}
+.business-drill-panel.is-open {
+  display: block;
+}
+.business-drill-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: .8rem;
+}
+.business-drill-title {
+  font-family: var(--serif);
+  font-size: .96rem;
+  color: var(--snow);
+  font-weight: 700;
+}
+.business-drill-meta {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+.business-drill-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: .24rem .56rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0,212,170,.18);
+  background: rgba(0,212,170,.08);
+  color: var(--brand);
+  font-family: var(--mono);
+  font-size: .64rem;
+  font-weight: 700;
+}
+.business-drill-wrap {
+  overflow-x: auto;
+}
+.business-drill-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+.business-drill-table th,
+.business-drill-table td {
+  padding: .55rem .6rem;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  text-align: left;
+}
+.business-drill-table th {
+  color: var(--pale);
+  font-family: var(--mono);
+  font-size: .67rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.business-drill-table td {
+  color: #dce8f5;
+}
 body.business-dashboard-simplified #compare-panel,
 body.business-dashboard-simplified .legacy-business-hidden {
   display: none !important;

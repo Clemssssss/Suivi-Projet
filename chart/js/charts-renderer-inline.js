@@ -319,7 +319,12 @@
     var groups = _groupBy(data, xField);
     var results = groups.map(function(g) {
       var durations = g.items.filter(function(p){ return p['Date réception'] && p['Date de retour demandée']; })
-        .map(function(p){ return Math.max(0,(new Date(p['Date de retour demandée'])-new Date(p['Date réception']))/86400000); })
+        .map(function(p){
+          var days = (typeof ProjectUtils !== 'undefined' && ProjectUtils.daysBetween)
+            ? ProjectUtils.daysBetween(p['Date réception'], p['Date de retour demandée'])
+            : null;
+          return Math.max(0, days || 0);
+        })
         .filter(function(d){ return d > 0 && d < 3000; });
       if (!durations.length) return null;
       var sorted = durations.slice().sort(function(a,b){return a-b;});
