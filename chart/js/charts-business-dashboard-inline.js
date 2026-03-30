@@ -55,6 +55,10 @@
     return null;
   }
 
+  function isValidYear(value) {
+    return typeof value === 'number' && isFinite(value);
+  }
+
   function isSimplifiedDashboard() {
     return !!(document.body && document.body.classList && document.body.classList.contains('business-dashboard-simplified'));
   }
@@ -67,19 +71,19 @@
 
   function currentSelectedYear() {
     var explicit = explicitSelectedYear();
-    if (isFinite(explicit)) return explicit;
+    if (isValidYear(explicit)) return explicit;
     var raw = (typeof AE !== 'undefined' && AE.getRaw) ? AE.getRaw() : [];
-    var years = raw.map(getYear).filter(function(v) { return isFinite(v); });
+    var years = raw.map(getYear).filter(isValidYear);
     if (!years.length) return new Date().getFullYear();
     return Math.max.apply(null, years);
   }
 
   function resolveReferenceYear(projects, mode) {
     var explicit = explicitSelectedYear();
-    if (isFinite(explicit)) return explicit;
+    if (isValidYear(explicit)) return explicit;
 
     var base = Array.isArray(projects) ? projects.slice() : [];
-    var years = base.map(getYear).filter(function(v) { return isFinite(v); });
+    var years = base.map(getYear).filter(isValidYear);
     var uniqueYears = Array.from(new Set(years)).sort(function(a, b) { return b - a; });
 
     for (var i = 0; i < uniqueYears.length; i++) {
@@ -95,7 +99,7 @@
   function applyEngineLikeFilters(projects, opts) {
     opts = opts || {};
     var data = Array.isArray(projects) ? projects.slice() : [];
-    var year = isFinite(opts.year) ? opts.year : currentSelectedYear();
+    var year = isValidYear(opts.year) ? opts.year : currentSelectedYear();
     var search = (document.getElementById('search-input') || document.getElementById('search-bar') || {}).value || '';
     var includeEngineFilters = opts.includeEngineFilters === true || (!isSimplifiedDashboard() && opts.includeEngineFilters !== false);
     var filters = (includeEngineFilters && typeof AE !== 'undefined' && AE.getFilters) ? AE.getFilters() : {};
