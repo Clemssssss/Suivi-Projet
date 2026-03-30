@@ -16,6 +16,7 @@ Desktop.ini
 !/netlify/**
 !/scripts/
 !/scripts/generate_auth_hash.js
+!/scripts/import_secure_dataset.js
 
 # Local private files
 *.env

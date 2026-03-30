@@ -95,6 +95,48 @@ async function ensureSchema() {
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_audit_type_scope ON dashboard_state_audit (doc_type, scope, created_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_logs_created_at ON dashboard_access_logs (created_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_logs_event_type ON dashboard_access_logs (event_type, created_at DESC);`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_login_attempts (
+      throttle_key TEXT PRIMARY KEY,
+      username_hint TEXT NOT NULL DEFAULT '',
+      ip_hash TEXT NOT NULL DEFAULT '',
+      user_agent_hash TEXT NOT NULL DEFAULT '',
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_until TIMESTAMPTZ
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_secure_datasets (
+      dataset_key TEXT PRIMARY KEY,
+      source_name TEXT NOT NULL DEFAULT '',
+      payload_nonce TEXT NOT NULL,
+      payload_tag TEXT NOT NULL,
+      payload_ciphertext TEXT NOT NULL,
+      row_count INTEGER NOT NULL DEFAULT 0,
+      payload_hash TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_secure_dataset_audit (
+      id BIGSERIAL PRIMARY KEY,
+      dataset_key TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT '',
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_login_attempts_blocked_until ON dashboard_login_attempts (blocked_until DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_secure_dataset_audit_key_created ON dashboard_secure_dataset_audit (dataset_key, created_at DESC);`);
 }
 
 module.exports = {

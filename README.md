@@ -37,6 +37,7 @@ Variables d'environnement à définir dans Netlify :
 - `DASHBOARD_LOGIN_USER` : identifiant autorisé
 - `DASHBOARD_LOGIN_PASSWORD_HASH` : hash du mot de passe
 - `NEON_DATABASE_URL` : URL PostgreSQL Neon pour la persistance partagée et les journaux d'accès
+- `DATA_ENCRYPTION_KEY` : clé dédiée pour chiffrer/déchiffrer le dataset métier stocké en base
 
 Génération du hash :
 
@@ -80,5 +81,22 @@ La table `dashboard_access_logs` enregistre notamment :
 ## Données
 
 Le dépôt versionné n'embarque aucune donnée métier.
-Les jeux de données locaux doivent rester hors Git et être importés par l'utilisateur via CSV.
-La variante GitHub/Netlify utilise `chart/js/data-empty.js`.
+La version sécurisée peut désormais charger un dataset chiffré depuis PostgreSQL après authentification.
+
+Variables requises pour ce mode :
+
+- `NEON_DATABASE_URL`
+- `DATA_ENCRYPTION_KEY`
+
+Import sécurisé d'un fichier Excel local vers la base :
+
+```powershell
+$env:NEON_DATABASE_URL="postgresql://..."
+$env:DATA_ENCRYPTION_KEY="votre_cle_longue"
+node scripts/import_secure_dataset.js "data\\SAIP - Suivi ventes & AO_VF BRUT.xlsx" saip-main admin
+```
+
+Le dashboard lira ensuite ce dataset via la fonction Netlify protégée `/.netlify/functions/dataset-projects`.
+
+Les jeux de données locaux restent hors Git.
+La variante GitHub/Netlify utilise `chart/js/data-empty.js` au chargement initial, puis hydrate le dashboard depuis la base si un dataset sécurisé est disponible.

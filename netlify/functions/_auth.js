@@ -486,6 +486,85 @@ function clearLoginFailures(headers, username) {
   loginAttempts.delete(key);
 }
 
+function getPersistentThrottleKey(headers, username) {
+  return sha256(
+    getClientIP(headers) + '|' +
+    getUserAgent(headers).toLowerCase() + '|' +
+    String(username || '').toLowerCase()
+  );
+}
+
+async function getPersistentLoginThrottleState(headers, username) {
+  const now = Date.now();
+  const key = getPersistentThrottleKey(headers, username);
+  await ensureSchema();
+  const result = await query(
+    `SELECT failure_count, first_attempt_at AS "firstAttemptAt", last_attempt_at AS "lastAttemptAt",
+            blocked_until AS "blockedUntil"
+       FROM dashboard_login_attempts
+      WHERE throttle_key = $1
+      LIMIT 1`,
+    [key]
+  );
+  const row = result.rows[0];
+  if (!row) return { key, blocked: false, retryAfterMs: 0 };
+  const blockedUntilMs = row.blockedUntil ? new Date(row.blockedUntil).getTime() : 0;
+  if (blockedUntilMs > now) {
+    return { key, blocked: true, retryAfterMs: blockedUntilMs - now };
+  }
+  return { key, blocked: false, retryAfterMs: 0 };
+}
+
+async function markPersistentLoginFailure(headers, username) {
+  const now = Date.now();
+  const throttleKey = getPersistentThrottleKey(headers, username);
+  const ipHash = sha256(getClientIP(headers));
+  const userAgentHash = sha256(getUserAgent(headers).toLowerCase());
+  const usernameHint = clipText(String(username || '').toLowerCase(), 120);
+  await ensureSchema();
+
+  const currentResult = await query(
+    `SELECT failure_count, first_attempt_at AS "firstAttemptAt"
+       FROM dashboard_login_attempts
+      WHERE throttle_key = $1
+      LIMIT 1`,
+    [throttleKey]
+  );
+
+  const current = currentResult.rows[0];
+  const freshWindow = !current || ((new Date(current.firstAttemptAt).getTime() + LOGIN_WINDOW_MS) < now);
+  const failureCount = freshWindow ? 1 : (Number(current.failureCount || 0) + 1);
+  const firstAttemptAt = freshWindow ? new Date(now) : new Date(current.firstAttemptAt);
+  const blockedUntil = failureCount >= LOGIN_MAX_ATTEMPTS ? new Date(now + LOGIN_LOCK_MS) : null;
+
+  await query(
+    `INSERT INTO dashboard_login_attempts
+      (throttle_key, username_hint, ip_hash, user_agent_hash, failure_count, first_attempt_at, last_attempt_at, blocked_until)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+     ON CONFLICT (throttle_key)
+     DO UPDATE SET
+       username_hint = EXCLUDED.username_hint,
+       ip_hash = EXCLUDED.ip_hash,
+       user_agent_hash = EXCLUDED.user_agent_hash,
+       failure_count = EXCLUDED.failure_count,
+       first_attempt_at = EXCLUDED.first_attempt_at,
+       last_attempt_at = NOW(),
+       blocked_until = EXCLUDED.blocked_until`,
+    [throttleKey, usernameHint, ipHash, userAgentHash, failureCount, firstAttemptAt.toISOString(), blockedUntil ? blockedUntil.toISOString() : null]
+  );
+
+  return {
+    count: failureCount,
+    blockedUntil: blockedUntil ? blockedUntil.getTime() : 0
+  };
+}
+
+async function clearPersistentLoginFailures(headers, username) {
+  const throttleKey = getPersistentThrottleKey(headers, username);
+  await ensureSchema();
+  await query(`DELETE FROM dashboard_login_attempts WHERE throttle_key = $1`, [throttleKey]);
+}
+
 function jsonResponse(statusCode, payload, extraHeaders) {
   return {
     statusCode,
@@ -520,13 +599,16 @@ module.exports = {
   evaluateNetworkPolicy,
   getSessionPayload,
   getLoginThrottleState,
+  getPersistentLoginThrottleState,
   getUserAgent,
   isSameOrigin,
   jsonResponse,
   logAccess,
   looksLikeBot,
   markLoginFailure,
+  markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
-  verifyPassword
+  verifyPassword,
+  clearPersistentLoginFailures
 };

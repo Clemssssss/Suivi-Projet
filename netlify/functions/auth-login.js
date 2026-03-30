@@ -1,14 +1,17 @@
 const {
   buildSessionCookie,
   clearLoginFailures,
+  clearPersistentLoginFailures,
   createSessionToken,
   evaluateNetworkPolicy,
   getLoginThrottleState,
+  getPersistentLoginThrottleState,
   isSameOrigin,
   jsonResponse,
   logAccess,
   looksLikeBot,
   markLoginFailure,
+  markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
   verifyPassword
@@ -60,20 +63,27 @@ exports.handler = async function(event) {
   const honeypot = typeof body.company === 'string' ? body.company.trim() : '';
   const challenge = typeof body.challenge === 'string' ? body.challenge.trim() : '';
   const throttle = getLoginThrottleState(event.headers || {}, username);
+  let persistentThrottle = { blocked: false, retryAfterMs: 0 };
+  try {
+    persistentThrottle = await getPersistentLoginThrottleState(event.headers || {}, username);
+  } catch (err) {
+    console.warn('[auth-login] Persistent throttle unavailable', err && err.message ? err.message : err);
+  }
   const suspiciousBot = looksLikeBot(event.headers || {});
   const challengeValid = verifyLoginChallengeToken(challenge, event.headers || {}) != null;
 
-  if (throttle.blocked) {
+  if (throttle.blocked || persistentThrottle.blocked) {
+    const retryAfterSeconds = Math.ceil(Math.max(throttle.retryAfterMs || 0, persistentThrottle.retryAfterMs || 0) / 1000);
     await logAccess(event, 'auth_login_throttled', 'warn', {
       usernameAttempt: username,
-      retryAfterSeconds: Math.ceil(throttle.retryAfterMs / 1000)
+      retryAfterSeconds: retryAfterSeconds
     }, username);
     return jsonResponse(429, {
       ok: false,
       error: 'Too many attempts',
-      retryAfterSeconds: Math.ceil(throttle.retryAfterMs / 1000)
+      retryAfterSeconds: retryAfterSeconds
     }, {
-      'Retry-After': String(Math.ceil(throttle.retryAfterMs / 1000))
+      'Retry-After': String(retryAfterSeconds)
     });
   }
 
@@ -87,6 +97,7 @@ exports.handler = async function(event) {
 
   if (honeypot || suspiciousBot || !challengeValid) {
     markLoginFailure(throttle.key);
+    try { await markPersistentLoginFailure(event.headers || {}, username); } catch (_) {}
     await logAccess(event, 'auth_login_suspicious_request', 'warn', {
       usernameAttempt: username,
       honeypotFilled: !!honeypot,
@@ -110,20 +121,26 @@ exports.handler = async function(event) {
 
   if (username !== expectedUser || !passwordValid) {
     const failure = markLoginFailure(throttle.key);
+    let persistentFailure = null;
+    try {
+      persistentFailure = await markPersistentLoginFailure(event.headers || {}, username);
+    } catch (_) {}
     const headers = {};
-    if (failure.blockedUntil) {
-      headers['Retry-After'] = String(Math.ceil((failure.blockedUntil - Date.now()) / 1000));
+    const blockedUntil = Math.max(failure.blockedUntil || 0, persistentFailure && persistentFailure.blockedUntil ? persistentFailure.blockedUntil : 0);
+    if (blockedUntil) {
+      headers['Retry-After'] = String(Math.ceil((blockedUntil - Date.now()) / 1000));
     }
     await logAccess(event, 'auth_login_failed', 'warn', {
       usernameAttempt: username,
-      failureCount: failure.count,
-      blockedUntil: failure.blockedUntil || 0
+      failureCount: Math.max(failure.count || 0, persistentFailure && persistentFailure.count ? persistentFailure.count : 0),
+      blockedUntil: blockedUntil || 0
     }, username);
     await new Promise((resolve) => setTimeout(resolve, 650));
     return jsonResponse(401, { ok: false, error: 'Invalid credentials' }, headers);
   }
 
   clearLoginFailures(event.headers || {}, username);
+  try { await clearPersistentLoginFailures(event.headers || {}, username); } catch (_) {}
   const token = createSessionToken(expectedUser);
   await logAccess(event, 'auth_login_success', 'info', {
     usernameAttempt: username,
