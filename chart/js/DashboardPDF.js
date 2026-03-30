@@ -57,7 +57,7 @@ window.DashboardPDF = (() => {
   async function _ensureDeps() {
     const promises = [];
     if (!window.jspdf && !window.jsPDF)
-      promises.push(_loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'));
+      promises.push(_loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'));
     await Promise.all(promises);
   }
 
