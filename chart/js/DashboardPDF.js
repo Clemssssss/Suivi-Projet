@@ -489,6 +489,22 @@ window.DashboardPDF = (() => {
 
   function _createExportDialog(charts) {
     return new Promise(resolve => {
+      function presetMatches(presetName, chartId) {
+        if (presetName === 'direction') {
+          return /^biz-chart-perf-(month|zone|client|type|zone-client|client-type)$/.test(chartId)
+            || /^biz-chart-pipe-(zone|client|type|zone-client|client-type)$/.test(chartId);
+        }
+        if (presetName === 'commercial') {
+          return /^biz-chart-pipe-/.test(chartId)
+            || chartId === 'biz-chart-perf-client'
+            || chartId === 'biz-chart-perf-zone-client';
+        }
+        if (presetName === 'performance') {
+          return /^biz-chart-perf-/.test(chartId);
+        }
+        return false;
+      }
+
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(3,8,15,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;';
       const modal = document.createElement('div');
@@ -511,6 +527,9 @@ window.DashboardPDF = (() => {
         + '<button type="button" data-pdf-all class="btn-hdr">Tout sélectionner</button>'
         + '<button type="button" data-pdf-none class="btn-hdr">Tout retirer</button>'
         + '<button type="button" data-pdf-business class="btn-hdr">Graphiques métier</button>'
+        + '<button type="button" data-pdf-preset="direction" class="btn-hdr">PDF direction</button>'
+        + '<button type="button" data-pdf-preset="commercial" class="btn-hdr">PDF commercial</button>'
+        + '<button type="button" data-pdf-preset="performance" class="btn-hdr">PDF performance</button>'
         + '</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem;max-height:52vh;overflow:auto;padding-right:.2rem;">'
         + rows
         + '</div></div>'
@@ -539,6 +558,18 @@ window.DashboardPDF = (() => {
       modal.querySelector('[data-pdf-business]').addEventListener('click', function() {
         modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) {
           input.checked = input.getAttribute('data-pdf-chart').indexOf('biz-chart-') === 0;
+        });
+      });
+      modal.querySelectorAll('[data-pdf-preset]').forEach(function(button) {
+        button.addEventListener('click', function() {
+          var presetName = button.getAttribute('data-pdf-preset');
+          modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) {
+            input.checked = presetMatches(presetName, input.getAttribute('data-pdf-chart'));
+          });
+          var select = modal.querySelector('#pdf-charts-per-page');
+          if (select) {
+            select.value = presetName === 'direction' ? '2' : '1';
+          }
         });
       });
       modal.querySelector('[data-pdf-start]').addEventListener('click', function() {

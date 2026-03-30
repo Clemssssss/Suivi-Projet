@@ -1024,6 +1024,16 @@ function updateKPIs(data) {
 let _createAllChartsCallCount = 0;
 
 function createAllCharts(data) {
+  if (document.body.classList.contains('business-dashboard-simplified')
+      && typeof window.BusinessChartsDashboard !== 'undefined'
+      && typeof window.BusinessChartsDashboard.render === 'function') {
+    try { window.BusinessChartsDashboard.render(); } catch (err) {
+      console.warn('[createAllCharts] BusinessChartsDashboard.render:', err);
+    }
+    updateBadges();
+    return;
+  }
+
   _createAllChartsCallCount++;
   if (_createAllChartsCallCount > 1) {
     console.info(`[Audit double-init] createAllCharts() appel n°${_createAllChartsCallCount} — re-render`);
@@ -1629,19 +1639,21 @@ function update() {
   updateKPIs(data);
   createAllCharts(data);
   renderFilterPanel();
-  renderFunnel(data);
-  renderHeatmap(data);
+  if (!document.body.classList.contains('business-dashboard-simplified')) {
+    renderFunnel(data);
+    renderHeatmap(data);
+  }
   renderVelocity(data);
   updateBadges();
 
   // ── MODULE 9 : Nouveaux graphiques ──────────────────────────────
-  if (typeof ChartsNouveaux !== 'undefined') {
+  if (!document.body.classList.contains('business-dashboard-simplified') && typeof ChartsNouveaux !== 'undefined') {
     try { ChartsNouveaux.renderAll(data); }
     catch(e) { console.warn('[update] ChartsNouveaux.renderAll:', e); }
   }
 
   // ── MODULE 3 : Explications dynamiques ──────────────────────────
-  if (typeof ChartAnalysis !== 'undefined') {
+  if (!document.body.classList.contains('business-dashboard-simplified') && typeof ChartAnalysis !== 'undefined') {
     try { ChartAnalysis.renderAll(data); }
     catch(e) { console.warn('[update] ChartAnalysis.renderAll:', e); }
   }
