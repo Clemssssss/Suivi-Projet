@@ -686,8 +686,11 @@ body.notes-mode-active .dashboard-note-target:hover {
       if (_dom.help) {
         _dom.help.textContent = 'Mode notes actif. Cliquez sur un élément du dashboard pour attacher une note ou une proposition de modification.';
       }
-    } else if (_dom.help) {
-      _dom.help.textContent = 'Activez le mode puis cliquez sur un graphique, un bouton, un KPI ou un champ pour enregistrer une observation et proposer une modification.';
+    } else {
+      _closePanel();
+      if (_dom.help) {
+        _dom.help.textContent = 'Activez le mode puis cliquez sur un graphique, un bouton, un KPI ou un champ pour enregistrer une observation et proposer une modification.';
+      }
     }
   }
 
@@ -705,7 +708,7 @@ body.notes-mode-active .dashboard-note-target:hover {
 
   function _setActiveTarget(target) {
     _activeTarget = target;
-    _openPanel();
+    if (_enabled) _openPanel();
 
     if (!_dom.targetName || !_dom.targetTag) return;
     if (!target) {
@@ -880,6 +883,7 @@ body.notes-mode-active .dashboard-note-target:hover {
     await _loadNotes();
     _renderTargetBadges();
     _setActiveTarget(null);
+    _closePanel();
     _setButtonState();
     _bindGlobalListeners();
     console.log('[DashboardNotes] ✅ Mode notes prêt (IndexedDB/localStorage)');
