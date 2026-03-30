@@ -1072,6 +1072,22 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
       const pts = Analytics.scatterPowerVsCA(projects, {}, this._getMode(id));
       if (pts.length < 2) return;
 
+      const powerValues = pts
+        .map(p => Number(p.x) || 0)
+        .filter(v => v > 0)
+        .sort((a, b) => a - b);
+
+      const percentile = (arr, ratio) => {
+        if (!arr.length) return 0;
+        const idx = Math.min(arr.length - 1, Math.max(0, Math.floor((arr.length - 1) * ratio)));
+        return arr[idx];
+      };
+
+      const p50 = percentile(powerValues, 0.5);
+      const p90 = percentile(powerValues, 0.9);
+      const maxPower = powerValues.length ? powerValues[powerValues.length - 1] : 0;
+      const useLogScale = p50 > 0 && maxPower > Math.max(250, p90 * 6, p50 * 15);
+
       const colorByStatus = {
         obtenu: THEME.brand,
         perdu:  THEME.red,
@@ -1114,8 +1130,23 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
           },
           scales: {
             x: {
-              title: { display: true, text: 'Puissance (MW)', color: THEME.pale, font: { size: 11 } },
-              grid: GRID_STYLE, ticks: TICK_STYLE
+              type: useLogScale ? 'logarithmic' : 'linear',
+              title: {
+                display: true,
+                text: useLogScale ? 'Puissance (MW, échelle log)' : 'Puissance (MW)',
+                color: THEME.pale,
+                font: { size: 11 }
+              },
+              grid: GRID_STYLE,
+              min: useLogScale ? Math.max(0.1, Math.min.apply(null, powerValues)) : 0,
+              ticks: Object.assign({}, TICK_STYLE, {
+                callback: function(value) {
+                  if (!useLogScale) return value;
+                  if (value >= 1000) return value.toLocaleString('fr-FR');
+                  if (value >= 1) return String(value);
+                  return Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+                }
+              })
             },
             y: {
               title: { display: true, text: 'CA (€)', color: THEME.pale, font: { size: 11 } },
@@ -1126,7 +1157,11 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
         }
       });
 
-      _renderSubtitle(id, Analytics.insights.summaryFor('scatter-power-ca', projects, this._getMode(id)));
+      var scatterSummary = Analytics.insights.summaryFor('scatter-power-ca', projects, this._getMode(id));
+      if (useLogScale) {
+        scatterSummary += (scatterSummary ? ' ' : '') + 'Échelle X adaptative pour conserver les outliers lisibles.';
+      }
+      _renderSubtitle(id, scatterSummary);
     },
 
     /**
