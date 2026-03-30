@@ -3,5 +3,13 @@
 Thumbs.db
 Desktop.ini
 
-# Local embedded dataset kept off the public Netlify/GitHub version
+# Private datasets kept off the public GitHub/Netlify version
 chart/js/data.js
+index/js/data.js
+data/*.csv
+data/data.js
+data/data_filtered.js
+archive/**/data.js
+*.env
+*.env.local
+*.env.production

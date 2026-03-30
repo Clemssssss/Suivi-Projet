@@ -7,14 +7,38 @@ Dashboard analytics standalone en HTML/CSS/JS vanilla.
 - le dashboard démarre sans données embarquées
 - l'import CSV est le point d'entrée principal
 - la page cible est `chart/chart.html`
+- l'accès au dashboard passe par `chart/login.html`
 - un mode notes permet d'annoter graphiques, boutons, KPI et champs
 - les notes sont sauvegardées en base locale navigateur via IndexedDB
 
 ## Déploiement
 
-Déployer le dépôt en statique sur Netlify, puis ouvrir `chart/chart.html`.
+Déployer le dépôt sur Netlify, puis ouvrir `chart/login.html`.
+
+## Authentification Netlify
+
+Le dashboard n'embarque aucun mot de passe côté front. L'authentification repose sur des fonctions Netlify avec :
+
+- mot de passe stocké sous forme de hash PBKDF2 dans les variables d'environnement
+- cookie de session signé, `HttpOnly`, `SameSite=Strict`
+- headers CSP / anti-framing / `nosniff`
+
+Variables d'environnement à définir dans Netlify :
+
+- `AUTH_SESSION_SECRET` : secret long et aléatoire pour signer la session
+- `DASHBOARD_LOGIN_USER` : identifiant autorisé
+- `DASHBOARD_LOGIN_PASSWORD_HASH` : hash du mot de passe
+
+Génération du hash :
+
+```powershell
+node scripts/generate_auth_hash.js "MonMotDePasseFort"
+```
+
+Copier ensuite la valeur affichée dans `DASHBOARD_LOGIN_PASSWORD_HASH`.
 
 ## Données
 
-Le dépôt versionné n'embarque pas `chart/js/data.js`.
-En local, vous pouvez conserver ce fichier pour vos usages privés, mais la variante GitHub/Netlify utilise `chart/js/data-empty.js`.
+Le dépôt versionné n'embarque aucune donnée métier.
+Les jeux de données locaux doivent rester hors Git et être importés par l'utilisateur via CSV.
+La variante GitHub/Netlify utilise `chart/js/data-empty.js`.

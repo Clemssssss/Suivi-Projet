@@ -1,0 +1,22 @@
+[functions]
+  directory = "netlify/functions"
+
+[[headers]]
+  for = "/chart/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), geolocation=(), microphone=()"
+
+[[redirects]]
+  from = "/"
+  to = "/chart/login.html"
+  status = 302
+
+[[redirects]]
+  from = "/chart"
+  to = "/chart/login.html"
+  status = 302

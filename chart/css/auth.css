@@ -1,0 +1,126 @@
+:root {
+  --auth-bg: #050b14;
+  --auth-panel: rgba(12, 20, 32, 0.86);
+  --auth-line: rgba(133, 164, 204, 0.22);
+  --auth-text: #ebf2fb;
+  --auth-muted: #9bb0c8;
+  --auth-brand: #00d4aa;
+  --auth-danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body.auth-shell {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "DM Sans", sans-serif;
+  color: var(--auth-text);
+  background:
+    radial-gradient(circle at top, rgba(0, 212, 170, 0.08), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(34, 112, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, #08111d 0%, var(--auth-bg) 100%);
+}
+
+.auth-layout {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: min(100%, 470px);
+  padding: 2rem;
+  border: 1px solid var(--auth-line);
+  border-radius: 24px;
+  background: var(--auth-panel);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+}
+
+.auth-kicker {
+  margin: 0 0 .75rem;
+  color: var(--auth-brand);
+  font-family: "DM Mono", monospace;
+  font-size: .78rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.auth-card h1 {
+  margin: 0 0 .85rem;
+  font-family: "Fraunces", serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.05;
+}
+
+.auth-copy {
+  margin: 0 0 1.6rem;
+  color: var(--auth-muted);
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: .75rem;
+}
+
+.auth-label {
+  font-size: .95rem;
+  color: var(--auth-muted);
+}
+
+.auth-input {
+  width: 100%;
+  border: 1px solid rgba(155, 176, 200, 0.25);
+  border-radius: 14px;
+  padding: .95rem 1rem;
+  background: rgba(6, 13, 24, 0.82);
+  color: var(--auth-text);
+  font: inherit;
+  outline: none;
+  transition: border-color .2s ease, transform .2s ease;
+}
+
+.auth-input:focus {
+  border-color: rgba(0, 212, 170, 0.7);
+  transform: translateY(-1px);
+}
+
+.auth-submit {
+  margin-top: .45rem;
+  border: 0;
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  background: linear-gradient(135deg, #00d4aa, #19a8ff);
+  color: #051018;
+  font: 700 1rem "DM Sans", sans-serif;
+  cursor: pointer;
+}
+
+.auth-submit[disabled] {
+  opacity: .7;
+  cursor: wait;
+}
+
+.auth-message {
+  min-height: 1.4rem;
+  margin: .15rem 0 0;
+  color: var(--auth-muted);
+}
+
+.auth-message.is-error {
+  color: var(--auth-danger);
+}
+
+.auth-message.is-success {
+  color: var(--auth-brand);
+}
+
+.auth-footer {
+  margin-top: 1.2rem;
+  color: var(--auth-muted);
+  font-size: .9rem;
+}

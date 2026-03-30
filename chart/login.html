@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr" style="color-scheme: dark;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#060c14">
+<meta name="color-scheme" content="dark">
+<title>Connexion Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/auth.css">
+<script src="js/AuthClient.js"></script>
+<script src="js/login-page.js"></script>
+</head>
+<body class="auth-shell">
+  <main class="auth-layout">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <p class="auth-kicker">Accès protégé</p>
+      <h1 id="auth-title">Connexion au dashboard analytics</h1>
+      <p class="auth-copy">Aucune donnée n'est embarquée dans cette version. Chaque utilisateur importe ensuite son CSV pour alimenter le dashboard.</p>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <label class="auth-label" for="login-username">Identifiant</label>
+        <input id="login-username" name="username" class="auth-input" type="text" maxlength="80" autocomplete="username" required>
+
+        <label class="auth-label" for="login-password">Mot de passe</label>
+        <input id="login-password" name="password" class="auth-input" type="password" maxlength="256" autocomplete="current-password" required>
+
+        <button id="login-submit" class="auth-submit" type="submit">Se connecter</button>
+        <p id="login-message" class="auth-message" aria-live="polite"></p>
+      </form>
+
+      <div class="auth-footer">
+        <span id="login-next-target"></span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
