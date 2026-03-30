@@ -3,13 +3,20 @@
 Thumbs.db
 Desktop.ini
 
-# Private datasets kept off the public GitHub/Netlify version
-chart/js/data.js
-index/js/data.js
-data/*.csv
-data/data.js
-data/data_filtered.js
-archive/**/data.js
+# Repo public: keep only chart + Netlify auth/runtime files
+*
+!/.gitignore
+!/README.md
+!/netlify.toml
+!/chart/
+!/chart/**
+!/netlify/
+!/netlify/**
+!/scripts/
+!/scripts/generate_auth_hash.js
+
+# Local private files
 *.env
 *.env.local
 *.env.production
+chart/js/data.js

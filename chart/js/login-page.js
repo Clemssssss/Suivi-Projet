@@ -61,7 +61,15 @@
         });
 
         if (!result.ok || !result.data || !result.data.authenticated) {
-          setMessage('Connexion refusée. Vérifiez vos identifiants.', 'error');
+          if (result.status === 503) {
+            setMessage("Connexion indisponible. Vérifiez les variables Netlify: AUTH_SESSION_SECRET, DASHBOARD_LOGIN_USER, DASHBOARD_LOGIN_PASSWORD_HASH.", 'error');
+          } else if (result.status === 401) {
+            setMessage('Connexion refusée. Vérifiez vos identifiants.', 'error');
+          } else if (result.status === 403) {
+            setMessage("Connexion bloquée par la protection d'origine de la requête.", 'error');
+          } else {
+            setMessage('Connexion impossible pour le moment.', 'error');
+          }
           passwordInput.value = '';
           passwordInput.focus();
           return;
