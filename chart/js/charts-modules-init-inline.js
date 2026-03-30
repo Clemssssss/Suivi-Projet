@@ -7,6 +7,7 @@
     if (typeof DashboardUX !== 'undefined') DashboardUX.init();
     if (typeof DashboardDnD !== 'undefined') DashboardDnD.init();
     if (typeof DashboardSections !== 'undefined') DashboardSections.init();
+    if (typeof DashboardNotes !== 'undefined') DashboardNotes.init();
     console.log('%c🚀 Cahors Analytics v3.0 — Tous les modules chargés', 'color:#00d4aa;font-weight:700;font-size:1rem');
   }
   if (document.readyState === 'loading') {

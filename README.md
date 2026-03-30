@@ -7,6 +7,8 @@ Dashboard analytics standalone en HTML/CSS/JS vanilla.
 - le dashboard démarre sans données embarquées
 - l'import CSV est le point d'entrée principal
 - la page cible est `chart/chart.html`
+- un mode notes permet d'annoter graphiques, boutons, KPI et champs
+- les notes sont sauvegardées en base locale navigateur via IndexedDB
 
 ## Déploiement
 
