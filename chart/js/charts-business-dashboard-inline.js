@@ -171,6 +171,8 @@
         return items.filter(isWon).length;
       case 'lost_count':
         return items.filter(isLost).length;
+      case 'offer_count':
+        return items.filter(isOffer).length;
       case 'decided_count':
         return items.filter(isDecided).length;
       case 'won_rate_count':
@@ -195,6 +197,7 @@
     if (mode.indexOf('pipe_') === 0) return items.filter(isOffer);
     if (mode === 'won_amount' || mode === 'won_count') return items.filter(isWon);
     if (mode === 'lost_amount' || mode === 'lost_count') return items.filter(isLost);
+    if (mode === 'compare_status_amount' || mode === 'compare_status_count') return items.filter(function(p) { return isWon(p) || isLost(p) || isOffer(p); });
     if (mode === 'decided_amount' || mode === 'decided_count' || mode === 'won_rate_amount' || mode === 'won_rate_count') return items.filter(isDecided);
     return items;
   }
@@ -215,10 +218,12 @@
       won_amount: '€ gagnés',
       lost_amount: '€ perdus',
       decided_amount: '€ gagnés + perdus',
+      compare_status_amount: 'Comparatif €',
       won_rate_amount: 'Taux de transfo €',
       won_count: 'Nb gagnés',
       lost_count: 'Nb perdus',
       decided_count: 'Nb gagnés + perdus',
+      compare_status_count: 'Comparatif dossiers',
       won_rate_count: 'Taux de transfo dossiers',
       pipe_bud: 'Pipe Bud',
       pipe_weighted: 'Pipe CA win proba',
@@ -293,6 +298,77 @@
     }).slice(0, limit || 12);
   }
 
+  function comparisonSeriesForMode(mode) {
+    return mode === 'compare_status_count'
+      ? [
+          { key: 'won_count', label: 'Gagné', color: 'rgba(0,212,170,.82)', border: 'rgba(0,212,170,1)' },
+          { key: 'lost_count', label: 'Perdu', color: 'rgba(255,77,109,.82)', border: 'rgba(255,77,109,1)' },
+          { key: 'offer_count', label: 'Offre', color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
+        ]
+      : [
+          { key: 'won_amount', label: 'Gagné', color: 'rgba(0,212,170,.82)', border: 'rgba(0,212,170,1)' },
+          { key: 'lost_amount', label: 'Perdu', color: 'rgba(255,77,109,.82)', border: 'rgba(255,77,109,1)' },
+          { key: 'pipe_bud', label: 'Offre', color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
+        ];
+  }
+
+  function createComparisonAggregateEntries(projects, dimension, mode, limit) {
+    var baseEntries = createAggregateEntries(projects, dimension, 'decided_amount', limit);
+    var series = comparisonSeriesForMode(mode);
+    return baseEntries.map(function(entry) {
+      var values = {};
+      series.forEach(function(serie) {
+        values[serie.key] = computeValue(entry.projects, serie.key);
+      });
+      return {
+        label: entry.label,
+        values: values,
+        projects: entry.projects
+      };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
+    });
+  }
+
+  function createComparisonMonthlyEntries(projects, mode, year) {
+    var series = comparisonSeriesForMode(mode);
+    return Array.from({ length: 12 }, function(_, idx) {
+      var bucketProjects = [];
+      projects.filter(function(p) { return getYear(p) === year; }).forEach(function(project) {
+        var dt = getDate(project);
+        if (!dt || !isFinite(dt.getMonth()) || dt.getMonth() !== idx) return;
+        bucketProjects.push(project);
+      });
+      var values = {};
+      series.forEach(function(serie) {
+        values[serie.key] = computeValue(bucketProjects, serie.key);
+      });
+      return {
+        label: MONTHS[idx],
+        values: values,
+        projects: bucketProjects
+      };
+    });
+  }
+
+  function createComparisonComboEntries(projects, keyA, keyB, mode, limit) {
+    var baseEntries = createComboEntries(projects, keyA, keyB, 'decided_amount', limit);
+    var series = comparisonSeriesForMode(mode);
+    return baseEntries.map(function(entry) {
+      var values = {};
+      series.forEach(function(serie) {
+        values[serie.key] = computeValue(entry.projects, serie.key);
+      });
+      return {
+        label: entry.label,
+        values: values,
+        projects: entry.projects
+      };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
+    });
+  }
+
   function paletteFor(mode, count) {
     var base = (mode === 'lost_amount' || mode === 'lost_count') ? 'rgba(255,77,109,' :
       (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 'rgba(245,183,64,' :
@@ -310,6 +386,13 @@
   function tooltipFormatter(mode) {
     return function(context) {
       return formatValue(context.raw, mode);
+    };
+  }
+
+  function comparisonTooltipFormatter(mode) {
+    return function(context) {
+      var seriesMode = context.dataset && context.dataset._seriesMode ? context.dataset._seriesMode : mode;
+      return context.dataset.label + ' : ' + formatValue(context.raw, seriesMode);
     };
   }
 
@@ -423,6 +506,95 @@
     });
   }
 
+  function createComparisonChart(id, title, entries, mode, opts) {
+    opts = opts || {};
+    var series = comparisonSeriesForMode(mode);
+    var labels = entries.map(function(e) { return e.label; });
+    var isHorizontal = opts.indexAxis === 'y';
+    var modeForTicks = mode === 'compare_status_count' ? 'won_count' : 'won_amount';
+
+    var numericTicks = function(value) {
+      return formatValue(Number(value) || 0, modeForTicks);
+    };
+    var categoryTicks = function(value) {
+      var idx = typeof value === 'number' ? value : parseInt(value, 10);
+      var raw = isFinite(idx) && labels[idx] != null ? labels[idx] : value;
+      return String(raw == null ? '' : raw).slice(0, 32);
+    };
+
+    CM.create(id, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: series.map(function(serie) {
+          return {
+            label: serie.label,
+            data: entries.map(function(entry) { return entry.values[serie.key] || 0; }),
+            backgroundColor: serie.color,
+            borderColor: serie.border,
+            borderWidth: 1,
+            borderRadius: isHorizontal ? 8 : 10,
+            maxBarThickness: opts.maxBarThickness || 22,
+            _seriesMode: serie.key
+          };
+        })
+      },
+      options: {
+        indexAxis: opts.indexAxis,
+        interaction: {
+          mode: 'nearest',
+          intersect: false
+        },
+        scales: {
+          x: {
+            stacked: false,
+            ticks: {
+              color: '#a8bdd3',
+              callback: isHorizontal ? numericTicks : categoryTicks
+            },
+            grid: { color: 'rgba(255,255,255,.06)' }
+          },
+          y: {
+            stacked: false,
+            beginAtZero: !isHorizontal,
+            ticks: {
+              color: '#a8bdd3',
+              callback: isHorizontal ? categoryTicks : numericTicks
+            },
+            grid: { color: 'rgba(255,255,255,.06)' }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: '#dce8f5', boxWidth: 10, boxHeight: 10 }
+          },
+          tooltip: {
+            displayColors: true,
+            callbacks: {
+              label: comparisonTooltipFormatter(mode)
+            }
+          }
+        },
+        onClick: function(_, elements) {
+          if (!elements || !elements.length) return;
+          var idx = elements[0].index;
+          var datasetIndex = elements[0].datasetIndex;
+          var entry = entries[idx];
+          var serie = series[datasetIndex];
+          if (!entry || !serie) return;
+          var filteredProjects = (entry.projects || []).filter(function(project) {
+            if (serie.key === 'won_amount' || serie.key === 'won_count') return isWon(project);
+            if (serie.key === 'lost_amount' || serie.key === 'lost_count') return isLost(project);
+            if (serie.key === 'pipe_bud' || serie.key === 'offer_count') return isOffer(project);
+            return true;
+          });
+          openDetails(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label);
+        }
+      }
+    });
+  }
+
   function updateTitles(prefix, mode) {
     var label = modeLabel(mode);
     var mappings = {
@@ -459,6 +631,32 @@
     renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(filteredYear, 'decided_amount'), 'Projets decides sur l annee active', filteredYear.filter(isDecided), '€ gagnes + perdus — annee ' + activeYear, 'decided_amount');
     renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(filteredYear, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', filteredYear.filter(isDecided), 'Taux de transformation € — annee ' + activeYear, 'won_rate_amount');
     renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — annee ' + activeYear, 'decided_count');
+
+    if (view === 'compare_status_amount' || view === 'compare_status_count') {
+      createComparisonChart('biz-chart-perf-month', modeLabel(view) + ' par mois', createComparisonMonthlyEntries(filteredYear, view, activeYear), view, {
+        maxBarThickness: 18
+      });
+      createComparisonChart('biz-chart-perf-zone', modeLabel(view) + ' par zone', createComparisonAggregateEntries(filteredYear, 'zone', view, 10), view, {
+        indexAxis: 'y'
+      });
+      createComparisonChart('biz-chart-perf-client', modeLabel(view) + ' par client', createComparisonAggregateEntries(filteredYear, 'client', view, 10), view, {
+        indexAxis: 'y'
+      });
+      createComparisonChart('biz-chart-perf-type', modeLabel(view) + ' par type', createComparisonAggregateEntries(filteredYear, 'type', view, 10), view, {
+        indexAxis: 'y'
+      });
+      createComparisonChart(
+        'biz-chart-perf-zone-client',
+        modeLabel(view) + ' zone / client',
+        createComparisonComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', view, 12),
+        view,
+        { indexAxis: 'y' }
+      );
+      createComparisonChart('biz-chart-perf-client-type', modeLabel(view) + ' client / type', createComparisonComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {
+        indexAxis: 'y'
+      });
+      return;
+    }
 
     createChart('biz-chart-perf-month', modeLabel(view) + ' par mois', createMonthlyEntries(filteredYear, view, activeYear), view, {
       type: (view === 'won_rate_amount' || view === 'won_rate_count') ? 'line' : 'bar',
