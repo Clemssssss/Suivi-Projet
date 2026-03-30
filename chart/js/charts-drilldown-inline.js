@@ -20,6 +20,12 @@ if (!window.ChartDrillDown) {
       : (p['Statut'] || 'autre').toLowerCase();
   }
 
+  function _rawStatus(p) {
+    return (p && (p['Statut'] || p['MG Statut Odoo MG']))
+      ? String(p['Statut'] || p['MG Statut Odoo MG']).trim()
+      : '—';
+  }
+
   function _anneeOf(p) {
     if (p._annee != null && String(p._annee).trim() !== '') return String(p._annee);
     const raw = p['Date réception'];
@@ -236,6 +242,7 @@ if (!window.ChartDrillDown) {
         : (p['Date de retour demandée'] ? String(p['Date de retour demandée']).trim() : '—');
       return `<tr onmouseover="this.style.background='rgba(255,255,255,.025)'" onmouseout="this.style.background=''">
         <td style="padding:.38rem .7rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--snow);" title="${(p['Dénomination']||'').replace(/"/g,'')}">${p['Dénomination'] || '—'}</td>
+        <td style="padding:.38rem .7rem;color:var(--dust);">${_rawStatus(p)}</td>
         <td style="padding:.38rem .7rem;"><span style="display:inline-block;padding:.1rem .4rem;border-radius:99px;font-size:.65rem;font-weight:700;font-family:var(--mono);background:${bc}22;color:${bc};">${s}</span></td>
         <td style="padding:.38rem .7rem;color:var(--dust);">${p['Client'] || '—'}</td>
         <td style="padding:.38rem .7rem;color:var(--dust);font-size:.72rem;">${p['Zone Géographique'] || '—'}</td>
@@ -245,7 +252,7 @@ if (!window.ChartDrillDown) {
     }).join('');
     return `<table style="width:100%;border-collapse:collapse;font-size:.74rem;">
       <thead><tr style="background:rgba(0,0,0,.25);">
-        ${['Projet','Statut','Société','Zone','CA','Échéance'].map(h =>
+        ${['Projet','Statut source','Statut normalisé','Société','Zone','CA','Échéance'].map(h =>
           `<th style="padding:.38rem .7rem;text-align:left;color:var(--dust);font-family:var(--mono);font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(255,255,255,.07)">${h}</th>`
         ).join('')}
       </tr></thead>

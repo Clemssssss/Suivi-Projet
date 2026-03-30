@@ -11,10 +11,15 @@
     'Graphiques interactifs — cliquez pour filtrer'
   ];
   var INLINE_DRILL_STATE = {};
+  var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
 
   function cleanLabel(value) {
     var raw = value == null ? '' : String(value).trim();
     return raw || 'Non renseigne';
+  }
+
+  function getRawStatus(project) {
+    return cleanLabel(project && (project['Statut'] || project['MG Statut Odoo MG']));
   }
 
   function getStatus(project) {
@@ -221,12 +226,12 @@
       won_amount: '€ gagnés',
       lost_amount: '€ perdus',
       decided_amount: '€ gagnés + perdus',
-      compare_status_amount: '€ gagnés / perdus / offre',
+      compare_status_amount: '€ gagnés / perdus / ' + OFFER_UI_LABEL,
       won_rate_amount: 'Taux de transfo €',
       won_count: 'Nb gagnés',
       lost_count: 'Nb perdus',
       decided_count: 'Nb gagnés + perdus',
-      compare_status_count: 'Dossiers gagnés / perdus / offre',
+      compare_status_count: 'Dossiers gagnés / perdus / ' + OFFER_UI_LABEL,
       won_rate_count: 'Taux de transfo dossiers',
       pipe_bud: '€ Remis + En étude',
       pipe_weighted: '€ Remis + En étude',
@@ -339,12 +344,12 @@
       ? [
           { key: 'won_count', label: 'Gagné', color: 'rgba(0,212,170,.82)', border: 'rgba(0,212,170,1)' },
           { key: 'lost_count', label: 'Perdu', color: 'rgba(255,77,109,.82)', border: 'rgba(255,77,109,1)' },
-          { key: 'offer_count', label: 'Offre', color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
+          { key: 'offer_count', label: OFFER_UI_LABEL, color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
         ]
       : [
           { key: 'won_amount', label: 'Gagné', color: 'rgba(0,212,170,.82)', border: 'rgba(0,212,170,1)' },
           { key: 'lost_amount', label: 'Perdu', color: 'rgba(255,77,109,.82)', border: 'rgba(255,77,109,1)' },
-          { key: 'pipe_bud', label: 'Offre', color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
+          { key: 'pipe_bud', label: OFFER_UI_LABEL, color: 'rgba(0,153,255,.82)', border: 'rgba(0,153,255,1)' }
         ];
   }
 
@@ -520,6 +525,7 @@
           '<td>' + escapeHtml(project['Dénomination'] || project['Denomination']) + '</td>' +
           '<td>' + escapeHtml(project['Zone Géographique']) + '</td>' +
           '<td>' + escapeHtml(project['Type de projet (Activité)']) + '</td>' +
+          '<td>' + escapeHtml(getRawStatus(project)) + '</td>' +
           '<td>' + escapeHtml(status) + '</td>' +
           '<td>' + escapeHtml(formatValue(getBud(project), 'won_amount')) + '</td>' +
           '<td>' + escapeHtml(formatValue(getWeighted(project), 'pipe_weighted')) + '</td>' +
@@ -547,7 +553,7 @@
       '</div>' +
       '<div class="business-drill-wrap">' +
         '<table class="business-drill-table">' +
-          '<thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Zone</th><th>Type</th><th>Statut</th><th>Bud</th><th>CA win proba</th></tr></thead>' +
+          '<thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Zone</th><th>Type</th><th>Statut source</th><th>Statut normalisé</th><th>Bud</th><th>CA win proba</th></tr></thead>' +
           '<tbody>' + projectRowsHtml(rows) + '</tbody>' +
         '</table>' +
       '</div>';

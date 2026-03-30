@@ -776,10 +776,11 @@ var TABLE_COLUMNS = [
     }
   },
   {
-    key: 'statut', label: 'Statut', sort: 'statut', visible: true,
+    key: 'statut', label: 'Statut source', sort: 'statut', visible: true,
     render: function(p) {
       const s = ProjectUtils.getStatus(p);
-      return `<td><span class="badge badge-${s}">${s}</span></td>`;
+      const rawStatus = (p['Statut'] || p['MG Statut Odoo MG'] || '—');
+      return `<td><div>${rawStatus}</div><div style="font-family:var(--mono);font-size:.64rem;color:var(--dust);margin-top:.15rem;">normalisé : ${s}</div></td>`;
     }
   },
   {
