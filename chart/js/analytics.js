@@ -830,9 +830,9 @@ function caByYearAllModes(projects, filters = {}) {
           x:      parseFloat(power.toFixed(2)),
           y:      Math.round(ca),
           r:      Math.min(20, Math.max(4, Math.sqrt(ca / 50000))),
-          label:  (p['Client'] || 'N/A').substring(0, 20),
+          label:  (p['Client'] || 'N/A').trim() || 'N/A',
           status: ProjectUtils.getStatus(p),
-          projet: (p.projet || '').substring(0, 30)
+          projet: (p.projet || p['Projet'] || p['Nom Projet'] || '').trim()
         };
       })
       .filter(Boolean);

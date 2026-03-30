@@ -1072,6 +1072,33 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
       const pts = Analytics.scatterPowerVsCA(projects, {}, this._getMode(id));
       if (pts.length < 2) return;
 
+      const spreadBubblePoints = (points) => {
+        const groups = {};
+        points.forEach((p, idx) => {
+          const key = [Math.round((Number(p.x) || 0) * 2) / 2, Math.round((Number(p.y) || 0) / 100000)].join('|');
+          (groups[key] = groups[key] || []).push({ point: p, index: idx });
+        });
+
+        return points.map((p) => Object.assign({}, p)).map((copy) => copy).map((copy, idx) => {
+          const key = [Math.round((Number(copy.x) || 0) * 2) / 2, Math.round((Number(copy.y) || 0) / 100000)].join('|');
+          const bucket = groups[key] || [];
+          if (bucket.length <= 1) return copy;
+
+          const localIndex = bucket.findIndex((item) => item.index === idx);
+          const angle = (Math.PI * 2 * localIndex) / bucket.length;
+          const baseX = Math.max(0.18, (Number(copy.x) || 0) * 0.018);
+          const baseY = Math.max(45000, (Number(copy.y) || 0) * 0.02);
+
+          copy.xDisplay = copy.x + Math.cos(angle) * baseX;
+          copy.yDisplay = Math.max(0, copy.y + Math.sin(angle) * baseY);
+          copy.clusterSize = bucket.length;
+          copy.clusterIndex = localIndex;
+          return copy;
+        });
+      };
+
+      const displayPts = spreadBubblePoints(pts);
+
       const powerValues = pts
         .map(p => Number(p.x) || 0)
         .filter(v => v > 0)
@@ -1100,7 +1127,20 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
         data: {
           datasets: [{
             label: 'Projets',
-            data:  pts.map(p => ({ x: p.x, y: p.y, r: p.r })),
+            data:  displayPts.map(p => ({
+              x: p.xDisplay != null ? p.xDisplay : p.x,
+              y: p.yDisplay != null ? p.yDisplay : p.y,
+              r: p.r,
+              label: p.label,
+              filterValue: p.label,
+              client: p.label,
+              projet: p.projet || '',
+              status: p.status,
+              rawX: p.x,
+              rawY: p.y,
+              clusterSize: p.clusterSize || 1,
+              clusterIndex: p.clusterIndex || 0
+            })),
             backgroundColor: pts.map(p => alpha(colorByStatus[p.status] || THEME.pale, 0.65)),
             borderColor:     pts.map(p => colorByStatus[p.status] || THEME.pale),
             borderWidth:     1.5,
@@ -1115,18 +1155,35 @@ createCAMultiDimChart(projects, id = 'chart-ca-multidim') {
             legend: { display: false },
             tooltip: {
               ...BASE_TOOLTIP,
+              mode: 'nearest',
+              intersect: true,
               callbacks: {
-                title: (ctx) => pts[ctx[0].dataIndex]?.label || '',
+                title: (ctx) => {
+                  const p = ctx && ctx[0] && ctx[0].raw ? ctx[0].raw : null;
+                  if (!p) return '';
+                  return p.projet || p.label || '';
+                },
                 label: (ctx) => {
-                  const p = pts[ctx.dataIndex];
+                  const p = ctx.raw || {};
                   return [
-                    ` Puissance: ${p.x} MW`,
-                    ` CA: ${fmt(p.y)}`,
+                    ` Client: ${p.label || 'N/A'}`,
+                    ` Puissance: ${p.rawX != null ? p.rawX : p.x} MW`,
+                    ` CA: ${fmt(p.rawY != null ? p.rawY : p.y)}`,
                     ` Statut: ${p.status}`
                   ];
+                },
+                footer: (ctx) => {
+                  const p = ctx && ctx[0] && ctx[0].raw ? ctx[0].raw : null;
+                  if (!p || !p.clusterSize || p.clusterSize <= 1) return '';
+                  return 'Bulles proches detectees: ' + p.clusterSize + ' (dispersion visuelle active)';
                 }
               }
             }
+          },
+          interaction: {
+            mode: 'nearest',
+            intersect: true,
+            axis: 'xy'
           },
           scales: {
             x: {

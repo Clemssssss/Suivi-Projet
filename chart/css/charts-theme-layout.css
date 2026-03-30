@@ -1803,7 +1803,16 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .vel-bar,
   .section-div          { margin-left: 1.25rem; margin-right: 1.25rem; }
   .charts-grid          { padding: 0 1.25rem 2rem; }
-  #ctrl-bars-sticky     { padding-left: 1.25rem; padding-right: 1.25rem; }
+  #ctrl-bars-sticky     {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    margin-bottom: .85rem;
+    box-shadow: 0 8px 18px rgba(0,0,0,.22);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1848,7 +1857,13 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .obj-bar,
   .vel-bar,
   .section-div          { margin-left: 1rem; margin-right: 1rem; }
-  #ctrl-bars-sticky     { padding-left: 1rem; padding-right: 1rem; }
+  #ctrl-bars-sticky     {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .charts-grid          { padding: 0 1rem 2rem; }
 }
 

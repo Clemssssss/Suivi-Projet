@@ -114,7 +114,17 @@ if (!window.ChartFilterController) {
     if (!els.length) return;
 
     const idx = els[0].index;
-    const raw = chartInstance.data.labels ? chartInstance.data.labels[idx] : null;
+    const entry = _registry[chartId] || {};
+    const config = entry.config || {};
+    const ds = chartInstance.data && chartInstance.data.datasets ? chartInstance.data.datasets[els[0].datasetIndex] : null;
+    const point = ds && Array.isArray(ds.data) ? ds.data[idx] : null;
+    const raw = typeof config.valueFn === 'function'
+      ? config.valueFn(idx, chartInstance.data && chartInstance.data.labels, chartInstance, point)
+      : (
+        point && (point.filterValue || point.label || point.name || point.projet || point.project || point.client)
+          ? (point.filterValue || point.label || point.name || point.projet || point.project || point.client)
+          : (chartInstance.data.labels ? chartInstance.data.labels[idx] : null)
+      );
     const fv = _cleanValue(raw);
     if (fv == null) return;
 

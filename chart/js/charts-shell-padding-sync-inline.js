@@ -7,7 +7,8 @@
     var shell = document.querySelector('.shell');
     if (!shell) return;
     var hdrH = hdr ? hdr.offsetHeight : 64;
-    var barH = bar ? bar.offsetHeight : 0;
+    var barPos = bar ? window.getComputedStyle(bar).position : '';
+    var barH = (bar && barPos === 'fixed') ? bar.offsetHeight : 0;
     shell.style.paddingTop = (hdrH + barH + 4) + 'px';
   }
 
