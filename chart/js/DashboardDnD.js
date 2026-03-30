@@ -160,15 +160,62 @@ window.DashboardDnD = (() => {
 
   function _resizeChart(card) {
     const canvas = card.querySelector('canvas');
-    if (!canvas || typeof Chart === 'undefined') return;
-    try {
-      const inst = (Chart.getChart ? Chart.getChart(canvas) : null)
-        || Object.values(Chart.instances || {}).find(function(i) { return i.canvas === canvas; });
-      if (inst) {
+    if (!canvas) return;
+
+    const chartId = card.dataset.chartId || canvas.id || '';
+
+    function getInstance() {
+      if (typeof Chart === 'undefined') return null;
+      try {
+        return (Chart.getChart ? Chart.getChart(canvas) : null)
+          || Object.values(Chart.instances || {}).find(function(i) { return i && i.canvas === canvas; })
+          || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function applyResize() {
+      var inst = getInstance();
+      if (!inst) return false;
+      try {
+        if (inst.options) {
+          inst.options.responsive = true;
+          if (typeof inst.options.maintainAspectRatio === 'undefined') {
+            inst.options.maintainAspectRatio = false;
+          }
+        }
         inst.resize();
         if (typeof inst.update === 'function') inst.update('none');
+        return true;
+      } catch (_) {
+        return false;
       }
-    } catch (_) {}
+    }
+
+    [0, 80, 220, 420].forEach(function(delay) {
+      setTimeout(function() {
+        applyResize();
+        try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+      }, delay);
+    });
+
+    setTimeout(function() {
+      if (applyResize()) return;
+      if (chartId && window.ChartConfigBridge && typeof window.ChartConfigBridge.rerender === 'function' && window.ChartConfigBridge.hasChart && window.ChartConfigBridge.hasChart(chartId)) {
+        try {
+          window.ChartConfigBridge.rerender(chartId);
+          setTimeout(applyResize, 80);
+          return;
+        } catch (_) {}
+      }
+      if (typeof window.update === 'function') {
+        try {
+          window.update();
+          setTimeout(applyResize, 120);
+        } catch (_) {}
+      }
+    }, 520);
   }
 
   /* ══════════════════════════════════════════════════════
