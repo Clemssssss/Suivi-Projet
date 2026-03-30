@@ -12,6 +12,7 @@ window.DashboardChartPreferences = (() => {
   var _restoredDataCharts = {};
   var _updateWrapped = false;
   var _refreshTimer = null;
+  var _previewTimer = null;
 
   function _userKey() {
     if (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function') {
@@ -402,6 +403,26 @@ window.DashboardChartPreferences = (() => {
     setTimeout(function() { _applyVisual(chartId, config); }, 40);
   }
 
+  function _applyConfigToChart(chartId, config, options) {
+    options = options || {};
+    _applyPresentation(chartId, config);
+
+    if (config.data && Object.keys(config.data).length) {
+      _applyBridgeConfig(chartId, config.data);
+      _restoredDataCharts[chartId] = true;
+    }
+
+    [30, 120, 260].forEach(function(delay) {
+      setTimeout(function() {
+        _applyVisual(chartId, config);
+      }, delay);
+    });
+
+    if (options.forceRefresh) {
+      _scheduleRefresh();
+    }
+  }
+
   function refreshAll() {
     _listCards().forEach(function(card) {
       _captureDefaults(card.dataset.chartId);
@@ -447,6 +468,10 @@ window.DashboardChartPreferences = (() => {
   function _closeModal() {
     var modal = document.getElementById('chart-pref-modal');
     var overlay = document.getElementById('chart-pref-overlay');
+    clearTimeout(_previewTimer);
+    if (modal && modal._chartPrefsSaved !== true && modal._chartPrefsChartId && modal._chartPrefsBaseline) {
+      _applyConfigToChart(modal._chartPrefsChartId, modal._chartPrefsBaseline, { forceRefresh: true });
+    }
     if (modal) modal.remove();
     if (overlay) overlay.remove();
   }
@@ -479,6 +504,7 @@ window.DashboardChartPreferences = (() => {
       + '<div class="chart-pref-head"><div>'
       + '<div class="chart-pref-kicker">Edition avancee</div>'
       + '<div class="chart-pref-title">Configurer ' + _escapeHtml(chartId) + '</div>'
+      + '<div class="chart-pref-subtitle-hint">Les changements sont previsualises en direct avant sauvegarde.</div>'
       + '</div><button type="button" class="chart-pref-close" data-pref-close>x</button></div>'
       + '<div class="chart-pref-body">'
       + '<div class="chart-pref-group">'
@@ -529,6 +555,38 @@ window.DashboardChartPreferences = (() => {
       + '</div>';
   }
 
+  function _readModalConfig(modal, defaults) {
+    var next = {
+      presentation: {
+        title: modal.querySelector('#chart-pref-title-input').value.trim() || defaults.title,
+        subtitle: modal.querySelector('#chart-pref-subtitle-input').value.trim()
+      },
+      visual: {
+        type: modal.querySelector('#chart-pref-type').value || 'auto',
+        orientation: modal.querySelector('#chart-pref-orientation').value || 'auto',
+        unit: modal.querySelector('#chart-pref-unit').value || 'auto',
+        legend: !!modal.querySelector('#chart-pref-legend').checked,
+        grid: !!modal.querySelector('#chart-pref-grid').checked,
+        stacked: !!modal.querySelector('#chart-pref-stacked').checked,
+        yMin: modal.querySelector('#chart-pref-ymin').value,
+        yMax: modal.querySelector('#chart-pref-ymax').value
+      },
+      colors: {
+        primary: modal.querySelector('#chart-pref-color-primary').value || defaults.colors.primary,
+        secondary: modal.querySelector('#chart-pref-color-secondary').value || defaults.colors.secondary
+      }
+    };
+
+    var dataConfig = {};
+    Array.from(modal.querySelectorAll('[data-pref-data]')).forEach(function(el) {
+      dataConfig[el.dataset.prefData] = el.value;
+    });
+    if (Object.keys(dataConfig).length) {
+      next.data = dataConfig;
+    }
+    return next;
+  }
+
   function openEditor(chartId) {
     _closeModal();
     var defaults = _captureDefaults(chartId);
@@ -544,6 +602,9 @@ window.DashboardChartPreferences = (() => {
     modal.id = 'chart-pref-modal';
     modal.className = 'chart-pref-modal';
     modal.innerHTML = _openMarkup(chartId, current, defaults, chart);
+    modal._chartPrefsChartId = chartId;
+    modal._chartPrefsBaseline = JSON.parse(JSON.stringify(current));
+    modal._chartPrefsSaved = false;
     modal.addEventListener('click', function(evt) { evt.stopPropagation(); });
 
     document.body.appendChild(overlay);
@@ -553,43 +614,29 @@ window.DashboardChartPreferences = (() => {
       btn.addEventListener('click', _closeModal);
     });
 
+    var previewDraft = function() {
+      clearTimeout(_previewTimer);
+      _previewTimer = setTimeout(function() {
+        _applyConfigToChart(chartId, _readModalConfig(modal, defaults));
+      }, 70);
+    };
+
+    Array.from(modal.querySelectorAll('input, textarea, select')).forEach(function(el) {
+      el.addEventListener('change', previewDraft);
+      if (el.tagName !== 'SELECT' && el.type !== 'checkbox' && el.type !== 'color') {
+        el.addEventListener('input', previewDraft);
+      }
+    });
+
     var saveBtn = modal.querySelector('[data-pref-save]');
     if (saveBtn) {
       saveBtn.addEventListener('click', function() {
-        var next = {
-          presentation: {
-            title: modal.querySelector('#chart-pref-title-input').value.trim() || defaults.title,
-            subtitle: modal.querySelector('#chart-pref-subtitle-input').value.trim()
-          },
-          visual: {
-            type: modal.querySelector('#chart-pref-type').value || 'auto',
-            orientation: modal.querySelector('#chart-pref-orientation').value || 'auto',
-            unit: modal.querySelector('#chart-pref-unit').value || 'auto',
-            legend: !!modal.querySelector('#chart-pref-legend').checked,
-            grid: !!modal.querySelector('#chart-pref-grid').checked,
-            stacked: !!modal.querySelector('#chart-pref-stacked').checked,
-            yMin: modal.querySelector('#chart-pref-ymin').value,
-            yMax: modal.querySelector('#chart-pref-ymax').value
-          },
-          colors: {
-            primary: modal.querySelector('#chart-pref-color-primary').value || defaults.colors.primary,
-            secondary: modal.querySelector('#chart-pref-color-secondary').value || defaults.colors.secondary
-          }
-        };
-
-        var dataConfig = {};
-        Array.from(modal.querySelectorAll('[data-pref-data]')).forEach(function(el) {
-          dataConfig[el.dataset.prefData] = el.value;
-        });
-        if (Object.keys(dataConfig).length) {
-          next.data = dataConfig;
-          _applyBridgeConfig(chartId, dataConfig);
-          _restoredDataCharts[chartId] = true;
-        }
+        var next = _readModalConfig(modal, defaults);
 
         _state.charts[chartId] = next;
         _saveState();
-        _applySingle(chartId);
+        _applyConfigToChart(chartId, next, { forceRefresh: true });
+        modal._chartPrefsSaved = true;
         if (typeof notify === 'function') {
           notify('Graphique personnalise', 'Les reglages de ' + chartId + ' ont ete enregistres localement', 'success', 2400);
         }
@@ -604,23 +651,21 @@ window.DashboardChartPreferences = (() => {
         _saveState();
         _resetBridgeConfig(chartId);
         delete _restoredDataCharts[chartId];
-        _applyPresentation(chartId, { presentation: { title: defaults.title, subtitle: defaults.subtitle } });
-        setTimeout(function() {
-          _applyVisual(chartId, {
-            presentation: { title: defaults.title, subtitle: defaults.subtitle },
-            visual: {
-              type: 'auto',
-              orientation: 'auto',
-              legend: defaults.visual.legend,
-              grid: defaults.visual.grid,
-              stacked: defaults.visual.stacked,
-              unit: 'auto',
-              yMin: '',
-              yMax: ''
-            },
-            colors: defaults.colors
-          });
-        }, 60);
+        _applyConfigToChart(chartId, {
+          presentation: { title: defaults.title, subtitle: defaults.subtitle },
+          visual: {
+            type: 'auto',
+            orientation: 'auto',
+            legend: defaults.visual.legend,
+            grid: defaults.visual.grid,
+            stacked: defaults.visual.stacked,
+            unit: 'auto',
+            yMin: '',
+            yMax: ''
+          },
+          colors: defaults.colors
+        }, { forceRefresh: true });
+        modal._chartPrefsSaved = true;
         if (typeof notify === 'function') {
           notify('Configuration restauree', 'Le graphique ' + chartId + ' a retrouve son etat par defaut', 'info', 2200);
         }
@@ -641,6 +686,7 @@ window.DashboardChartPreferences = (() => {
       + '.chart-pref-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}'
       + '.chart-pref-kicker{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#7dc6ff;font-family:var(--mono,monospace);}'
       + '.chart-pref-title{font-size:1rem;font-weight:700;color:#f5fbff;margin-top:3px;}'
+      + '.chart-pref-subtitle-hint{font-size:.76rem;color:#8ea6bc;margin-top:6px;line-height:1.45;}'
       + '.chart-pref-close{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#dce8f5;cursor:pointer;}'
       + '.chart-pref-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}'
       + '.chart-pref-group{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);border-radius:14px;padding:14px;}'
@@ -649,6 +695,7 @@ window.DashboardChartPreferences = (() => {
       + '.chart-pref-field{display:flex;flex-direction:column;gap:6px;font-size:.78rem;color:#9fb3c8;}'
       + '.chart-pref-field span{font-size:.72rem;color:#9fb3c8;}'
       + '.chart-pref-field input,.chart-pref-field textarea,.chart-pref-field select{width:100%;background:#0b1320;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#e7f3ff;padding:10px 11px;font:inherit;}'
+      + '.chart-pref-field input:focus,.chart-pref-field textarea:focus,.chart-pref-field select:focus{outline:none;border-color:rgba(0,212,170,.45);box-shadow:0 0 0 3px rgba(0,212,170,.12);}'
       + '.chart-pref-field textarea{resize:vertical;min-height:76px;}'
       + '.chart-pref-toggle{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#dce8f5;padding-top:22px;}'
       + '.chart-pref-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}'
