@@ -2094,7 +2094,8 @@ function update() {
 
   // ── MODULE 9 : Initialiser ChartsNouveaux ───────────────────────
   setTimeout(function() {
-    if (typeof ChartsNouveaux !== 'undefined') {
+    var simplified = document.body.classList.contains('business-dashboard-simplified');
+    if (!simplified && typeof ChartsNouveaux !== 'undefined') {
       const data = AE.getFiltered();
       ChartsNouveaux.initAll(data);
     }
@@ -2103,7 +2104,7 @@ function update() {
       FloatingFilterBar.init();
     }
     // ── MODULE 3 : ChartAnalysis ──────────────────────────────────
-    if (typeof ChartAnalysis !== 'undefined') {
+    if (!simplified && typeof ChartAnalysis !== 'undefined') {
       ChartAnalysis.init();
       ChartAnalysis.renderAll(AE.getFiltered());
     }

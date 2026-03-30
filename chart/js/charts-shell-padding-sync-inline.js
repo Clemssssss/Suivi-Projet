@@ -33,14 +33,7 @@
       if (!instance) return;
       hadInstance = true;
       try {
-        if (instance.options) {
-          instance.options.responsive = true;
-          if (typeof instance.options.maintainAspectRatio === 'undefined') {
-            instance.options.maintainAspectRatio = false;
-          }
-        }
         instance.resize();
-        if (typeof instance.update === 'function') instance.update('none');
       } catch (_) {}
     });
 
@@ -60,8 +53,6 @@
       _viewportRefreshFallbackTimer = setTimeout(function() {
         if (!hadInstance && typeof window.update === 'function') {
           try { window.update(); } catch (_) {}
-        } else {
-          refreshVisibleCharts();
         }
       }, 320);
     }, 40);
