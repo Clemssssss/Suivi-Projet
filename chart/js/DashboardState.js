@@ -25,12 +25,17 @@ window.DashboardState = (() => {
   'use strict';
 
   const STORAGE_KEY  = 'cahors_dashboard_state';
+  const REMOTE_SCOPE = 'chart';
+  const REMOTE_DOC_TYPE = 'dashboard-state';
+  const REMOTE_DOC_KEY = 'shared';
   const DEBOUNCE_MS  = 1500;
   let _saveTimer     = null;
   let _isInit        = false;
+  let _cachedState   = null;
 
   /* ── Lecture/écriture localStorage ─────────────────────── */
   function _load() {
+    if (_cachedState && typeof _cachedState === 'object') return _cachedState;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : {};
@@ -38,8 +43,28 @@ window.DashboardState = (() => {
   }
 
   function _write(state) {
+    _cachedState = state || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { console.warn('[DashboardState] Erreur localStorage:', e); }
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _cachedState, REMOTE_SCOPE)
+        .catch(function(err) { console.warn('[DashboardState] Sync DB impossible', err); });
+    }
+  }
+
+  async function _loadRemote() {
+    if (typeof DashboardSharedStore === 'undefined') return null;
+    try {
+      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+      if (doc && doc.payload && typeof doc.payload === 'object') {
+        _cachedState = doc.payload;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState)); } catch (_) {}
+        return _cachedState;
+      }
+    } catch (err) {
+      console.warn('[DashboardState] Chargement DB indisponible, fallback local', err);
+    }
+    return null;
   }
 
   /* ── Capturer l'état courant ──────────────────────────── */
@@ -174,6 +199,11 @@ window.DashboardState = (() => {
 
   function reset() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    _cachedState = null;
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.remove(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+        .catch(function(err) { console.warn('[DashboardState] Suppression DB impossible', err); });
+    }
     console.log('[DashboardState] État effacé — rechargement...');
     location.reload();
   }
@@ -185,10 +215,13 @@ window.DashboardState = (() => {
     _isInit = true;
 
     // Restaurer l'état sauvegardé (après un délai pour laisser le DOM se charger)
-    const state = _load();
-    if (state && state.version) {
-      setTimeout(() => _restoreState(state), 500);
-    }
+    setTimeout(async function() {
+      const remote = await _loadRemote();
+      const state = (remote && remote.version) ? remote : _load();
+      if (state && state.version) {
+        _restoreState(state);
+      }
+    }, 500);
 
     // S'abonner aux changements pour auto-save
     if (typeof FilterManager !== 'undefined' && FilterManager.subscribe) {

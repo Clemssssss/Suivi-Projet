@@ -36,10 +36,14 @@ window.DashboardDnD = (() => {
   'use strict';
 
   const STORAGE_KEY  = 'dashboard_dnd_state_v2';
+  const REMOTE_SCOPE = 'chart';
+  const REMOTE_DOC_TYPE = 'dashboard-dnd-layout';
+  const REMOTE_DOC_KEY = 'shared';
   const DEBOUNCE_MS  = 600;
   const DRAG_THRESH  = 6;   // px avant activation
   let _saveTimer     = null;
   let _isInit        = false;
+  let _cachedState   = null;
 
   /* ══════════════════════════════════════════════════════
      TAILLES
@@ -57,12 +61,32 @@ window.DashboardDnD = (() => {
      PERSISTANCE
   ══════════════════════════════════════════════════════ */
   function _load() {
+    if (_cachedState && typeof _cachedState === 'object') return _cachedState;
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
   }
   function _write(data) {
+    _cachedState = data || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {
       console.warn('[DashboardDnD] localStorage:', e);
     }
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _cachedState, REMOTE_SCOPE)
+        .catch(function(err) { console.warn('[DashboardDnD] Sync DB impossible', err); });
+    }
+  }
+  async function _loadRemote() {
+    if (typeof DashboardSharedStore === 'undefined') return null;
+    try {
+      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+      if (doc && doc.payload && typeof doc.payload === 'object') {
+        _cachedState = doc.payload;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState)); } catch (_) {}
+        return _cachedState;
+      }
+    } catch (err) {
+      console.warn('[DashboardDnD] Chargement DB indisponible, fallback local', err);
+    }
+    return null;
   }
   function _scheduleSave() {
     if (_saveTimer) clearTimeout(_saveTimer);
@@ -498,12 +522,13 @@ window.DashboardDnD = (() => {
   /* ══════════════════════════════════════════════════════
      SETUP & API
   ══════════════════════════════════════════════════════ */
-  function _setup() {
+  async function _setup() {
     _injectCSS();
     document.querySelectorAll('.chart-card[data-chart-id]').forEach(function(card) {
       _injectControls(card);
       _makeDraggable(card);
     });
+    await _loadRemote();
     _restore();
 
     const obs = new MutationObserver(function(muts) {
@@ -539,6 +564,11 @@ window.DashboardDnD = (() => {
   function save()  { _doSave(); }
   function reset() {
     try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    _cachedState = null;
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.remove(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+        .catch(function(err) { console.warn('[DashboardDnD] Suppression DB impossible', err); });
+    }
     document.querySelectorAll('.chart-card[data-chart-id]').forEach(function(card) {
       _applySize(card, SIZE_DEFAULT, false);
     });

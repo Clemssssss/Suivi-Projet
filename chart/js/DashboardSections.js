@@ -33,14 +33,38 @@ window.DashboardSections = (() => {
   'use strict';
 
   const STORAGE_KEY = 'dashboard_sections_state';
+  const REMOTE_SCOPE = 'chart';
+  const REMOTE_DOC_TYPE = 'dashboard-sections';
+  const REMOTE_DOC_KEY = 'shared';
   let _isInit = false;
+  let _cachedState = null;
 
   /* ── Persistance ─────────────────────────────────────────────── */
   function _load() {
+    if (_cachedState && typeof _cachedState === 'object') return _cachedState;
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
   }
   function _save(state) {
+    _cachedState = state || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _cachedState, REMOTE_SCOPE)
+        .catch(function(err) { console.warn('[DashboardSections] Sync DB impossible', err); });
+    }
+  }
+  async function _loadRemote() {
+    if (typeof DashboardSharedStore === 'undefined') return null;
+    try {
+      var doc = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+      if (doc && doc.payload && typeof doc.payload === 'object') {
+        _cachedState = doc.payload;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_cachedState)); } catch (_) {}
+        return _cachedState;
+      }
+    } catch (err) {
+      console.warn('[DashboardSections] Chargement DB indisponible, fallback local', err);
+    }
+    return null;
   }
 
   function _saveAll() {
@@ -353,7 +377,8 @@ window.DashboardSections = (() => {
     }
   }
 
-  function _setup() {
+  async function _setup() {
+    await _loadRemote();
     _enhanceSections();
     _restoreState();
     _injectJumpBar();
