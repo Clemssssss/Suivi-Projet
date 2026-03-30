@@ -2,6 +2,7 @@ const {
   getSessionPayload,
   isSameOrigin,
   jsonResponse,
+  logAccess,
   readRequestBody
 } = require('./_auth');
 const {
@@ -51,6 +52,7 @@ async function handleGet(event, session) {
   const docKey = sanitizeKey(params.docKey || '');
 
   if (!docType) {
+    await logAccess(event, 'shared_state_get_invalid', 'warn', { reason: 'docType_required' }, session.user);
     return jsonResponse(400, { ok: false, error: 'docType required' });
   }
 
@@ -65,6 +67,12 @@ async function handleGet(event, session) {
         LIMIT 1`,
       [scope, docType, docKey]
     );
+    await logAccess(event, 'shared_state_get_document', 'info', {
+      scope,
+      docType,
+      docKey,
+      found: !!(result.rows[0])
+    }, session.user);
     return jsonResponse(200, {
       ok: true,
       document: result.rows[0] || null,
@@ -81,6 +89,12 @@ async function handleGet(event, session) {
     [scope, docType]
   );
 
+  await logAccess(event, 'shared_state_list_documents', 'info', {
+    scope,
+    docType,
+    count: result.rows.length
+  }, session.user);
+
   return jsonResponse(200, {
     ok: true,
     documents: result.rows,
@@ -90,6 +104,7 @@ async function handleGet(event, session) {
 
 async function handlePut(event, session) {
   if (!isSameOrigin(event.headers || {})) {
+    await logAccess(event, 'shared_state_put_forbidden_origin', 'warn', {}, session.user);
     return jsonResponse(403, { ok: false, error: 'Forbidden' });
   }
 
@@ -97,6 +112,9 @@ async function handlePut(event, session) {
   try {
     body = readRequestBody(event);
   } catch (err) {
+    await logAccess(event, 'shared_state_put_invalid_request', 'warn', {
+      error: err && err.message ? err.message : 'invalid_request'
+    }, session.user);
     return jsonResponse(400, { ok: false, error: 'Invalid request' });
   }
 
@@ -104,6 +122,12 @@ async function handlePut(event, session) {
   const docType = sanitizeToken(body.docType, '');
   const docKey = sanitizeKey(body.docKey || '');
   if (!docType || !docKey) {
+    await logAccess(event, 'shared_state_put_invalid', 'warn', {
+      reason: 'docType_and_docKey_required',
+      scope,
+      docType,
+      docKey
+    }, session.user);
     return jsonResponse(400, { ok: false, error: 'docType and docKey required' });
   }
 
@@ -111,6 +135,12 @@ async function handlePut(event, session) {
   try {
     payload = validatePayload(body.payload);
   } catch (err) {
+    await logAccess(event, 'shared_state_put_invalid_payload', 'warn', {
+      scope,
+      docType,
+      docKey,
+      error: err.message
+    }, session.user);
     return jsonResponse(400, { ok: false, error: err.message });
   }
 
@@ -140,11 +170,19 @@ async function handlePut(event, session) {
     return upsert.rows[0];
   });
 
+  await logAccess(event, 'shared_state_upsert', 'info', {
+    scope,
+    docType,
+    docKey,
+    version: result.version
+  }, session.user);
+
   return jsonResponse(200, { ok: true, document: result });
 }
 
 async function handleDelete(event, session) {
   if (!isSameOrigin(event.headers || {})) {
+    await logAccess(event, 'shared_state_delete_forbidden_origin', 'warn', {}, session.user);
     return jsonResponse(403, { ok: false, error: 'Forbidden' });
   }
 
@@ -152,6 +190,9 @@ async function handleDelete(event, session) {
   try {
     body = readRequestBody(event);
   } catch (err) {
+    await logAccess(event, 'shared_state_delete_invalid_request', 'warn', {
+      error: err && err.message ? err.message : 'invalid_request'
+    }, session.user);
     return jsonResponse(400, { ok: false, error: 'Invalid request' });
   }
 
@@ -159,6 +200,12 @@ async function handleDelete(event, session) {
   const docType = sanitizeToken(body.docType, '');
   const docKey = sanitizeKey(body.docKey || '');
   if (!docType || !docKey) {
+    await logAccess(event, 'shared_state_delete_invalid', 'warn', {
+      reason: 'docType_and_docKey_required',
+      scope,
+      docType,
+      docKey
+    }, session.user);
     return jsonResponse(400, { ok: false, error: 'docType and docKey required' });
   }
 
@@ -177,12 +224,19 @@ async function handleDelete(event, session) {
     );
   });
 
+  await logAccess(event, 'shared_state_delete', 'info', {
+    scope,
+    docType,
+    docKey
+  }, session.user);
+
   return jsonResponse(200, { ok: true });
 }
 
 exports.handler = async function(event) {
   const session = getSessionPayload(event);
   if (!session || !session.user) {
+    await logAccess(event, 'shared_state_unauthorized', 'warn', {});
     return jsonResponse(401, { ok: false, error: 'Unauthorized' });
   }
 
@@ -190,9 +244,15 @@ exports.handler = async function(event) {
     if (event.httpMethod === 'GET') return await handleGet(event, session);
     if (event.httpMethod === 'PUT') return await handlePut(event, session);
     if (event.httpMethod === 'DELETE') return await handleDelete(event, session);
+    await logAccess(event, 'shared_state_method_not_allowed', 'warn', {
+      method: event.httpMethod
+    }, session.user);
     return jsonResponse(405, { ok: false, error: 'Method not allowed' });
   } catch (err) {
     console.error('[shared-state] Unexpected error', err);
+    await logAccess(event, 'shared_state_error', 'error', {
+      error: err && err.message ? err.message : 'database_error'
+    }, session.user);
     return jsonResponse(500, { ok: false, error: 'Database error' });
   }
 };

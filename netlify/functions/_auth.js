@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { ensureSchema, query } = require('./_db');
 
 const SESSION_COOKIE_NAME = 'sp_dashboard_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -245,6 +246,117 @@ function getClientCountry(headers) {
   ).trim().toUpperCase();
 }
 
+function getRequestId(headers) {
+  return String(
+    headers['x-nf-request-id'] ||
+    headers['x-request-id'] ||
+    headers['x-correlation-id'] ||
+    ''
+  ).trim();
+}
+
+function clipText(value, maxLength) {
+  return String(value == null ? '' : value).trim().slice(0, maxLength || 500);
+}
+
+function sanitizeLogDetails(details) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return {};
+  const safe = {};
+  Object.keys(details).forEach((key) => {
+    const value = details[key];
+    if (value == null) {
+      safe[key] = value;
+      return;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      safe[key] = value;
+      return;
+    }
+    if (typeof value === 'string') {
+      safe[key] = clipText(value, 600);
+      return;
+    }
+    if (Array.isArray(value)) {
+      safe[key] = value.slice(0, 30).map((item) => clipText(item, 120));
+      return;
+    }
+    if (typeof value === 'object') {
+      try {
+        safe[key] = JSON.parse(JSON.stringify(value));
+      } catch (_) {
+        safe[key] = clipText(String(value), 600);
+      }
+    }
+  });
+  return safe;
+}
+
+function buildAccessContext(event) {
+  const headers = event && event.headers ? event.headers : {};
+  const hostInfo = getHostInfo(headers);
+  return {
+    actor: '',
+    ip: getClientIP(headers),
+    country: getClientCountry(headers),
+    userAgent: getUserAgent(headers),
+    method: clipText((event && event.httpMethod) || '', 20),
+    path: clipText((event && (event.path || event.rawUrl || event.rawPath)) || '', 300),
+    host: clipText(hostInfo.host, 180),
+    origin: clipText(headers.origin || headers.Origin || '', 240),
+    referer: clipText(headers.referer || headers.Referer || '', 400),
+    requestId: clipText(getRequestId(headers), 180)
+  };
+}
+
+async function logAccess(event, eventType, level, details, actor) {
+  const ctx = buildAccessContext(event || {});
+  ctx.actor = clipText(actor || ctx.actor || '', 120);
+  const payload = {
+    timestamp: new Date().toISOString(),
+    eventType: clipText(eventType, 120),
+    level: clipText(level || 'info', 20),
+    actor: ctx.actor,
+    ip: ctx.ip,
+    country: ctx.country,
+    method: ctx.method,
+    path: ctx.path,
+    host: ctx.host,
+    origin: ctx.origin,
+    referer: ctx.referer,
+    requestId: ctx.requestId,
+    userAgent: ctx.userAgent,
+    details: sanitizeLogDetails(details)
+  };
+
+  console.log('[access-log]', JSON.stringify(payload));
+
+  try {
+    await ensureSchema();
+    await query(
+      `INSERT INTO dashboard_access_logs
+       (event_type, level, actor, ip, country, user_agent, method, path, host, origin, referer, request_id, details)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
+      [
+        payload.eventType,
+        payload.level,
+        payload.actor,
+        payload.ip,
+        payload.country,
+        payload.userAgent,
+        payload.method,
+        payload.path,
+        payload.host,
+        payload.origin,
+        payload.referer,
+        payload.requestId,
+        JSON.stringify(payload.details || {})
+      ]
+    );
+  } catch (err) {
+    console.warn('[access-log] DB write failed:', err && err.message ? err.message : err);
+  }
+}
+
 function parseCSVEnv(name) {
   return String(process.env[name] || '')
     .split(',')
@@ -400,6 +512,7 @@ function getSessionPayload(event) {
 module.exports = {
   SESSION_COOKIE_NAME,
   buildSessionCookie,
+  buildAccessContext,
   clearLoginFailures,
   clearSessionCookie,
   createLoginChallengeToken,
@@ -410,6 +523,7 @@ module.exports = {
   getUserAgent,
   isSameOrigin,
   jsonResponse,
+  logAccess,
   looksLikeBot,
   markLoginFailure,
   readRequestBody,

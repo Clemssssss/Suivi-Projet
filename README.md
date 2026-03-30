@@ -36,6 +36,7 @@ Variables d'environnement à définir dans Netlify :
 - `AUTH_SESSION_SECRET` : secret long et aléatoire pour signer la session
 - `DASHBOARD_LOGIN_USER` : identifiant autorisé
 - `DASHBOARD_LOGIN_PASSWORD_HASH` : hash du mot de passe
+- `NEON_DATABASE_URL` : URL PostgreSQL Neon pour la persistance partagée et les journaux d'accès
 
 Génération du hash :
 
@@ -44,6 +45,37 @@ node scripts/generate_auth_hash.js "MonMotDePasseFort"
 ```
 
 Copier ensuite la valeur affichée dans `DASHBOARD_LOGIN_PASSWORD_HASH`.
+
+## Journaux d'accès
+
+Les fonctions Netlify journalisent désormais :
+
+- les vérifications de session
+- les connexions réussies
+- les échecs de connexion
+- les blocages anti-bot / anti-réseau
+- les déconnexions
+- les opérations de lecture / écriture / suppression sur l'état partagé
+
+Deux niveaux existent :
+
+- logs console structurés dans les logs Netlify
+- persistance en base PostgreSQL dans la table `dashboard_access_logs`
+
+La table `dashboard_access_logs` enregistre notamment :
+
+- date/heure
+- type d'événement
+- niveau (`info`, `warn`, `error`)
+- utilisateur
+- IP
+- pays
+- user-agent
+- méthode HTTP
+- chemin demandé
+- host / origin / referer
+- request id
+- détails JSON utiles à l'analyse
 
 ## Données
 

@@ -71,8 +71,30 @@ async function ensureSchema() {
     );
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_access_logs (
+      id BIGSERIAL PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'info',
+      actor TEXT NOT NULL DEFAULT '',
+      ip TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      method TEXT NOT NULL DEFAULT '',
+      path TEXT NOT NULL DEFAULT '',
+      host TEXT NOT NULL DEFAULT '',
+      origin TEXT NOT NULL DEFAULT '',
+      referer TEXT NOT NULL DEFAULT '',
+      request_id TEXT NOT NULL DEFAULT '',
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_documents_type_scope ON dashboard_state_documents (doc_type, scope);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_audit_type_scope ON dashboard_state_audit (doc_type, scope, created_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_logs_created_at ON dashboard_access_logs (created_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_logs_event_type ON dashboard_access_logs (event_type, created_at DESC);`);
 }
 
 module.exports = {
