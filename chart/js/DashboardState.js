@@ -86,6 +86,7 @@ window.DashboardState = (() => {
     // 1. Graphiques masqués
     state.hiddenCharts = {};
     document.querySelectorAll('.chart-card[data-chart-id]').forEach(card => {
+      if (card.dataset.archivedChart === '1') return;
       if (card.classList.contains('hidden-chart') || card.classList.contains('hidden')) {
         state.hiddenCharts[card.dataset.chartId] = true;
       }
@@ -130,6 +131,7 @@ window.DashboardState = (() => {
       Object.keys(state.hiddenCharts).forEach(id => {
         if (state.hiddenCharts[id]) {
           const card = document.querySelector(`[data-chart-id="${id}"]`);
+          if (card && card.dataset.archivedChart === '1') return;
           if (card && !card.classList.contains('hidden-chart')) {
             card.classList.add('hidden-chart');
             const btn = card.querySelector('.chart-toggle-btn');

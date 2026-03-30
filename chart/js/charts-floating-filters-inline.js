@@ -155,6 +155,7 @@
 
     var hidden = [];
     document.querySelectorAll('.chart-card[data-chart-id]').forEach(function(card) {
+      if (card.dataset.archivedChart === '1') return;
       if (card.classList.contains('hidden-chart') || card.classList.contains('hidden')) {
         var title = card.querySelector('.chart-title');
         hidden.push({
@@ -218,6 +219,7 @@
     var restoreAll = document.getElementById('restore-all-charts');
     if (restoreAll) restoreAll.addEventListener('click', function() {
       document.querySelectorAll('.chart-card.hidden-chart, .chart-card.hidden').forEach(function(c) {
+        if (c.dataset.archivedChart === '1') return;
         c.classList.remove('hidden-chart', 'hidden');
         var btn = c.querySelector('.chart-toggle-btn');
         if (btn) btn.classList.add('active');

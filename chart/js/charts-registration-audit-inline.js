@@ -7,6 +7,7 @@
     }
     const registered = new Set(ChartFilterController.getRegisteredCharts ? ChartFilterController.getRegisteredCharts() : []);
     const canvases   = Array.from(document.querySelectorAll('canvas[id]'))
+      .filter(c => !c.closest('#business-dashboard-root'))
       .filter(c => {
         // Vérifier que c'est bien un graphique Chart.js
         if (typeof Chart !== 'undefined') {
