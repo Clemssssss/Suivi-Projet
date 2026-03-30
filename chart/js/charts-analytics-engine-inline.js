@@ -1679,14 +1679,23 @@ function update() {
     if (typeof DashboardServerData !== 'undefined' && typeof DashboardServerData.hydrateDashboard === 'function') {
       try {
         serverRecord = await DashboardServerData.hydrateDashboard();
-        if (serverRecord && typeof notify === 'function') {
+        if (serverRecord && serverRecord.ok && typeof notify === 'function') {
           notify('Données sécurisées chargées', serverRecord.rowCount + ' projets récupérés depuis la base', 'success', 3200);
+        } else if (serverRecord && serverRecord.ok === false && typeof notify === 'function') {
+          var msg = 'Dataset sécurisé indisponible';
+          if (serverRecord.status === 401) msg = 'Session non autorisée pour charger les données';
+          else if (serverRecord.status === 404) msg = 'Aucun dataset sécurisé publié en base';
+          else if (serverRecord.status === 500) msg = 'Base sécurisée indisponible ou DATA_ENCRYPTION_KEY manquante';
+          notify('Aucune donnée serveur', msg, 'warning', 5200);
         }
       } catch (err) {
         console.warn('[DashboardServerData] Chargement impossible', err);
+        if (typeof notify === 'function') {
+          notify('Aucune donnée serveur', 'Chargement base impossible — vérifiez Netlify et la base sécurisée', 'warning', 5200);
+        }
       }
     }
-    if (!serverRecord && typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.hydrateDashboard === 'function') {
+    if ((!serverRecord || serverRecord.ok === false) && typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.hydrateDashboard === 'function') {
       const localRecord = await DashboardLocalData.hydrateDashboard();
       if (localRecord && Array.isArray(localRecord.data) && localRecord.data.length && typeof notify === 'function') {
         notify('Données locales restaurées', localRecord.data.length + ' projets rechargés pour votre session', 'info', 3200);

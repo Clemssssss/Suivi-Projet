@@ -29,7 +29,12 @@ window.DashboardServerData = (function() {
   async function hydrateDashboard() {
     var result = await loadDataset();
     if (!result.ok || !result.data || !Array.isArray(result.data.data) || !result.data.data.length) {
-      return null;
+      return {
+        ok: false,
+        status: result.status,
+        error: result && result.data && result.data.error ? result.data.error : 'dataset_unavailable',
+        rowCount: 0
+      };
     }
 
     if (typeof window.setDashboardData === 'function') {
@@ -39,6 +44,7 @@ window.DashboardServerData = (function() {
     }
 
     return {
+      ok: true,
       sourceName: result.data.sourceName || '',
       rowCount: result.data.rowCount || result.data.data.length,
       updatedAt: result.data.updatedAt || '',
