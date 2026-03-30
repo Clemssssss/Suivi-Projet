@@ -59,6 +59,14 @@ window.DashboardChartPreferences = (() => {
     return document.querySelector('.chart-card[data-chart-id="' + chartId + '"]');
   }
 
+  function _isBusinessChartCard(card) {
+    return !!(card && card.closest && card.closest('#business-dashboard-root'));
+  }
+
+  function _isBusinessChartId(chartId) {
+    return typeof chartId === 'string' && chartId.indexOf('biz-') === 0;
+  }
+
   function _getTitleEl(card) {
     return card ? card.querySelector('.chart-title') : null;
   }
@@ -69,7 +77,11 @@ window.DashboardChartPreferences = (() => {
 
   function _listCards() {
     return Array.from(document.querySelectorAll('.chart-card[data-chart-id]')).filter(function(card) {
-      return card && card.dataset.chartId && card.dataset.custom !== 'true';
+      return card
+        && card.dataset.chartId
+        && card.dataset.custom !== 'true'
+        && !_isBusinessChartCard(card)
+        && !_isBusinessChartId(card.dataset.chartId);
     });
   }
 
@@ -402,12 +414,14 @@ window.DashboardChartPreferences = (() => {
   }
 
   function _applySingle(chartId) {
+    if (_isBusinessChartId(chartId)) return;
     var config = _currentConfig(chartId);
     _applyPresentation(chartId, config);
     setTimeout(function() { _applyVisual(chartId, config); }, 40);
   }
 
   function _applyConfigToChart(chartId, config, options) {
+    if (_isBusinessChartId(chartId)) return;
     options = options || {};
     _applyPresentation(chartId, config);
 
@@ -717,7 +731,9 @@ window.DashboardChartPreferences = (() => {
     var original = window.update;
     window.update = function() {
       var result = original.apply(this, arguments);
-      _scheduleRefresh();
+      if (!document.body.classList.contains('business-dashboard-simplified')) {
+        _scheduleRefresh();
+      }
       return result;
     };
   }
@@ -745,7 +761,9 @@ window.DashboardChartPreferences = (() => {
       _listCards().forEach(function(card) { _captureDefaults(card.dataset.chartId); });
       _restoreDataConfigs();
       _injectButtons();
-      _scheduleRefresh();
+      if (!document.body.classList.contains('business-dashboard-simplified')) {
+        _scheduleRefresh();
+      }
     }, 900);
     console.log('[ChartPrefs] Edition avancee des graphiques prete');
   }
