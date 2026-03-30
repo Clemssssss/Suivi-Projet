@@ -439,6 +439,7 @@
   var _chartCfgEngineReady = false;
 
   function renderNewCharts(data) {
+    if (document.body.classList.contains('business-dashboard-simplified')) return;
     if (typeof ChartsEnrichis === 'undefined') return;
     if (!_chartCfgEngineReady) {
       _initChartCfgEngine();
@@ -586,6 +587,7 @@
   var _originalUpdate = window.update;
   window.update = function () {
     if (typeof _originalUpdate === 'function') _originalUpdate();
+    if (document.body.classList.contains('business-dashboard-simplified')) return;
     var data = (typeof AE !== 'undefined') ? AE.getFiltered() : (window.DATA || []);
     if (window._insights)    window._insights.render(data);
     if (window._healthScore) window._healthScore.render(data);
