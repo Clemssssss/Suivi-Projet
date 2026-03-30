@@ -1,4 +1,5 @@
 const {
+  createLoginChallengeToken,
   getSessionPayload,
   jsonResponse
 } = require('./_auth');
@@ -12,6 +13,7 @@ exports.handler = async function(event) {
   return jsonResponse(200, {
     ok: true,
     authenticated: !!session,
-    user: session ? session.user : ''
+    user: session ? session.user : '',
+    loginChallenge: session ? '' : createLoginChallengeToken(event.headers || {})
   });
 };

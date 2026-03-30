@@ -26,12 +26,15 @@
         <label class="auth-label" for="login-password">Mot de passe</label>
         <input id="login-password" name="password" class="auth-input" type="password" maxlength="256" autocomplete="current-password" required>
 
+        <input id="login-company" name="company" class="auth-honeypot" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
         <button id="login-submit" class="auth-submit" type="submit">Se connecter</button>
         <p id="login-message" class="auth-message" aria-live="polite"></p>
       </form>
 
       <div class="auth-footer">
         <span id="login-next-target"></span>
+        <span class="auth-footer-note">Protection active: anti-bot, temporisation humaine, limitation des tentatives.</span>
       </div>
     </section>
   </main>

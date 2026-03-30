@@ -3,6 +3,12 @@ const crypto = require('crypto');
 const SESSION_COOKIE_NAME = 'sp_dashboard_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const MAX_BODY_LENGTH = 4096;
+const LOGIN_CHALLENGE_TTL_MS = 15 * 60 * 1000;
+const LOGIN_MIN_SOLVE_MS = 1500;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCK_MS = 30 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
+const loginAttempts = new Map();
 
 function toBase64Url(input) {
   return Buffer.from(input)
@@ -100,6 +106,10 @@ function signToken(encodedPayload) {
   );
 }
 
+function sha256(input) {
+  return crypto.createHash('sha256').update(String(input || '')).digest('hex');
+}
+
 function createSessionToken(username) {
   const payload = {
     user: String(username),
@@ -112,7 +122,23 @@ function createSessionToken(username) {
   return encodedPayload + '.' + signature;
 }
 
-function verifySessionToken(token) {
+function createLoginChallengeToken(headers) {
+  const issuedAt = Date.now();
+  const payload = {
+    purpose: 'login',
+    nonce: toBase64Url(crypto.randomBytes(16)),
+    iat: issuedAt,
+    exp: issuedAt + LOGIN_CHALLENGE_TTL_MS,
+    ua: sha256(getUserAgent(headers)),
+    ip: sha256(getClientIP(headers))
+  };
+
+  const encodedPayload = toBase64Url(Buffer.from(JSON.stringify(payload), 'utf8'));
+  const signature = signToken(encodedPayload);
+  return encodedPayload + '.' + signature;
+}
+
+function verifySignedPayload(token) {
   if (typeof token !== 'string' || token.indexOf('.') === -1) return null;
 
   const parts = token.split('.');
@@ -122,18 +148,30 @@ function verifySessionToken(token) {
   const signature = parts[1];
   if (!constantTimeEqual(signToken(encodedPayload), signature)) return null;
 
-  let payload;
   try {
-    payload = JSON.parse(fromBase64Url(encodedPayload).toString('utf8'));
+    return JSON.parse(fromBase64Url(encodedPayload).toString('utf8'));
   } catch (err) {
     return null;
   }
+}
 
+function verifySessionToken(token) {
+  const payload = verifySignedPayload(token);
   if (!payload || typeof payload.user !== 'string' || typeof payload.exp !== 'number') {
     return null;
   }
 
   if (payload.exp <= Date.now()) return null;
+  return payload;
+}
+
+function verifyLoginChallengeToken(token, headers) {
+  var payload = verifySignedPayload(token);
+  if (!payload || payload.purpose !== 'login' || typeof payload.iat !== 'number') return null;
+  if (typeof payload.exp !== 'number' || payload.exp <= Date.now()) return null;
+  if ((Date.now() - payload.iat) < LOGIN_MIN_SOLVE_MS) return null;
+  if (payload.ua !== sha256(getUserAgent(headers))) return null;
+  if (payload.ip !== sha256(getClientIP(headers))) return null;
   return payload;
 }
 
@@ -179,6 +217,163 @@ function readRequestBody(event) {
   return JSON.parse(rawBody);
 }
 
+function getUserAgent(headers) {
+  return String(headers['user-agent'] || headers['User-Agent'] || '').trim();
+}
+
+function getAcceptLanguage(headers) {
+  return String(headers['accept-language'] || headers['Accept-Language'] || '').trim();
+}
+
+function getClientIP(headers) {
+  const forwarded = String(
+    headers['x-nf-client-connection-ip'] ||
+    headers['x-forwarded-for'] ||
+    headers['client-ip'] ||
+    ''
+  ).trim();
+
+  return forwarded.split(',')[0].trim() || 'unknown';
+}
+
+function getClientCountry(headers) {
+  return String(
+    headers['x-country'] ||
+    headers['x-nf-geo-country'] ||
+    headers['cf-ipcountry'] ||
+    ''
+  ).trim().toUpperCase();
+}
+
+function parseCSVEnv(name) {
+  return String(process.env[name] || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function isIPv4(ip) {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(ip);
+}
+
+function ipv4ToInt(ip) {
+  return ip.split('.').reduce((acc, part) => ((acc << 8) + Number(part)), 0) >>> 0;
+}
+
+function ipMatchesRule(ip, rule) {
+  const normalizedRule = String(rule || '').trim();
+  if (!normalizedRule) return false;
+  if (normalizedRule === ip) return true;
+
+  if (normalizedRule.indexOf('/') > -1 && isIPv4(ip)) {
+    const pieces = normalizedRule.split('/');
+    const baseIp = pieces[0];
+    const maskLength = Number(pieces[1]);
+    if (!isIPv4(baseIp) || !Number.isInteger(maskLength) || maskLength < 0 || maskLength > 32) return false;
+
+    const mask = maskLength === 0 ? 0 : ((0xFFFFFFFF << (32 - maskLength)) >>> 0);
+    return (ipv4ToInt(ip) & mask) === (ipv4ToInt(baseIp) & mask);
+  }
+
+  return false;
+}
+
+function evaluateNetworkPolicy(headers) {
+  const ip = getClientIP(headers);
+  const country = getClientCountry(headers);
+  const allowedIPs = parseCSVEnv('AUTH_ALLOWED_IPS');
+  const blockedIPs = parseCSVEnv('AUTH_BLOCKED_IPS');
+  const allowedCountries = parseCSVEnv('AUTH_ALLOWED_COUNTRIES').map((item) => item.toUpperCase());
+  const blockedCountries = parseCSVEnv('AUTH_BLOCKED_COUNTRIES').map((item) => item.toUpperCase());
+
+  if (blockedIPs.some((rule) => ipMatchesRule(ip, rule))) {
+    return { allowed: false, reason: 'ip_blocked' };
+  }
+
+  if (allowedIPs.length > 0 && !allowedIPs.some((rule) => ipMatchesRule(ip, rule))) {
+    return { allowed: false, reason: 'ip_not_allowed' };
+  }
+
+  if (country) {
+    if (blockedCountries.includes(country)) {
+      return { allowed: false, reason: 'country_blocked' };
+    }
+    if (allowedCountries.length > 0 && !allowedCountries.includes(country)) {
+      return { allowed: false, reason: 'country_not_allowed' };
+    }
+  }
+
+  return { allowed: true, reason: '' };
+}
+
+function looksLikeBot(headers) {
+  const userAgent = getUserAgent(headers).toLowerCase();
+  const acceptLanguage = getAcceptLanguage(headers);
+
+  if (!userAgent || !acceptLanguage) return true;
+
+  return /(bot|spider|crawler|headless|curl|wget|python|httpclient|postman|insomnia|powershell|axios|node-fetch|go-http-client|libwww-perl)/i.test(userAgent);
+}
+
+function cleanupLoginAttempts(now) {
+  for (const [key, entry] of loginAttempts.entries()) {
+    if (!entry) {
+      loginAttempts.delete(key);
+      continue;
+    }
+    if ((entry.blockedUntil && entry.blockedUntil < now) && (entry.lastAttemptAt + LOGIN_WINDOW_MS < now)) {
+      loginAttempts.delete(key);
+      continue;
+    }
+    if (!entry.blockedUntil && (entry.lastAttemptAt + LOGIN_WINDOW_MS < now)) {
+      loginAttempts.delete(key);
+    }
+  }
+}
+
+function getLoginThrottleState(headers, username) {
+  const now = Date.now();
+  cleanupLoginAttempts(now);
+  const key = sha256(getClientIP(headers) + '|' + String(username || '').toLowerCase());
+  const entry = loginAttempts.get(key);
+  if (!entry) {
+    return { key, blocked: false, retryAfterMs: 0 };
+  }
+  if (entry.blockedUntil && entry.blockedUntil > now) {
+    return { key, blocked: true, retryAfterMs: entry.blockedUntil - now };
+  }
+  return { key, blocked: false, retryAfterMs: 0 };
+}
+
+function markLoginFailure(throttleKey) {
+  const now = Date.now();
+  const current = loginAttempts.get(throttleKey);
+  const fresh = !current || ((current.firstAttemptAt + LOGIN_WINDOW_MS) < now);
+  const next = fresh ? {
+    count: 1,
+    firstAttemptAt: now,
+    lastAttemptAt: now,
+    blockedUntil: 0
+  } : {
+    count: current.count + 1,
+    firstAttemptAt: current.firstAttemptAt,
+    lastAttemptAt: now,
+    blockedUntil: 0
+  };
+
+  if (next.count >= LOGIN_MAX_ATTEMPTS) {
+    next.blockedUntil = now + LOGIN_LOCK_MS;
+  }
+
+  loginAttempts.set(throttleKey, next);
+  return next;
+}
+
+function clearLoginFailures(headers, username) {
+  const key = sha256(getClientIP(headers) + '|' + String(username || '').toLowerCase());
+  loginAttempts.delete(key);
+}
+
 function jsonResponse(statusCode, payload, extraHeaders) {
   return {
     statusCode,
@@ -205,11 +400,19 @@ function getSessionPayload(event) {
 module.exports = {
   SESSION_COOKIE_NAME,
   buildSessionCookie,
+  clearLoginFailures,
   clearSessionCookie,
+  createLoginChallengeToken,
   createSessionToken,
+  evaluateNetworkPolicy,
   getSessionPayload,
+  getLoginThrottleState,
+  getUserAgent,
   isSameOrigin,
   jsonResponse,
+  looksLikeBot,
+  markLoginFailure,
   readRequestBody,
+  verifyLoginChallengeToken,
   verifyPassword
 };

@@ -26,9 +26,11 @@
     var submit = document.getElementById('login-submit');
     var userInput = document.getElementById('login-username');
     var passwordInput = document.getElementById('login-password');
-    if (!form || !submit || !userInput || !passwordInput) return;
+    var honeypotInput = document.getElementById('login-company');
+    if (!form || !submit || !userInput || !passwordInput || !honeypotInput) return;
 
     var nextTarget = getNextTarget();
+    var loginChallenge = '';
     updateNextLabel(nextTarget);
 
     try {
@@ -37,6 +39,9 @@
         window.location.replace(nextTarget);
         return;
       }
+      loginChallenge = current && current.data && typeof current.data.loginChallenge === 'string'
+        ? current.data.loginChallenge
+        : '';
     } catch (err) {
       console.warn('[LoginPage] Vérification session impossible', err);
     }
@@ -55,9 +60,16 @@
       setMessage('Connexion en cours…');
 
       try {
+        if (!loginChallenge) {
+          setMessage('Challenge de sécurité manquant. Recharge la page.', 'error');
+          return;
+        }
+
         var result = await window.AuthClient.login({
           username: username,
-          password: password
+          password: password,
+          challenge: loginChallenge,
+          company: honeypotInput.value
         });
 
         if (!result.ok || !result.data || !result.data.authenticated) {
@@ -65,10 +77,25 @@
             setMessage("Connexion indisponible. Vérifiez les variables Netlify: AUTH_SESSION_SECRET, DASHBOARD_LOGIN_USER, DASHBOARD_LOGIN_PASSWORD_HASH.", 'error');
           } else if (result.status === 401) {
             setMessage('Connexion refusée. Vérifiez vos identifiants.', 'error');
+          } else if (result.status === 429) {
+            setMessage('Trop de tentatives. Réessaie dans quelques minutes.', 'error');
           } else if (result.status === 403) {
-            setMessage("Connexion bloquée par la protection d'origine de la requête.", 'error');
+            if (result.data && /^ip_|^country_/.test(result.data.code || '')) {
+              setMessage('Connexion refusée par la politique réseau du site.', 'error');
+            } else {
+              setMessage('Requête bloquée par la protection anti-bot ou réseau.', 'error');
+            }
           } else {
             setMessage('Connexion impossible pour le moment.', 'error');
+          }
+          loginChallenge = '';
+          try {
+            var renewed = await window.AuthClient.status();
+            loginChallenge = renewed && renewed.data && typeof renewed.data.loginChallenge === 'string'
+              ? renewed.data.loginChallenge
+              : '';
+          } catch (challengeErr) {
+            console.warn('[LoginPage] Renouvellement challenge impossible', challengeErr);
           }
           passwordInput.value = '';
           passwordInput.focus();

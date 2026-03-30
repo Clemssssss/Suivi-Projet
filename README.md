@@ -22,6 +22,14 @@ Le dashboard n'embarque aucun mot de passe côté front. L'authentification repo
 - mot de passe stocké sous forme de hash PBKDF2 dans les variables d'environnement
 - cookie de session signé, `HttpOnly`, `SameSite=Strict`
 - headers CSP / anti-framing / `nosniff`
+- anti-bot avec honeypot, challenge signé et limitation des tentatives
+
+Restrictions réseau optionnelles :
+
+- `AUTH_ALLOWED_IPS` : liste CSV d'IP ou CIDR IPv4 autorisés
+- `AUTH_BLOCKED_IPS` : liste CSV d'IP ou CIDR IPv4 bloqués
+- `AUTH_ALLOWED_COUNTRIES` : liste CSV de codes pays autorisés si l'en-tête géolocalisé est disponible
+- `AUTH_BLOCKED_COUNTRIES` : liste CSV de codes pays bloqués si l'en-tête géolocalisé est disponible
 
 Variables d'environnement à définir dans Netlify :
 

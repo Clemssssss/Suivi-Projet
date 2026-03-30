@@ -124,3 +124,18 @@ body.auth-shell {
   color: var(--auth-muted);
   font-size: .9rem;
 }
+
+.auth-footer-note {
+  display: block;
+  margin-top: .55rem;
+  opacity: .85;
+}
+
+.auth-honeypot {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

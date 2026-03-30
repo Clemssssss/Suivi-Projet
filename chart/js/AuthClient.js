@@ -60,7 +60,9 @@ window.AuthClient = (function() {
       },
       body: JSON.stringify({
         username: typeof payload.username === 'string' ? payload.username : '',
-        password: typeof payload.password === 'string' ? payload.password : ''
+        password: typeof payload.password === 'string' ? payload.password : '',
+        challenge: typeof payload.challenge === 'string' ? payload.challenge : '',
+        company: typeof payload.company === 'string' ? payload.company : ''
       })
     });
   }
