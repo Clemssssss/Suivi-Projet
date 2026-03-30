@@ -42,7 +42,10 @@
   }
 
   function getYear(project) {
-    if (typeof Analytics !== 'undefined' && Analytics.getProjectYear) return Analytics.getProjectYear(project);
+    if (typeof Analytics !== 'undefined' && Analytics.getProjectYear) {
+      var liveYear = parseInt(Analytics.getProjectYear(project), 10);
+      return isFinite(liveYear) ? liveYear : null;
+    }
     var y = parseInt(project._annee, 10);
     return isFinite(y) ? y : null;
   }

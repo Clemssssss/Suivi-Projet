@@ -449,6 +449,7 @@ window.DashboardChartPreferences = (() => {
   }
 
   function _scheduleRefresh() {
+    if (document.body.classList.contains('business-dashboard-simplified')) return;
     clearTimeout(_refreshTimer);
     _refreshTimer = setTimeout(refreshAll, 180);
   }
@@ -742,7 +743,9 @@ window.DashboardChartPreferences = (() => {
     _loadState();
     injectStyles();
     _injectButtons();
-    _wrapUpdate();
+    if (!document.body.classList.contains('business-dashboard-simplified')) {
+      _wrapUpdate();
+    }
     setTimeout(async function() {
       if (typeof DashboardSharedStore !== 'undefined') {
         try {

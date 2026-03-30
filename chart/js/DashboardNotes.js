@@ -73,6 +73,7 @@ window.DashboardNotes = (() => {
   }
 
   function _scheduleRefresh() {
+    if (!_enabled || document.body.classList.contains('business-dashboard-simplified')) return;
     clearTimeout(_refreshTimer);
     _refreshTimer = setTimeout(function() {
       _collectTargets();
@@ -946,14 +947,16 @@ body.notes-mode-active .dashboard-note-target:hover {
       }
     });
 
-    var observer = new MutationObserver(_scheduleRefresh);
+    var observer = new MutationObserver(function() {
+      if (_enabled) _scheduleRefresh();
+    });
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
     var originalUpdate = window.update;
     if (typeof originalUpdate === 'function') {
       window.update = function() {
         var result = originalUpdate.apply(this, arguments);
-        _scheduleRefresh();
+        if (_enabled) _scheduleRefresh();
         return result;
       };
     }
