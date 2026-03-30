@@ -5,14 +5,38 @@ window.DashboardLocalData = (function() {
   var DB_NAME = 'analytics-dashboard-user-data';
   var STORE_NAME = 'datasets';
   var PAGE_KEY = 'chart';
+  var FALLBACK_PREFIX = 'analytics-dashboard-user-data-fallback';
   var _dbPromise = null;
   var _status = { loaded: false, rowCount: 0, updatedAt: '' };
 
-  function _userKey() {
-    var user = (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function')
+  function _currentUser() {
+    var authUser = (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function')
       ? window.AuthClient.getCurrentUser()
       : '';
+    if (authUser) return authUser;
+    return (window.DashboardAuthGuard && typeof window.DashboardAuthGuard.getUser === 'function')
+      ? window.DashboardAuthGuard.getUser()
+      : '';
+  }
+
+  async function _waitForUser(maxAttempts) {
+    var attempts = typeof maxAttempts === 'number' ? maxAttempts : 50;
+    var user = _currentUser();
+    while (!user && attempts > 0) {
+      await new Promise(function(resolve) { setTimeout(resolve, 120); });
+      user = _currentUser();
+      attempts -= 1;
+    }
+    return user;
+  }
+
+  async function _userKey(waitForUser) {
+    var user = waitForUser ? await _waitForUser() : _currentUser();
     return user ? (PAGE_KEY + '::' + user) : '';
+  }
+
+  function _fallbackKey(key) {
+    return FALLBACK_PREFIX + '::' + key;
   }
 
   function _fmtDate(value) {
@@ -76,8 +100,45 @@ window.DashboardLocalData = (function() {
     return db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
   }
 
+  function _fallbackLoad(key) {
+    try {
+      var raw = localStorage.getItem(_fallbackKey(key));
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.warn('[DashboardLocalData] Lecture fallback impossible', err);
+      return null;
+    }
+  }
+
+  function _fallbackSave(record) {
+    try {
+      localStorage.setItem(_fallbackKey(record.key), JSON.stringify(record));
+      return true;
+    } catch (err) {
+      console.warn('[DashboardLocalData] Sauvegarde fallback impossible', err);
+      return false;
+    }
+  }
+
+  function _fallbackDelete(key) {
+    try {
+      localStorage.removeItem(_fallbackKey(key));
+      return true;
+    } catch (err) {
+      console.warn('[DashboardLocalData] Suppression fallback impossible', err);
+      return false;
+    }
+  }
+
+  function _setStatusFromRecord(record) {
+    _status.loaded = !!(record && Array.isArray(record.data) && record.data.length);
+    _status.rowCount = record && Array.isArray(record.data) ? record.data.length : 0;
+    _status.updatedAt = record && record.updatedAt ? record.updatedAt : '';
+    _syncUi();
+  }
+
   async function loadForCurrentUser() {
-    var key = _userKey();
+    var key = await _userKey(true);
     if (!key) {
       _status = { loaded: false, rowCount: 0, updatedAt: '' };
       _syncUi();
@@ -89,24 +150,22 @@ window.DashboardLocalData = (function() {
         var req = store.get(key);
         req.onsuccess = function() {
           var record = req.result || null;
-          _status.loaded = !!(record && Array.isArray(record.data) && record.data.length);
-          _status.rowCount = record && Array.isArray(record.data) ? record.data.length : 0;
-          _status.updatedAt = record && record.updatedAt ? record.updatedAt : '';
-          _syncUi();
+          if (!record) record = _fallbackLoad(key);
+          _setStatusFromRecord(record);
           resolve(record);
         };
         req.onerror = function() { reject(req.error); };
       });
     } catch (err) {
-      console.warn('[DashboardLocalData] Lecture locale impossible', err);
-      _status = { loaded: false, rowCount: 0, updatedAt: '' };
-      _syncUi();
-      return null;
+      console.warn('[DashboardLocalData] Lecture IndexedDB impossible, fallback localStorage', err);
+      var fallbackRecord = _fallbackLoad(key);
+      _setStatusFromRecord(fallbackRecord);
+      return fallbackRecord;
     }
   }
 
   async function saveImportedDataset(data, meta) {
-    var key = _userKey();
+    var key = await _userKey(true);
     if (!key || !Array.isArray(data)) return false;
     var record = {
       key: key,
@@ -124,19 +183,19 @@ window.DashboardLocalData = (function() {
         req.onsuccess = function() { resolve(true); };
         req.onerror = function() { reject(req.error); };
       });
-      _status.loaded = true;
-      _status.rowCount = record.rowCount;
-      _status.updatedAt = record.updatedAt;
-      _syncUi();
+      _fallbackSave(record);
+      _setStatusFromRecord(record);
       return true;
     } catch (err) {
-      console.warn('[DashboardLocalData] Sauvegarde locale impossible', err);
-      return false;
+      console.warn('[DashboardLocalData] Sauvegarde IndexedDB impossible, fallback localStorage', err);
+      var saved = _fallbackSave(record);
+      if (saved) _setStatusFromRecord(record);
+      return saved;
     }
   }
 
   async function clearCurrentUserData() {
-    var key = _userKey();
+    var key = await _userKey(true);
     if (!key) return false;
     try {
       var store = await _getStore('readwrite');
@@ -145,12 +204,18 @@ window.DashboardLocalData = (function() {
         req.onsuccess = function() { resolve(true); };
         req.onerror = function() { reject(req.error); };
       });
+      _fallbackDelete(key);
       _status = { loaded: false, rowCount: 0, updatedAt: '' };
       _syncUi();
       return true;
     } catch (err) {
-      console.warn('[DashboardLocalData] Suppression locale impossible', err);
-      return false;
+      console.warn('[DashboardLocalData] Suppression IndexedDB impossible, fallback localStorage', err);
+      var deleted = _fallbackDelete(key);
+      if (deleted) {
+        _status = { loaded: false, rowCount: 0, updatedAt: '' };
+        _syncUi();
+      }
+      return deleted;
     }
   }
 
@@ -176,6 +241,12 @@ window.DashboardLocalData = (function() {
         } else if (!ok && typeof notify === 'function') {
           notify('Suppression impossible', 'Impossible d’effacer les données locales', 'error', 2600);
         }
+      });
+    }
+    if (!document.documentElement._localDataAuthBound) {
+      document.documentElement._localDataAuthBound = true;
+      document.addEventListener('dashboard-auth-ready', function() {
+        loadForCurrentUser();
       });
     }
     _syncUi();
