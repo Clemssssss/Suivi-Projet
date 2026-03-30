@@ -1660,10 +1660,16 @@ function update() {
 /* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
-window.addEventListener('load', () => {
-  window.DATA = Array.isArray(window.DATA) ? window.DATA : [];
-  setDashboardData(window.DATA, { initializeDataFilterEngine: true, skipUpdate: true });
-  AE.loadFromURL();
+  window.addEventListener('load', async () => {
+    window.DATA = Array.isArray(window.DATA) ? window.DATA : [];
+    setDashboardData(window.DATA, { initializeDataFilterEngine: true, skipUpdate: true });
+    if (typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.hydrateDashboard === 'function') {
+      const localRecord = await DashboardLocalData.hydrateDashboard();
+      if (localRecord && Array.isArray(localRecord.data) && localRecord.data.length && typeof notify === 'function') {
+        notify('Données locales restaurées', localRecord.data.length + ' projets rechargés pour votre session', 'info', 3200);
+      }
+    }
+    AE.loadFromURL();
 
   // ── Initialiser ChartFilterController ──────────────────────────
   // Doit être fait AVANT createAllCharts pour que registerChart fonctionne.

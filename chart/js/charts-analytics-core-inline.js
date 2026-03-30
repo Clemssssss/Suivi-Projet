@@ -471,10 +471,10 @@
     //   DataFilterEngine.setRawData() = API dédiée rechargement sans re-subscribe FM
     //   AE.init() = mutation simple de st.raw (pas une redéclaration de const)
     //
-    if (typeof window.setDashboardData === 'function') {
-      window.setDashboardData(newData);
-    } else {
-      window.DATA = newData;
+      if (typeof window.setDashboardData === 'function') {
+        window.setDashboardData(newData);
+      } else {
+        window.DATA = newData;
 
       if (typeof DataFilterEngine !== 'undefined') {
         if (typeof DataFilterEngine.setRawData === 'function') {
@@ -490,12 +490,16 @@
 
       refreshYearSelect(newData);
 
-      if (typeof update === 'function') {
-        update();
+        if (typeof update === 'function') {
+          update();
+        }
       }
-    }
 
-    // ─ 6. Composants supplémentaires ──────────────────────────────
+      if (typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.saveImportedDataset === 'function') {
+        DashboardLocalData.saveImportedDataset(newData, { source: 'file-import' });
+      }
+
+      // ─ 6. Composants supplémentaires ──────────────────────────────
     if (typeof window.renderObjectiveBars === 'function') {
       window.renderObjectiveBars();
     }

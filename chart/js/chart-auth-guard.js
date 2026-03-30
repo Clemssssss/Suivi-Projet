@@ -59,6 +59,9 @@ window.DashboardAuthGuard = (function() {
       updateHeaderUser();
       bindLogout();
       window.AuthClient.setDocumentAuthenticated(true);
+      document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
+        detail: { user: state.user }
+      }));
       return true;
     } catch (err) {
       console.error('[AuthGuard] Vérification session impossible', err);
@@ -78,7 +81,8 @@ window.DashboardAuthGuard = (function() {
   return {
     ensureAuthenticated: ensureAuthenticated,
     isAuthenticated: function() { return state.authenticated; },
-    isReady: function() { return state.checked; }
+    isReady: function() { return state.checked; },
+    getUser: function() { return state.user || ''; }
   };
 })();
 }

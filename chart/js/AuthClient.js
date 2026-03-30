@@ -3,6 +3,10 @@ window.AuthClient = (function() {
   'use strict';
 
   var DEFAULT_NEXT = '/chart/chart.html';
+  var _session = {
+    authenticated: false,
+    user: ''
+  };
 
   function parseJSONSafe(text) {
     try {
@@ -45,14 +49,19 @@ window.AuthClient = (function() {
   }
 
   async function status() {
-    return request('/.netlify/functions/auth-status', {
+    var result = await request('/.netlify/functions/auth-status', {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });
+    _session.authenticated = !!(result.ok && result.data && result.data.authenticated);
+    _session.user = _session.authenticated && result.data && typeof result.data.user === 'string'
+      ? result.data.user
+      : '';
+    return result;
   }
 
   async function login(payload) {
-    return request('/.netlify/functions/auth-login', {
+    var result = await request('/.netlify/functions/auth-login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,10 +74,15 @@ window.AuthClient = (function() {
         company: typeof payload.company === 'string' ? payload.company : ''
       })
     });
+    _session.authenticated = !!(result.ok && result.data && result.data.authenticated);
+    _session.user = _session.authenticated && result.data && typeof result.data.user === 'string'
+      ? result.data.user
+      : '';
+    return result;
   }
 
   async function logout() {
-    return request('/.netlify/functions/auth-logout', {
+    var result = await request('/.netlify/functions/auth-logout', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -76,6 +90,9 @@ window.AuthClient = (function() {
       },
       body: '{}'
     });
+    _session.authenticated = false;
+    _session.user = '';
+    return result;
   }
 
   function setDocumentAuthenticated(isAuthenticated) {
@@ -85,6 +102,8 @@ window.AuthClient = (function() {
 
   return {
     DEFAULT_NEXT: DEFAULT_NEXT,
+    getCurrentUser: function() { return _session.user || ''; },
+    isAuthenticated: function() { return !!_session.authenticated; },
     sanitizeNext: sanitizeNext,
     status: status,
     login: login,

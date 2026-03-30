@@ -13,6 +13,7 @@ html.auth-pending body { visibility: hidden; }
 </style>
 <script src="js/AuthClient.js"></script>
 <script src="js/chart-auth-guard.js"></script>
+<script src="js/DashboardLocalData.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
@@ -45,6 +46,8 @@ html.auth-pending body { visibility: hidden; }
     </div>
     <div class="hdr-actions-status">
       <span class="hdr-pill" id="auth-user-label">🔒 Session</span>
+      <span class="hdr-pill hdr-pill-muted" id="local-data-status" style="display:none;"></span>
+      <button class="btn-hdr" id="btn-clear-local-data" type="button" title="Supprimer les données locales de cet utilisateur">🗑 Mes données locales</button>
       <button class="btn-hdr" id="btn-logout" type="button">↩ Déconnexion</button>
       <div class="hdr-pill" id="project-count">-- projets</div>
       <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
