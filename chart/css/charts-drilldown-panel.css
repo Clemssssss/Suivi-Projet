@@ -1,0 +1,142 @@
+/* ── ChartDrillDown panel ── */
+.cdd-panel {
+  position: relative;
+  z-index: 10;
+  background: var(--card);
+  border: 1px solid rgba(0,212,170,.3);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-top: .75rem;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+}
+.cdd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1.1rem;
+  background: rgba(0,212,170,.06);
+  border-bottom: 1px solid rgba(0,212,170,.18);
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.cdd-title {
+  font-family: var(--mono);
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--brand);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.cdd-count {
+  font-family: var(--mono);
+  font-size: .65rem;
+  color: var(--dust);
+  background: rgba(255,255,255,.05);
+  border-radius: 99px;
+  padding: .12rem .5rem;
+}
+.cdd-close {
+  background: transparent;
+  border: 1px solid var(--rim2);
+  color: var(--dust);
+  padding: .18rem .55rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: .72rem;
+  font-family: var(--mono);
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.cdd-close:hover { border-color: var(--heat); color: var(--heat); }
+.cdd-btn-table:hover { background: rgba(0,153,255,.22) !important; border-color: rgba(0,153,255,.55) !important; color: #90deff !important; }
+.cdd-table-wrap {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.cdd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.cdd-table thead { position: sticky; top: 0; background: var(--card2); z-index: 2; }
+.cdd-table th {
+  padding: .55rem .85rem;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: .62rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--dust);
+  border-bottom: 1px solid var(--rim2);
+  white-space: nowrap;
+}
+.cdd-table td {
+  padding: .55rem .85rem;
+  border-bottom: 1px solid var(--rim);
+  color: var(--pale);
+  vertical-align: middle;
+}
+.cdd-table tr:last-child td { border-bottom: none; }
+.cdd-table tr:hover td { background: rgba(255,255,255,.025); color: var(--snow); }
+.cdd-empty {
+  padding: 1.5rem;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--dust);
+}
+/* ── Strategic KPIs bar ── */
+#strategic-kpis-bar {
+  padding: 0 2.5rem;
+  margin-bottom: 1.5rem;
+}
+.skpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: .75rem;
+}
+.skpi-card {
+  background: var(--card);
+  border: 1px solid var(--rim);
+  border-radius: var(--r);
+  padding: .9rem 1rem .8rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+  cursor: default;
+}
+.skpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.3); }
+.skpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.skpi-lbl {
+  font-family: var(--mono);
+  font-size: .6rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--dust);
+  margin-bottom: .4rem;
+}
+.skpi-val {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--snow);
+}
+.skpi-sub {
+  font-family: var(--mono);
+  font-size: .6rem;
+  color: var(--dust);
+  margin-top: .3rem;
+}
+.skpi-pulse { animation: skpiPulse .6s ease; }
+@keyframes skpiPulse {
+  0%   { opacity: .6; transform: scale(.98); }
+  50%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}

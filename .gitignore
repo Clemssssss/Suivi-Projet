@@ -1,0 +1,7 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local embedded dataset kept off the public Netlify/GitHub version
+chart/js/data.js
