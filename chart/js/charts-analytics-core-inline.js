@@ -119,58 +119,80 @@
     return result;
   }
 
-  function parseCSV(text) {
-    // ── v4.1 : Suppression BOM UTF-8 et caractères invisibles ──────
-    // BOM UTF-8 : \uFEFF (souvent ajouté par Excel)
-    // Espaces invisibles : \u00A0 (non-breaking), \u200B (zero-width), \u202F, \u2060
-    text = text.replace(/^\uFEFF/, '');
-    text = text.replace(/\u00A0/g, ' ');
-    text = text.replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '');
+  function _detectSeparator(line) {
+    if (!line) return ';';
+    return line.split(';').length > line.split(',').length ? ';' : ',';
+  }
 
-    var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
-    if (lines.length < 2) throw new Error('Fichier CSV vide ou invalide');
+  function _headerNorm(h) {
+    if (!h) return '';
+    return String(h)
+      .replace(/[\uFEFF\u200B\u200C\u200D\u00A0\u2060]/g, '')
+      .replace(/\u2019|\u2018|\u201C|\u201D/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
 
-    var firstLine = lines[0];
-    var sep = firstLine.split(';').length > firstLine.split(',').length ? ';' : ',';
-
-    // ── v4.1 : Nettoyage robuste des headers ────────────────────────
-    // trim() + suppression quotes + suppression caractères invisibles
-    var rawHeaders = _splitLine(lines[0], sep).map(function(h) {
-      return canonicalHeader(h
-        .replace(/^["'\u201C\u201D]/g, '')  // quotes ouvrantes
-        .replace(/["'\u201C\u201D]$/g, '')  // quotes fermantes
-        .replace(/[\u200B\u200C\u200D\u00A0\uFEFF]/g, '') // invisibles
-        .trim());
+  function _scoreHeaderCandidate(cells) {
+    if (!cells || !cells.length) return 0;
+    var expected = EXPECTED_SCHEMA.map(_headerNorm);
+    var normalizedCells = cells.map(function(cell) {
+      return _headerNorm(canonicalHeader(String(cell || '')
+        .replace(/^["'\u201C\u201D]/g, '')
+        .replace(/["'\u201C\u201D]$/g, '')
+        .trim()));
     });
+    var score = 0;
+    normalizedCells.forEach(function(cell) {
+      if (expected.indexOf(cell) !== -1) score += 1;
+    });
+    return score;
+  }
 
-    // ── v4.1 : Log diagnostic des colonnes détectées ───────────────
-    console.log('[ImportCSV v4.1] Séparateur détecté : "' + sep + '"');
-    console.log('[ImportCSV v4.1] Headers détectés (' + rawHeaders.length + ') :', rawHeaders);
+  function _findHeaderRowIndex(lines, sep) {
+    var bestIndex = 0;
+    var bestScore = -1;
+    var maxScan = Math.min(lines.length, 12);
 
-    // ── v4.1 : Normalisation insensible aux espaces finaux ─────────
-    // Construire un index headers normalisés → headers originaux
-    // pour la validation de schéma
-    // CORRECTION 9 : normalisation stricte des headers CSV
-    var _headerNorm = function(h) {
-      if (!h) return '';
-      return h
-        .replace(/[\uFEFF\u200B\u200C\u200D\u00A0\u2060]/g, '') // BOM + invisibles
-        .replace(/\u2019|\u2018|\u201C|\u201D/g, "'")              // guillemets typographiques
-        .replace(/\s+/g, ' ')                                         // espaces multiples → 1
-        .trim()                                                         // espaces finaux
-        .toLowerCase();                                                  // casse uniforme
-    };
-    var normalizedHeaders = rawHeaders.map(_headerNorm);
+    for (var i = 0; i < maxScan; i++) {
+      var raw = String(lines[i] || '');
+      if (!raw.trim()) continue;
+      var score = _scoreHeaderCandidate(_splitLine(raw, sep));
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
 
+    return bestScore >= 4 ? bestIndex : 0;
+  }
+
+  function _sanitizeHeader(raw) {
+    return canonicalHeader(String(raw || '')
+      .replace(/^["'\u201C\u201D]/g, '')
+      .replace(/["'\u201C\u201D]$/g, '')
+      .replace(/[\u200B\u200C\u200D\u00A0\uFEFF]/g, '')
+      .trim());
+  }
+
+  function _buildRows(rawHeaders, matrixRows, rowNumberOffset) {
     var rows = [];
-    for (var li = 1; li < lines.length; li++) {
-      var line = lines[li].trim();
-      if (!line) continue;
-      var vals = _splitLine(line, sep);
+
+    for (var ri = 0; ri < matrixRows.length; ri++) {
+      var vals = matrixRows[ri] || [];
+      var hasMeaningfulValue = vals.some(function(v) {
+        return String(v === undefined || v === null ? '' : v).trim() !== '';
+      });
+      if (!hasMeaningfulValue) continue;
+
       var obj = {};
 
       rawHeaders.forEach(function(h, i) {
-        var raw = (vals[i] !== undefined ? vals[i] : '').replace(/^["'\u201C\u201D]/,'').replace(/["'\u201C\u201D]$/,'').trim();
+        var raw = String(vals[i] !== undefined && vals[i] !== null ? vals[i] : '')
+          .replace(/^["'\u201C\u201D]/,'')
+          .replace(/["'\u201C\u201D]$/,'')
+          .trim();
 
         if (DATE_FIELDS.indexOf(h) !== -1 || DATE_FIELDS.indexOf(h.trim()) !== -1) {
           obj[h] = parseDate(raw);
@@ -195,11 +217,94 @@
         }
       });
 
-      if (!obj.id) obj.id = li;
+      if (!obj.id) obj.id = rowNumberOffset + ri + 1;
       if (!obj.notes) obj.notes = '';
       rows.push(obj);
     }
+
     return rows;
+  }
+
+  function parseCSV(text) {
+    // ── v4.1 : Suppression BOM UTF-8 et caractères invisibles ──────
+    // BOM UTF-8 : \uFEFF (souvent ajouté par Excel)
+    // Espaces invisibles : \u00A0 (non-breaking), \u200B (zero-width), \u202F, \u2060
+    text = text.replace(/^\uFEFF/, '');
+    text = text.replace(/\u00A0/g, ' ');
+    text = text.replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '');
+
+    var lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+    if (lines.length < 2) throw new Error('Fichier CSV vide ou invalide');
+
+    var firstNonEmptyLine = lines.find(function(line) { return String(line || '').trim(); }) || lines[0];
+    var sep = _detectSeparator(firstNonEmptyLine);
+    var headerRowIndex = _findHeaderRowIndex(lines, sep);
+    var headerLine = lines[headerRowIndex];
+    if (!headerLine || !String(headerLine).trim()) {
+      throw new Error('En-tête CSV introuvable');
+    }
+
+    var rawHeaders = _splitLine(headerLine, sep).map(_sanitizeHeader);
+
+    console.log('[ImportCSV v4.1] Séparateur détecté : "' + sep + '"');
+    if (headerRowIndex > 0) {
+      console.log('[ImportCSV v4.1] En-tête détecté à la ligne ' + (headerRowIndex + 1) + ' — lignes précédentes ignorées');
+    }
+    console.log('[ImportCSV v4.1] Headers détectés (' + rawHeaders.length + ') :', rawHeaders);
+
+    var matrixRows = [];
+    for (var li = headerRowIndex + 1; li < lines.length; li++) {
+      if (!String(lines[li] || '').trim()) continue;
+      matrixRows.push(_splitLine(lines[li], sep));
+    }
+
+    return _buildRows(rawHeaders, matrixRows, headerRowIndex + 1);
+  }
+
+  function parseWorkbook(arrayBuffer) {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('Librairie XLSX indisponible');
+    }
+
+    var workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    if (!workbook.SheetNames || !workbook.SheetNames.length) {
+      throw new Error('Workbook vide');
+    }
+
+    var bestRows = [];
+    var bestScore = -1;
+    var bestSheet = workbook.SheetNames[0];
+
+    workbook.SheetNames.forEach(function(sheetName) {
+      var sheet = workbook.Sheets[sheetName];
+      var matrix = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        raw: false,
+        defval: ''
+      });
+      if (!matrix || !matrix.length) return;
+
+      var headerIndex = 0;
+      var score = -1;
+      for (var i = 0; i < Math.min(matrix.length, 12); i++) {
+        var rowScore = _scoreHeaderCandidate(matrix[i]);
+        if (rowScore > score) {
+          score = rowScore;
+          headerIndex = i;
+        }
+      }
+
+      if (score < bestScore) return;
+      bestScore = score;
+      bestSheet = sheetName;
+
+      var rawHeaders = (matrix[headerIndex] || []).map(_sanitizeHeader);
+      var bodyRows = matrix.slice(headerIndex + 1);
+      bestRows = _buildRows(rawHeaders, bodyRows, headerIndex + 1);
+    });
+
+    console.log('[ImportCSV v4.1] Feuille importée : ' + bestSheet);
+    return bestRows;
   }
 
   /* ════════════════════════════════════════════════════════════════
@@ -406,7 +511,7 @@
     }
 
     if (typeof notify === 'function') {
-      notify('✅ Import CSV réussi', newData.length + ' projets chargés', 'success', 4000);
+      notify('✅ Import réussi', newData.length + ' projets chargés', 'success', 4000);
     }
     console.log('[ImportCSV] ✅ applyNewData() terminé —', newData.length, 'projets');
   }
@@ -425,45 +530,77 @@
       var file = e.target.files[0];
       if (!file) return;
 
-      if (!file.name.toLowerCase().endsWith('.csv') &&
-          file.type !== 'text/csv' && file.type !== 'application/csv') {
+      var fileName = file.name.toLowerCase();
+      var isCSV = fileName.endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/csv';
+      var isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ||
+        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.type === 'application/vnd.ms-excel';
+
+      if (!isCSV && !isExcel) {
         if (typeof notify === 'function')
-          notify('Erreur', 'Fichier CSV requis (.csv)', 'error', 0);
+          notify('Erreur', 'Fichier CSV ou Excel requis (.csv, .xlsx, .xls)', 'error', 0);
         e.target.value = '';
         return;
       }
 
       showLoader('Lecture du fichier…');
+
+      function finalizeImport(data, label) {
+        if (!data || data.length === 0) {
+          throw new Error('Aucun projet trouvé dans le fichier ' + label);
+        }
+
+        showLoader('Application des données (' + data.length + ' projets)…');
+        setTimeout(function() {
+          try {
+            applyNewData(data);
+          } catch(applyErr) {
+            console.error('[ImportCSV] applyNewData error:', applyErr);
+            if (typeof notify === 'function')
+              notify('Erreur application', applyErr.message, 'error', 0);
+          }
+          hideLoader();
+        }, 80);
+      }
+
+      if (isExcel) {
+        var excelReader = new FileReader();
+        excelReader.onload = function(ev) {
+          try {
+            showLoader('Analyse Excel…');
+            var data = parseWorkbook(ev.target.result);
+            finalizeImport(data, 'Excel');
+          } catch (err) {
+            hideLoader();
+            console.error('[ImportExcel] parseWorkbook error:', err);
+            if (typeof notify === 'function')
+              notify('Erreur import fichier', err.message, 'error', 0);
+          }
+          e.target.value = '';
+        };
+        excelReader.onerror = function() {
+          hideLoader();
+          if (typeof notify === 'function')
+            notify('Erreur lecture', 'Impossible de lire le fichier Excel', 'error', 0);
+        };
+        excelReader.readAsArrayBuffer(file);
+        return;
+      }
+
       var reader = new FileReader();
 
       reader.onload = function(ev) {
         try {
           showLoader('Analyse CSV…');
           var data = parseCSV(ev.target.result);
-          if (!data || data.length === 0)
-            throw new Error('Aucun projet trouvé dans le CSV');
-
-          showLoader('Application des données (' + data.length + ' projets)…');
-
-          // Délai court pour que le loader reste visible avant le re-rendu
-          setTimeout(function() {
-            try {
-              applyNewData(data);
-            } catch(applyErr) {
-              console.error('[ImportCSV] applyNewData error:', applyErr);
-              if (typeof notify === 'function')
-                notify('Erreur application', applyErr.message, 'error', 0);
-            }
-            hideLoader();
-          }, 80);
-
+          finalizeImport(data, 'CSV');
         } catch(err) {
           hideLoader();
           console.error('[ImportCSV] parseCSV error:', err);
           if (typeof notify === 'function')
             notify('Erreur import CSV', err.message, 'error', 0);
         }
-        e.target.value = '';  // reset pour pouvoir réimporter le même fichier
+        e.target.value = '';
       };
 
       reader.onerror = function() {
@@ -497,6 +634,7 @@
   window._csvImport = {
     applyNewData : applyNewData,
     parseCSV     : parseCSV,
+    parseWorkbook: parseWorkbook,
     validateSchema: validateSchema,
     normalizeAnnee: normalizeAnnee,
   };
