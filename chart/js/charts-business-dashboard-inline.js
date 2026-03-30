@@ -306,23 +306,35 @@
     var values = entries.map(function(e) { return e.value; });
     var colors = paletteFor(mode, values.length);
     var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
+    var primaryColor = colors[0] || 'rgba(0,212,170,.82)';
+    var dataset = {
+      label: title,
+      data: values,
+      borderWidth: chartType === 'line' ? 3 : 1,
+      maxBarThickness: opts.maxBarThickness || 28
+    };
+
+    if (chartType === 'line') {
+      dataset.borderColor = primaryColor.replace(/0\.[0-9]+\)/, '1)');
+      dataset.backgroundColor = primaryColor;
+      dataset.tension = .28;
+      dataset.fill = false;
+      dataset.pointRadius = 3;
+      dataset.pointHoverRadius = 4;
+      dataset.pointBackgroundColor = dataset.borderColor;
+      dataset.pointBorderColor = '#dce8f5';
+      dataset.pointBorderWidth = 1;
+    } else {
+      dataset.backgroundColor = colors;
+      dataset.borderColor = primaryColor.replace(/0\.[0-9]+\)/, '1)');
+      dataset.borderRadius = opts.indexAxis === 'y' ? 8 : 12;
+    }
 
     CM.create(id, {
       type: chartType,
       data: {
         labels: labels,
-        datasets: [{
-          label: title,
-          data: values,
-          backgroundColor: colors,
-          borderColor: colors.map(function(c) { return c.replace(/0\.[0-9]+\)/, '1)'); }),
-          borderWidth: 2,
-          tension: .28,
-          fill: false,
-          pointRadius: chartType === 'line' ? 3 : 0,
-          borderRadius: opts.indexAxis === 'y' ? 8 : 12,
-          maxBarThickness: opts.maxBarThickness || 28
-        }]
+        datasets: [dataset]
       },
       options: {
         indexAxis: opts.indexAxis,
@@ -355,6 +367,7 @@
         plugins: {
           legend: { display: false },
           tooltip: {
+            displayColors: false,
             callbacks: {
               label: tooltipFormatter(mode)
             }
