@@ -306,20 +306,8 @@ function _getProjects(useRaw) {
     // Étape 2 : appliquer les filtres additionnels
     projects = _applyExtraFilters(projects, extraFilters);
 
-    if (projects.length > 0) {
-      console.log(`[ChartDrillDown] _resolveProjects → ${projects.length} projets pour ${filterType}="${label}"${chartId ? ' ('+chartId+')' : ''}`);
-      return projects;
-    }
-
-    // Fallback : données filtrées vides → réessayer sur rawData
-    console.warn(`[ChartDrillDown] filteredData vide — fallback rawData pour ${filterType}="${label}"`);
-    const raw = (typeof AE !== 'undefined' && AE.getRaw) ? AE.getRaw() : [];
-    if (!raw.length) {
-      console.error('[ChartDrillDown] _resolveProjects : aucune source de données disponible');
-      return [];
-    }
-    const fromRaw = _filterByTypeAndLabel(raw, filterType, label, chartId);
-    return _applyExtraFilters(fromRaw, extraFilters);
+    console.log(`[ChartDrillDown] _resolveProjects → ${projects.length} projets pour ${filterType}="${label}"${chartId ? ' ('+chartId+')' : ''}`);
+    return projects;
   }
 
   /* ── Colonnes selon le contexte ─────────────────────────────── */
