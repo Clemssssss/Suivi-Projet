@@ -232,6 +232,32 @@
     return labels[mode] || mode;
   }
 
+  function performanceMetricFamily(view) {
+    if (view === 'won_count' || view === 'lost_count' || view === 'decided_count' || view === 'compare_status_count' || view === 'won_rate_count') {
+      return 'count';
+    }
+    return 'amount';
+  }
+
+  function resolvePerformanceDisplayMode(view, statusFilter) {
+    var family = performanceMetricFamily(view);
+    var selected = statusFilter || 'all';
+
+    if (selected === 'all') {
+      return family === 'count' ? 'compare_status_count' : 'compare_status_amount';
+    }
+    if (selected === 'won') {
+      return family === 'count' ? 'won_count' : 'won_amount';
+    }
+    if (selected === 'lost') {
+      return family === 'count' ? 'lost_count' : 'lost_amount';
+    }
+    if (selected === 'offer') {
+      return family === 'count' ? 'offer_count' : 'pipe_bud';
+    }
+    return view;
+  }
+
   function createAggregateEntries(projects, dimension, mode, limit) {
     var buckets = {};
     var accessor = {
@@ -615,12 +641,14 @@
   function renderPerformance(rawFiltered, rawAll) {
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
     var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'year';
+    var statusFilter = (document.getElementById('biz-performance-status-filter') || {}).value || 'all';
+    var displayMode = resolvePerformanceDisplayMode(view, statusFilter);
     var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
-    var activeYear = resolveReferenceYear(baseVisible, view);
+    var activeYear = resolveReferenceYear(baseVisible, displayMode);
     var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
     var filteredAll = baseVisible.slice();
 
-    updateTitles('biz-title-perf-', view);
+    updateTitles('biz-title-perf-', displayMode);
     var monthHint = document.getElementById('biz-hint-perf-month');
     if (monthHint) monthHint.textContent = 'Annee active ' + activeYear + ' uniquement';
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
@@ -632,53 +660,53 @@
     renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(filteredYear, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', filteredYear.filter(isDecided), 'Taux de transformation € — annee ' + activeYear, 'won_rate_amount');
     renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — annee ' + activeYear, 'decided_count');
 
-    if (view === 'compare_status_amount' || view === 'compare_status_count') {
-      createComparisonChart('biz-chart-perf-month', modeLabel(view) + ' par mois', createComparisonMonthlyEntries(filteredYear, view, activeYear), view, {
+    if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
+      createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', createComparisonMonthlyEntries(filteredYear, displayMode, activeYear), displayMode, {
         maxBarThickness: 18
       });
-      createComparisonChart('biz-chart-perf-zone', modeLabel(view) + ' par zone', createComparisonAggregateEntries(filteredYear, 'zone', view, 10), view, {
+      createComparisonChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createComparisonAggregateEntries(filteredYear, 'zone', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
-      createComparisonChart('biz-chart-perf-client', modeLabel(view) + ' par client', createComparisonAggregateEntries(filteredYear, 'client', view, 10), view, {
+      createComparisonChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createComparisonAggregateEntries(filteredYear, 'client', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
-      createComparisonChart('biz-chart-perf-type', modeLabel(view) + ' par type', createComparisonAggregateEntries(filteredYear, 'type', view, 10), view, {
+      createComparisonChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createComparisonAggregateEntries(filteredYear, 'type', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
       createComparisonChart(
         'biz-chart-perf-zone-client',
-        modeLabel(view) + ' zone / client',
-        createComparisonComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', view, 12),
-        view,
+        modeLabel(displayMode) + ' zone / client',
+        createComparisonComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
+        displayMode,
         { indexAxis: 'y' }
       );
-      createComparisonChart('biz-chart-perf-client-type', modeLabel(view) + ' client / type', createComparisonComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {
+      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComparisonComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
         indexAxis: 'y'
       });
       return;
     }
 
-    createChart('biz-chart-perf-month', modeLabel(view) + ' par mois', createMonthlyEntries(filteredYear, view, activeYear), view, {
-      type: (view === 'won_rate_amount' || view === 'won_rate_count') ? 'line' : 'bar',
+    createChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', createMonthlyEntries(filteredYear, displayMode, activeYear), displayMode, {
+      type: (displayMode === 'won_rate_amount' || displayMode === 'won_rate_count') ? 'line' : 'bar',
       maxBarThickness: 24
     });
-    createChart('biz-chart-perf-zone', modeLabel(view) + ' par zone', createAggregateEntries(filteredYear, 'zone', view, 10), view, {
+    createChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createAggregateEntries(filteredYear, 'zone', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-perf-client', modeLabel(view) + ' par client', createAggregateEntries(filteredYear, 'client', view, 10), view, {
+    createChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createAggregateEntries(filteredYear, 'client', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-perf-type', modeLabel(view) + ' par type', createAggregateEntries(filteredYear, 'type', view, 10), view, {
+    createChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createAggregateEntries(filteredYear, 'type', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
     createChart(
       'biz-chart-perf-zone-client',
-      modeLabel(view) + ' zone / client',
-      createComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', view, 12),
-      view,
+      modeLabel(displayMode) + ' zone / client',
+      createComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
+      displayMode,
       { indexAxis: 'y' }
     );
-    createChart('biz-chart-perf-client-type', modeLabel(view) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {
+    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
       indexAxis: 'y'
     });
   }
@@ -757,7 +785,7 @@
   }
 
   function bindControls() {
-    ['biz-performance-view', 'biz-performance-combo-scope', 'biz-pipe-view'].forEach(function(id) {
+    ['biz-performance-view', 'biz-performance-combo-scope', 'biz-performance-status-filter', 'biz-pipe-view'].forEach(function(id) {
       var el = document.getElementById(id);
       if (!el || el._businessBound) return;
       el._businessBound = true;
