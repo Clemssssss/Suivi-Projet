@@ -102,6 +102,74 @@
     }
   }
 
+  function _schemaFor(chartId) {
+    if (!_chartCfgState[chartId]) return null;
+    var schema = {};
+    document.querySelectorAll('.chart-cfg-panel select[data-cfg-key="' + chartId + '"]').forEach(function(sel) {
+      var axis = sel.dataset.cfgAxis;
+      schema[axis] = {
+        label: (sel.closest('.chart-cfg-row') && sel.closest('.chart-cfg-row').querySelector('label'))
+          ? sel.closest('.chart-cfg-row').querySelector('label').textContent.trim()
+          : axis,
+        current: _chartCfgState[chartId].axis[axis],
+        defaultValue: _chartCfgState[chartId].defaults[axis],
+        options: Array.from(sel.options || []).map(function(opt) {
+          return { value: opt.value, label: opt.textContent.trim() };
+        })
+      };
+    });
+    return schema;
+  }
+
+  function _applyConfigState(chartId, partial, opts) {
+    if (!_chartCfgState[chartId]) return false;
+    _chartCfgState[chartId].axis = Object.assign({}, _chartCfgState[chartId].axis, partial || {});
+    document.querySelectorAll('.chart-cfg-panel select[data-cfg-key="' + chartId + '"]').forEach(function(sel) {
+      var axis = sel.dataset.cfgAxis;
+      if (_chartCfgState[chartId].axis[axis] != null) {
+        sel.value = _chartCfgState[chartId].axis[axis];
+      }
+    });
+    if (opts && opts.skipRender) return true;
+    var data = (typeof AE !== 'undefined') ? AE.getFiltered() : (window.DATA || []);
+    _renderConfigurableChart(chartId, data);
+    return true;
+  }
+
+  function _resetConfigState(chartId) {
+    if (!_chartCfgState[chartId]) return false;
+    _chartCfgState[chartId].axis = Object.assign({}, _chartCfgState[chartId].defaults);
+    return _applyConfigState(chartId, _chartCfgState[chartId].axis);
+  }
+
+  window.ChartConfigBridge = {
+    hasChart: function(chartId) {
+      return !!_chartCfgState[chartId];
+    },
+    listCharts: function() {
+      return Object.keys(_chartCfgState);
+    },
+    getConfig: function(chartId) {
+      return _chartCfgState[chartId] ? Object.assign({}, _chartCfgState[chartId].axis) : null;
+    },
+    getDefaults: function(chartId) {
+      return _chartCfgState[chartId] ? Object.assign({}, _chartCfgState[chartId].defaults) : null;
+    },
+    getSchema: function(chartId) {
+      return _schemaFor(chartId);
+    },
+    applyConfig: function(chartId, partial, opts) {
+      return _applyConfigState(chartId, partial, opts);
+    },
+    resetConfig: function(chartId) {
+      return _resetConfigState(chartId);
+    },
+    rerender: function(chartId) {
+      var data = (typeof AE !== 'undefined') ? AE.getFiltered() : (window.DATA || []);
+      _renderConfigurableChart(chartId, data);
+    }
+  };
+
   /* ── Helpers ── */
   function _groupBy(data, field, valueFn) {
     var map = {};
