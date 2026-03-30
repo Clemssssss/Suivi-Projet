@@ -51,6 +51,66 @@ window.DashboardState = (() => {
     return 'user::' + _userKey();
   }
 
+  function _getRawProjects() {
+    if (typeof AE !== 'undefined' && AE.getRaw) return AE.getRaw() || [];
+    return window.DATA || [];
+  }
+
+  function _projectMatchesFilter(project, filter) {
+    if (!project || !filter || !filter.type) return false;
+    var type = filter.type;
+    var value = String(filter.value == null ? '' : filter.value).trim();
+    if (!value) return false;
+
+    if (type === 'Statut') {
+      if (typeof ProjectUtils !== 'undefined' && ProjectUtils.getStatus) {
+        var status = ProjectUtils.getStatus(project);
+        if (status === value) return true;
+        if (ProjectUtils.parseStatusKey && ProjectUtils.parseStatusKey(value) === status) return true;
+      }
+      return String(project.Statut || '').trim() === value;
+    }
+
+    return String(project[type] == null ? '' : project[type]).trim() === value;
+  }
+
+  function _yearExists(yearValue) {
+    var year = String(yearValue || '').trim();
+    if (!year) return false;
+    return _getRawProjects().some(function(project) {
+      var rawYear = project && project._annee != null ? String(project._annee).trim() : '';
+      return rawYear === year;
+    });
+  }
+
+  function _filterExists(filter) {
+    return _getRawProjects().some(function(project) {
+      return _projectMatchesFilter(project, filter);
+    });
+  }
+
+  function _resetInvalidStateIfEmpty() {
+    var raw = _getRawProjects();
+    if (!raw.length || typeof AE === 'undefined' || !AE.getFiltered) return;
+    var filtered = AE.getFiltered();
+    if (filtered.length) return;
+
+    console.warn('[DashboardState] Etat restaure vide — reset des filtres/annee obsoletes');
+
+    if (typeof FilterManager !== 'undefined' && FilterManager.clearAll) {
+      try { FilterManager.clearAll(); } catch (_) {}
+    }
+    if (typeof AE.clearAll === 'function') {
+      try { AE.clearAll(); } catch (_) {}
+    }
+
+    var yearFilter = document.getElementById('year-filter');
+    if (yearFilter) {
+      yearFilter.value = '';
+      yearFilter.dispatchEvent(new Event('change'));
+    }
+  }
+
   function _write(state) {
     _cachedState = state || {};
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -160,6 +220,10 @@ window.DashboardState = (() => {
     if (state.filters && state.filters.length && typeof FilterManager !== 'undefined') {
       state.filters.forEach(f => {
         if (f.type && f.value) {
+          if (!_filterExists(f)) {
+            console.warn('[DashboardState] Filtre ignore (obsolete):', f.type, f.value);
+            return;
+          }
           FilterManager.toggleFilter(f.type, f.value, f.label || f.value);
         }
       });
@@ -177,9 +241,11 @@ window.DashboardState = (() => {
     // 5. Année
     if (state.activeYear) {
       const yearFilter = document.getElementById('year-filter');
-      if (yearFilter) {
+      if (yearFilter && _yearExists(state.activeYear)) {
         yearFilter.value = state.activeYear;
         yearFilter.dispatchEvent(new Event('change'));
+      } else {
+        console.warn('[DashboardState] Annee ignoree (obsolete):', state.activeYear);
       }
     }
 
@@ -191,6 +257,8 @@ window.DashboardState = (() => {
         dateField.dispatchEvent(new Event('change'));
       }
     }
+
+    setTimeout(_resetInvalidStateIfEmpty, 80);
 
     console.log('[DashboardState] État restauré');
   }

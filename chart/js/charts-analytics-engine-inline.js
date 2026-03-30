@@ -1562,6 +1562,28 @@ function rebuildYearSelectFromData(data) {
   }
 }
 
+function sanitizeDashboardSelectionState() {
+  if (typeof AE === 'undefined' || typeof AE.getRaw !== 'function' || typeof AE.getFiltered !== 'function') return;
+  const raw = AE.getRaw() || [];
+  if (!raw.length) return;
+  if (AE.getFiltered().length) return;
+
+  console.warn('[DashboardState] Etat URL/restaure vide — reset securise');
+
+  if (typeof FilterManager !== 'undefined' && typeof FilterManager.clearAll === 'function') {
+    try { FilterManager.clearAll(); } catch (_) {}
+  }
+  if (typeof AE.clearAll === 'function') {
+    try { AE.clearAll(); } catch (_) {}
+  }
+
+  const ys = document.getElementById('year-filter');
+  if (ys) ys.value = '';
+  if (typeof AE.setYear === 'function') {
+    try { AE.setYear(''); } catch (_) {}
+  }
+}
+
 function setDashboardData(newData, options) {
   const opts = options || {};
   const source = Array.isArray(newData) ? newData : [];
@@ -1702,6 +1724,7 @@ function update() {
       }
     }
     AE.loadFromURL();
+    setTimeout(sanitizeDashboardSelectionState, 40);
 
   // ── Initialiser ChartFilterController ──────────────────────────
   // Doit être fait AVANT createAllCharts pour que registerChart fonctionne.

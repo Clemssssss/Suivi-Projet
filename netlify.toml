@@ -1,6 +1,9 @@
 [functions]
   directory = "netlify/functions"
 
+[build]
+  edge_functions = "netlify/edge-functions"
+
 [[headers]]
   for = "/chart/*"
   [headers.values]
@@ -20,3 +23,11 @@
   from = "/chart"
   to = "/chart/login.html"
   status = 302
+
+[[edge_functions]]
+  path = "/chart/chart.html"
+  function = "auth-gate"
+
+[[edge_functions]]
+  path = "/chart/logs.html"
+  function = "auth-gate"

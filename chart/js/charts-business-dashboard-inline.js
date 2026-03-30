@@ -305,9 +305,10 @@
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
     var colors = paletteFor(mode, values.length);
+    var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
 
     CM.create(id, {
-      type: opts.type || ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'),
+      type: chartType,
       data: {
         labels: labels,
         datasets: [{
@@ -318,7 +319,7 @@
           borderWidth: 2,
           tension: .28,
           fill: false,
-          pointRadius: (opts.type === 'line' || mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 3 : 0,
+          pointRadius: chartType === 'line' ? 3 : 0,
           borderRadius: opts.indexAxis === 'y' ? 8 : 12,
           maxBarThickness: opts.maxBarThickness || 28
         }]
