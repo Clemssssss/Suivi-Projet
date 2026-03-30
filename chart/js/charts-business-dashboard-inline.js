@@ -215,31 +215,37 @@
 
   function modeLabel(mode) {
     var labels = {
+      amount: 'Montant',
+      count: 'Nombre de dossiers',
       won_amount: '€ gagnés',
       lost_amount: '€ perdus',
       decided_amount: '€ gagnés + perdus',
-      compare_status_amount: 'Comparatif €',
+      compare_status_amount: '€ gagnés / perdus / offre',
       won_rate_amount: 'Taux de transfo €',
       won_count: 'Nb gagnés',
       lost_count: 'Nb perdus',
       decided_count: 'Nb gagnés + perdus',
-      compare_status_count: 'Comparatif dossiers',
+      compare_status_count: 'Dossiers gagnés / perdus / offre',
       won_rate_count: 'Taux de transfo dossiers',
-      pipe_bud: 'Pipe Bud',
-      pipe_weighted: 'Pipe CA win proba',
-      pipe_ratio: 'Pipe % CA win proba / Bud'
+      pipe_bud: '€ Remis + En étude',
+      pipe_weighted: '€ Remis + En étude',
+      pipe_ratio: '% Remis + En étude'
     };
     return labels[mode] || mode;
   }
 
   function performanceMetricFamily(view) {
-    if (view === 'won_count' || view === 'lost_count' || view === 'decided_count' || view === 'compare_status_count' || view === 'won_rate_count') {
+    if (view === 'count' || view === 'won_count' || view === 'lost_count' || view === 'decided_count' || view === 'compare_status_count' || view === 'won_rate_count') {
       return 'count';
     }
     return 'amount';
   }
 
   function resolvePerformanceDisplayMode(view, statusFilter) {
+    if (view === 'won_rate_amount' || view === 'won_rate_count') {
+      return 'won_rate_amount';
+    }
+
     var family = performanceMetricFamily(view);
     var selected = statusFilter || 'all';
 
@@ -251,6 +257,9 @@
     }
     if (selected === 'lost') {
       return family === 'count' ? 'lost_count' : 'lost_amount';
+    }
+    if (selected === 'decided') {
+      return family === 'count' ? 'decided_count' : 'decided_amount';
     }
     if (selected === 'offer') {
       return family === 'count' ? 'offer_count' : 'pipe_bud';
@@ -717,12 +726,18 @@
     var activeYear = resolveReferenceYear(baseVisible, view);
     var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
     var offers = filteredYear.filter(isOffer);
+    var totalLabel = view === 'pipe_ratio' ? '% Remis + En étude total' : '€ Remis + En étude total';
+    var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
+    var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
+    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
+    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / zone géographique' : 'Remis + En étude par client / zone géographique';
+    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / type de chantier' : 'Remis + En étude par client / type de chantier';
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', 'Pipe Bud actif', computeValue(filteredYear, 'pipe_bud'), 'Offres en cours — base Bud', offers, 'Pipe commercial Bud', 'pipe_bud');
-    renderKpi('biz-kpi-pipe-weighted', 'Pipe CA win proba', computeValue(filteredYear, 'pipe_weighted'), 'Somme CA win proba sur offres en cours', offers, 'Pipe commercial CA win proba', 'pipe_weighted');
-    renderKpi('biz-kpi-pipe-ratio', 'Pipe % CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Ponderation globale du pipe actif', offers, 'Pipe commercial ratio', 'pipe_ratio');
+    renderKpi('biz-kpi-pipe-bud', totalLabel, computeValue(filteredYear, view), 'Statut Remis + En étude', offers, modeLabel(view) + ' total', view);
+    renderKpi('biz-kpi-pipe-weighted', 'Base sélectionnée', view === 'pipe_bud' ? computeValue(filteredYear, 'pipe_bud') : computeValue(filteredYear, 'pipe_weighted'), view === 'pipe_bud' ? 'Colonne Bud' : 'Colonne CA win proba', offers, modeLabel(view) + ' base', view === 'pipe_bud' ? 'pipe_bud' : 'pipe_weighted');
+    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio', 'pipe_ratio');
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(filteredYear, 'zone', view, 10), view, {
       indexAxis: 'y'
@@ -738,6 +753,20 @@
     });
     createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {
       indexAxis: 'y'
+    });
+
+    var hints = {
+      'biz-title-pipe-zone': zoneHint,
+      'biz-title-pipe-client': clientHint,
+      'biz-title-pipe-type': typeHint,
+      'biz-title-pipe-zone-client': zoneClientHint,
+      'biz-title-pipe-client-type': clientTypeHint
+    };
+    Object.keys(hints).forEach(function(id) {
+      var titleEl = document.getElementById(id);
+      if (titleEl && titleEl.parentElement && titleEl.parentElement.nextElementSibling) {
+        titleEl.parentElement.nextElementSibling.textContent = hints[id];
+      }
     });
   }
 
