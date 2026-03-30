@@ -9,12 +9,12 @@
  *  Contenu du PDF :
  *   ① Page de couverture  — titre, date, période, filtres actifs
  *   ② KPI stratégiques    — 6 métriques clés
- *   ③ Graphiques          — capture haute résolution, 1-2/page
+ *   ③ Graphiques          — sélection libre, 1 / 2 / 4 par page
  *   ④ Tableau synthèse    — projets filtrés (optionnel)
  *
  *  Usage :
- *   DashboardPDF.export()              — export complet
- *   DashboardPDF.export({ noTable })   — sans tableau
+ *   DashboardPDF.export()              — ouvre le composeur PDF
+ *   DashboardPDF.export({ noTable })   — préremplit sans tableau
  *
  *  Dépendances :
  *   - jsPDF  (chargé dynamiquement depuis CDN si absent)
@@ -475,20 +475,101 @@ window.DashboardPDF = (() => {
    *   ✅ Titre du graphique en bandeau
    *   ✅ Analyse contextuelle si ChartAnalysis disponible
    */
-  async function _buildChartPages(doc, startPage) {
-    const canvases = Array.from(document.querySelectorAll('canvas[id]'))
-      .filter(c => c.offsetParent !== null && (c.width || 0) > 50 && (c.height || 0) > 50);
+  function _listExportableCharts() {
+    return Array.from(document.querySelectorAll('canvas[id]'))
+      .filter(c => c.offsetParent !== null && (c.width || 0) > 50 && (c.height || 0) > 50)
+      .map(canvas => {
+        const card = canvas.closest('.chart-card, .chart-section, [class*="card"]');
+        const title = card
+          ?.querySelector('h3, h4, .chart-title, .card-title')?.textContent?.trim()
+          || canvas.id.replace(/-/g, ' ').replace(/\bchart\b/gi, '').trim();
+        return { id: canvas.id, canvas, title: _safeText(title || canvas.id) };
+      });
+  }
 
+  function _createExportDialog(charts) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(3,8,15,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:1rem;';
+      const modal = document.createElement('div');
+      modal.style.cssText = 'width:min(920px,100%);max-height:min(88vh,900px);overflow:hidden;border-radius:20px;border:1px solid rgba(0,212,170,.2);background:linear-gradient(180deg,#0c1524,#0b1220);box-shadow:0 28px 80px rgba(0,0,0,.55);display:flex;flex-direction:column;';
+      const rows = charts.map(function(chart, index) {
+        return '<label style="display:flex;align-items:flex-start;gap:.75rem;padding:.7rem .8rem;border:1px solid rgba(255,255,255,.06);border-radius:12px;background:rgba(255,255,255,.02);cursor:pointer;">'
+          + '<input type="checkbox" data-pdf-chart="' + chart.id + '" ' + (index < 8 ? 'checked' : '') + ' style="margin-top:.15rem;accent-color:#00d4aa;">'
+          + '<span style="display:flex;flex-direction:column;gap:.18rem;">'
+          + '<span style="color:#dce8f5;font:600 .86rem var(--sans, system-ui);">' + chart.title + '</span>'
+          + '<span style="color:#6b7f96;font:500 .68rem var(--mono, monospace);">' + chart.id + '</span>'
+          + '</span></label>';
+      }).join('');
+      modal.innerHTML =
+        '<div style="padding:1rem 1.1rem;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;">'
+        + '<div><div style="color:#dce8f5;font:700 1.05rem var(--serif, Georgia, serif);">Composer le PDF</div>'
+        + '<div style="color:#8fa6bf;font:500 .82rem var(--sans, system-ui);margin-top:.25rem;">Choisis les graphiques à exporter et combien tu veux en mettre sur chaque page.</div></div>'
+        + '<button type="button" data-pdf-close style="border:none;background:transparent;color:#8fa6bf;font-size:1.15rem;cursor:pointer;">✕</button></div>'
+        + '<div style="padding:1rem 1.1rem;display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:1rem;overflow:auto;">'
+        + '<div><div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;">'
+        + '<button type="button" data-pdf-all class="btn-hdr">Tout sélectionner</button>'
+        + '<button type="button" data-pdf-none class="btn-hdr">Tout retirer</button>'
+        + '<button type="button" data-pdf-business class="btn-hdr">Graphiques métier</button>'
+        + '</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem;max-height:52vh;overflow:auto;padding-right:.2rem;">'
+        + rows
+        + '</div></div>'
+        + '<div style="display:flex;flex-direction:column;gap:.9rem;">'
+        + '<label style="display:flex;flex-direction:column;gap:.35rem;"><span style="color:#8fa6bf;font:600 .66rem var(--mono, monospace);text-transform:uppercase;letter-spacing:.06em;">Graphiques par page</span>'
+        + '<select id="pdf-charts-per-page" style="min-height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:#101928;color:#dce8f5;padding:.7rem .8rem;"><option value="1">1 par page</option><option value="2" selected>2 par page</option><option value="4">4 par page</option></select></label>'
+        + '<label style="display:flex;align-items:flex-start;gap:.55rem;color:#dce8f5;font-size:.86rem;"><input type="checkbox" id="pdf-include-table" checked style="margin-top:.2rem;accent-color:#00d4aa;"><span>Inclure le tableau des projets filtrés</span></label>'
+        + '<div style="padding:.75rem;border-radius:14px;background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);color:#9fd9ff;font:.76rem var(--sans, system-ui);line-height:1.45;">Astuce : 2 par page donne en général le meilleur compromis entre lisibilité et densité.</div>'
+        + '<div style="display:flex;gap:.55rem;flex-wrap:wrap;margin-top:auto;">'
+        + '<button type="button" data-pdf-cancel class="btn-hdr" style="flex:1 1 120px;">Annuler</button>'
+        + '<button type="button" data-pdf-start class="btn-hdr" style="flex:1 1 160px;background:linear-gradient(135deg,rgba(0,212,170,.22),rgba(0,153,255,.14));border-color:rgba(0,212,170,.45);color:#00d4aa;">Générer le PDF</button>'
+        + '</div></div></div>';
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      function close(payload) { overlay.remove(); resolve(payload); }
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) close(null); });
+      modal.querySelector('[data-pdf-close]').addEventListener('click', function() { close(null); });
+      modal.querySelector('[data-pdf-cancel]').addEventListener('click', function() { close(null); });
+      modal.querySelector('[data-pdf-all]').addEventListener('click', function() {
+        modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) { input.checked = true; });
+      });
+      modal.querySelector('[data-pdf-none]').addEventListener('click', function() {
+        modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) { input.checked = false; });
+      });
+      modal.querySelector('[data-pdf-business]').addEventListener('click', function() {
+        modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) {
+          input.checked = input.getAttribute('data-pdf-chart').indexOf('biz-chart-') === 0;
+        });
+      });
+      modal.querySelector('[data-pdf-start]').addEventListener('click', function() {
+        const selectedChartIds = Array.from(modal.querySelectorAll('[data-pdf-chart]:checked')).map(function(input) {
+          return input.getAttribute('data-pdf-chart');
+        });
+        if (!selectedChartIds.length) {
+          alert('Sélectionne au moins un graphique pour générer le PDF.');
+          return;
+        }
+        close({
+          selectedChartIds: selectedChartIds,
+          chartsPerPage: parseInt(modal.querySelector('#pdf-charts-per-page').value, 10) || 2,
+          noTable: !modal.querySelector('#pdf-include-table').checked
+        });
+      });
+    });
+  }
+
+  async function _buildChartPages(doc, startPage, options) {
+    options = options || {};
+    const allCharts = _listExportableCharts();
+    const selectedIds = Array.isArray(options.selectedChartIds) && options.selectedChartIds.length ? new Set(options.selectedChartIds) : null;
+    const canvases = allCharts.filter(item => !selectedIds || selectedIds.has(item.id)).map(item => item.canvas);
     if (!canvases.length) return startPage;
 
-    const docW   = doc.internal.pageSize.getWidth();   // 210 mm A4
-    const docH   = doc.internal.pageSize.getHeight();  // 297 mm A4
+    const docW   = doc.internal.pageSize.getWidth();
     const MARGIN = 14;
-    const AVAIL  = docW - MARGIN * 2;                  // ~182 mm
-
+    const AVAIL  = docW - MARGIN * 2;
     let pageNum = startPage;
 
-    /* ── Résoudre l'instance Chart.js ─────────────────────────────── */
     function _resolveInst(canvas) {
       if (typeof ChartsEnrichis !== 'undefined' && ChartsEnrichis.charts) {
         const inst = ChartsEnrichis.charts[canvas.id];
@@ -507,194 +588,126 @@ window.DashboardPDF = (() => {
       return null;
     }
 
-    /* ── Capture directe et fiable ─────────────────────────────────
-       IMPORTANT : ne jamais cloner la config via JSON.stringify —
-       Chart.js 4.x stocke des fonctions qui seraient perdues → PNG blanc.
-       On désactive l'animation, force le rendu, puis lit toDataURL().
-    ── */
     function _captureCanvas(canvas) {
       const inst = _resolveInst(canvas);
       if (inst) {
-        const savedAnim      = inst.options.animation;
+        const savedAnim = inst.options.animation;
         const savedResponsive = inst.options.responsive;
         try {
-          inst.options.animation  = false;
+          inst.options.animation = false;
           inst.options.responsive = false;
           inst.update('none');
           const dataURL = inst.canvas.toDataURL('image/png', 1.0);
-          inst.options.animation  = savedAnim;
+          inst.options.animation = savedAnim;
           inst.options.responsive = savedResponsive;
-          return {
-            dataURL,
-            width:  inst.canvas.width  || canvas.offsetWidth  || 600,
-            height: inst.canvas.height || canvas.offsetHeight || 300,
-            inst
-          };
+          return { dataURL, width: inst.canvas.width || canvas.offsetWidth || 600, height: inst.canvas.height || canvas.offsetHeight || 300, inst };
         } catch (e) {
-          inst.options.animation  = savedAnim;
+          inst.options.animation = savedAnim;
           inst.options.responsive = savedResponsive;
           console.warn('[DashboardPDF] update/toDataURL échoué pour', canvas.id, e);
         }
       }
       try {
-        return {
-          dataURL: canvas.toDataURL('image/png', 1.0),
-          width:   canvas.width  || 600,
-          height:  canvas.height || 300,
-          inst:    null
-        };
+        return { dataURL: canvas.toDataURL('image/png', 1.0), width: canvas.width || 600, height: canvas.height || 300, inst: null };
       } catch (e) {
         console.warn('[DashboardPDF] toDataURL fallback échoué pour', canvas.id, e);
         return null;
       }
     }
 
-    /* ── Rendu légende sous le graphique ───────────────────────────
-       Lit les labels/couleurs du dataset Chart.js et dessine des
-       pastilles colorées + textes, sur 4 colonnes max.
-    ── */
-    function _drawLegend(doc, inst, x, y, maxW) {
-      if (!inst || !inst.data || !inst.data.labels) return y;
-      const labels   = inst.data.labels;
-      const ds       = inst.data.datasets[0];
-      if (!labels.length || !ds) return y;
-
-      const bgColors = Array.isArray(ds.backgroundColor)
-        ? ds.backgroundColor
-        : labels.map(() => ds.backgroundColor || '#0099ff');
-
-      const ITEM_H = 5.5;
-      const COLS   = Math.min(Math.max(labels.length, 1), 4);
-      const ITEM_W = maxW / COLS;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-
-      let col = 0, row = 0;
-      labels.forEach((lbl, i) => {
-        const ix = x + col * ITEM_W;
-        const iy = y + row * ITEM_H;
-
-        // Pastille couleur
-        const rawColor = String(bgColors[i] || '#0099ff');
-        let r = 0, g = 153, b = 255;
-        const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-        if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
-        else if (rawColor.startsWith('#') && rawColor.length >= 7) {
-          r = parseInt(rawColor.slice(1,3),16);
-          g = parseInt(rawColor.slice(3,5),16);
-          b = parseInt(rawColor.slice(5,7),16);
-        }
-        doc.setFillColor(r, g, b);
-        doc.circle(ix + 1.8, iy - 1.2, 1.5, 'F');
-
-        doc.setTextColor(...C.pale);
-        _docText(doc, _safeText(String(lbl)).substring(0, 20), ix + 5.5, iy);
-
-        col++;
-        if (col >= COLS) { col = 0; row++; }
-      });
-
-      return y + Math.ceil(labels.length / COLS) * ITEM_H + 4;
+    function _getLayout(count) {
+      if (count >= 4) {
+        const half = (AVAIL - 4) / 2;
+        return { perPage: 4, cells: [
+          { x: MARGIN, y: 18, w: half, h: 118 },
+          { x: MARGIN + half + 4, y: 18, w: half, h: 118 },
+          { x: MARGIN, y: 142, w: half, h: 118 },
+          { x: MARGIN + half + 4, y: 142, w: half, h: 118 }
+        ] };
+      }
+      if (count === 1) return { perPage: 1, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 238 }] };
+      return { perPage: 2, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 114 }, { x: MARGIN, y: 141, w: AVAIL, h: 114 }] };
     }
 
-    /* ── Boucle principale : 1 graphique par page ─────────────────── */
-    let chartIdx = 0;
+    function _drawChartCard(cell, canvas, captured, index, total) {
+      const card = canvas.closest('.chart-card, .chart-section, [class*="card"]');
+      const title = card?.querySelector('h3, h4, .chart-title, .card-title')?.textContent?.trim()
+        || canvas.id.replace(/-/g, ' ').replace(/\bchart\b/gi, '').trim();
+      const imgData = captured.dataURL;
+      const cw = captured.width;
+      const ch = captured.height;
+      const inst = captured.inst;
+      doc.setFillColor(...C.card);
+      doc.roundedRect(cell.x, cell.y, cell.w, cell.h, 2, 2, 'F');
+      doc.setFillColor(...C.brand);
+      doc.roundedRect(cell.x, cell.y, 3, 9, 0.5, 0.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(cell.w < 100 ? 7.3 : 8.5);
+      doc.setTextColor(...C.snow);
+      _docText(doc, title || canvas.id, cell.x + 7, cell.y + 6);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.dust);
+      _docText(doc, index + ' / ' + total, cell.x + cell.w - 4, cell.y + 6, { align: 'right' });
 
-    for (const canvas of canvases) {
-      _setProgress(
-        30 + Math.round(chartIdx / canvases.length * 55),
-        `Capture : ${canvas.id}…`
-      );
-      chartIdx++;
-
-      const captured = _captureCanvas(canvas);
-      if (!captured || !captured.dataURL || captured.dataURL === 'data:,') {
-        console.warn('[DashboardPDF] Canvas ignoré (vide):', canvas.id);
-        continue;
+      const pad = 4;
+      const imgTop = cell.y + 12;
+      const imgW = cell.w - pad * 2;
+      let imgH = Math.round(imgW * ((ch || 1) / (cw || 1)));
+      const maxH = cell.h - (inst ? 18 : 12);
+      if (imgH > maxH) imgH = maxH;
+      if (imgH < 28) imgH = 28;
+      try {
+        doc.addImage(imgData, 'PNG', cell.x + pad, imgTop, imgW, imgH);
+      } catch (e) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...C.dust);
+        _docText(doc, '[Graphique non rendu]', cell.x + (cell.w / 2), imgTop + 20, { align: 'center' });
       }
 
-      const { dataURL: imgData, width: cw, height: ch, inst } = captured;
+      if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
+        const labels = inst.data.labels.slice(0, cell.w < 100 ? 4 : 6);
+        const ds = inst.data.datasets[0] || {};
+        const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(() => ds.backgroundColor || '#0099ff');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        labels.forEach(function(lbl, idx) {
+          const rawColor = String(colors[idx] || '#0099ff');
+          let r = 0, g = 153, b = 255;
+          const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+          if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
+          const cols = cell.w < 100 ? 1 : 2;
+          const lx = cell.x + pad + ((idx % cols) * ((imgW - 6) / cols));
+          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 4.2);
+          doc.setFillColor(r, g, b);
+          doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
+          doc.setTextColor(...C.pale);
+          _docText(doc, _safeText(String(lbl)).substring(0, cell.w < 100 ? 14 : 18), lx + 3.2, ly);
+        });
+      }
+    }
 
-      // ── Nouvelle page pour chaque graphique ──────────────────────
+    const layout = _getLayout(options.chartsPerPage || 2);
+    let chartIdx = 0;
+    while (chartIdx < canvases.length) {
       doc.addPage();
       _drawPageBg(doc);
       pageNum++;
-      let y = MARGIN;
-
-      // ── Titre ────────────────────────────────────────────────────
-      const card  = canvas.closest('.chart-card, .chart-section, [class*="card"]');
-      const title = card
-        ?.querySelector('h3, h4, .chart-title, .card-title')?.textContent?.trim()
-        || canvas.id.replace(/-/g, ' ').replace(/\bchart\b/gi, '').trim();
-
-      doc.setFillColor(...C.card);
-      doc.roundedRect(MARGIN, y, AVAIL, 9, 1.5, 1.5, 'F');
-      doc.setFillColor(...C.brand);
-      doc.roundedRect(MARGIN, y, 3, 9, 0.5, 0.5, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...C.snow);
-      _docText(doc, title || canvas.id, MARGIN + 7, y + 6);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(...C.dust);
-      _docText(doc, `${chartIdx} / ${canvases.length}`, docW - MARGIN, y + 6, { align: 'right' });
-      y += 13;
-
-      // ── Image — proportions exactes du canvas original ───────────
-      // ratio = hauteur/largeur en pixels réels → appliqué sur la largeur PDF disponible
-      const ratio = (ch || 1) / (cw || 1);
-      const maxH  = 165; // mm max pour laisser la place à la légende
-      let   imgH  = Math.round(AVAIL * ratio);
-      if (imgH > maxH) imgH = maxH;
-
-      doc.setFillColor(...C.card);
-      doc.roundedRect(MARGIN, y, AVAIL, imgH + 4, 2, 2, 'F');
-
-      try {
-        doc.addImage(imgData, 'PNG', MARGIN + 1, y + 2, AVAIL - 2, imgH);
-      } catch (e) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(...C.dust);
-        _docText(doc, '[Graphique non rendu]', MARGIN + AVAIL / 2, y + imgH / 2, { align: 'center' });
-      }
-      y += imgH + 7;
-
-      // ── Légende ──────────────────────────────────────────────────
-      if (inst && inst.data && inst.data.labels && inst.data.labels.length > 0
-          && y + 12 < docH - 14) {
-        const legRows = Math.ceil(inst.data.labels.length / 4);
-        const legH    = legRows * 5.5 + 9;
-
-        doc.setFillColor(16, 25, 40);
-        doc.roundedRect(MARGIN, y, AVAIL, legH, 1.5, 1.5, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6);
-        doc.setTextColor(...C.dust);
-        _docText(doc, 'LÉGENDE', MARGIN + 3, y + 5);
-        y = _drawLegend(doc, inst, MARGIN + 3, y + 8, AVAIL - 6);
-        y += 2;
-      }
-
-      // ── Analyse contextuelle ─────────────────────────────────────
-      if (typeof ChartAnalysis !== 'undefined' && ChartAnalysis.getAnalysisText) {
-        const txt = ChartAnalysis.getAnalysisText(canvas.id, _getData());
-        if (txt && y + 14 < docH - 14) {
-          doc.setFillColor(16, 25, 40);
-          doc.roundedRect(MARGIN, y, AVAIL, 12, 1.5, 1.5, 'F');
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(6.5);
-          doc.setTextColor(...C.pale);
-          _docText(doc, '💡 ' + _safeText(txt).substring(0, 210), MARGIN + 3, y + 7.5);
-          y += 14;
+      const slice = canvases.slice(chartIdx, chartIdx + layout.perPage);
+      for (let i = 0; i < slice.length; i++) {
+        const canvas = slice[i];
+        _setProgress(30 + Math.round(((chartIdx + i) / canvases.length) * 55), 'Capture : ' + canvas.id + '…');
+        const captured = _captureCanvas(canvas);
+        if (!captured || !captured.dataURL || captured.dataURL === 'data:,') {
+          console.warn('[DashboardPDF] Canvas ignoré (vide):', canvas.id);
+          continue;
         }
+        _drawChartCard(layout.cells[i], canvas, captured, chartIdx + i + 1, canvases.length);
       }
-
       _drawFooter(doc, pageNum);
+      chartIdx += layout.perPage;
     }
-
     return pageNum;
   }
   /**
@@ -843,6 +856,13 @@ window.DashboardPDF = (() => {
    * @param {boolean} [options.noTable=false]  Sauter le tableau des projets
    */
   async function exportPDF(options = {}) {
+    if (!options._fromDialog) {
+      const chartChoices = _listExportableCharts();
+      const picked = await _createExportDialog(chartChoices);
+      if (!picked) return;
+      options = Object.assign({}, options, picked, { _fromDialog: true });
+    }
+
     _showProgress('Chargement des dépendances…');
     _setProgress(5, 'Chargement des dépendances…');
 
@@ -884,7 +904,7 @@ window.DashboardPDF = (() => {
     _setProgress(30, 'Capture des graphiques…');
     let lastPage = 2;
     try {
-      lastPage = await _buildChartPages(doc, lastPage);
+      lastPage = await _buildChartPages(doc, lastPage, options);
     } catch (e) {
       console.error('[DashboardPDF] Erreur capture graphiques:', e);
     }
