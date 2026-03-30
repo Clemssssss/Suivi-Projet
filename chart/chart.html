@@ -1401,19 +1401,19 @@ html.auth-pending body { visibility: hidden; }
 
 <!-- ── Boutons utilitaires v3 ── -->
 <div style="margin:0 2.5rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
-  <button onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
+  <button id="btn-dashboard-share" onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,153,255,.08);border:1px solid rgba(0,153,255,.25);
     color:#0099ff;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Copier le lien avec filtres actifs">🔗 Partager</button>
-  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
+  <button id="btn-dashboard-save" onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
     color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Sauvegarder l'état du dashboard">💾 Sauvegarder</button>
-  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
+  <button id="btn-dashboard-reset" onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(245,183,64,.08);border:1px solid rgba(245,183,64,.25);
     color:#f5b740;border-radius:8px;padding:.35rem .8rem;

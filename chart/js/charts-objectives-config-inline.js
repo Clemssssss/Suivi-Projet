@@ -169,6 +169,7 @@
           + (isB         ? ' highlight highlight-b' : '')
           + (isRecession ? ' recession' : '');
         block.dataset.year = yr;
+        block.dataset.objYear = yr;
 
         // -- Projets de l'année : filtrage par _annee (TOUS statuts)
         // Source : _annee pré-calculé par DataFilterEngine (via Analytics.getProjectYear)
@@ -206,6 +207,7 @@
         // Car countBadge est un enfant → textContent retournerait "202432" (bug concat)
         var labelEl = document.createElement('span');
         labelEl.className = 'obj-year-label';
+        labelEl.dataset.objYear = yr;
         labelEl.appendChild(document.createTextNode(yr));  // nœud textuel isolé
         // Tooltip : "2024 — 32 projets (8 gagnés)"
         var _tipTxt = yr + ' — ' + projCount + ' projet' + (projCount !== 1 ? 's' : '')
@@ -232,6 +234,7 @@
         // -- Barre de progression (cliquable)
         var barWrap = document.createElement('div');
         barWrap.className = 'obj-year-bar-wrap';
+        barWrap.dataset.objYear = yr;
         barWrap.title = _tipTxt; // même tooltip enrichi que labelEl
         barWrap.style.cursor = 'pointer';
         barWrap.addEventListener('click', _openDetail);
@@ -304,6 +307,7 @@
         objInput.type = 'number';
         objInput.className = 'obj-input';
         objInput.dataset.year = yr;
+        objInput.dataset.objYear = yr;
         objInput.value = entry.objectif || '';
         objInput.placeholder = 'ex : 5 000 000';
         objInput.min = '0';
@@ -311,6 +315,7 @@
 
         var confirmBtn = document.createElement('button');
         confirmBtn.className = 'obj-input-confirm';
+        confirmBtn.dataset.objYear = yr;
         confirmBtn.textContent = '✓ OK';
         confirmBtn.type = 'button';
         confirmBtn.title = 'Appliquer l\'objectif';

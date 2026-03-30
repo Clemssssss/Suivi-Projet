@@ -14,7 +14,16 @@ window.DashboardNotes = (() => {
     '.kpi',
     '.section-div',
     '.info-icon',
-    '#btn-strategic'
+    '#btn-strategic',
+    '.obj-title',
+    '.obj-year-label',
+    '.obj-year-bar-wrap',
+    '.obj-input',
+    '.obj-input-confirm',
+    '#btn-dashboard-share',
+    '#btn-dashboard-save',
+    '#btn-dashboard-reset',
+    '#ce-new-chart-btn'
   ].join(',');
 
   let _isInit = false;
@@ -435,6 +444,35 @@ body.notes-mode-active .dashboard-note-target:hover {
   function _buildTargetInfo(el) {
     if (!el) return null;
 
+    if (el.matches('.obj-year-label, .obj-year-bar-wrap, .obj-input, .obj-input-confirm')) {
+      var year = el.dataset.objYear || (el.closest('.obj-year-block') && el.closest('.obj-year-block').dataset.objYear) || 'unknown-year';
+      var role = el.matches('.obj-year-label') ? 'label'
+        : el.matches('.obj-year-bar-wrap') ? 'progress'
+        : el.matches('.obj-input-confirm') ? 'confirm'
+        : 'input';
+      var roleLabel = role === 'label' ? 'Libellé année'
+        : role === 'progress' ? 'Barre de progression'
+        : role === 'confirm' ? 'Validation objectif'
+        : 'Champ objectif';
+      return {
+        element: el,
+        targetId: 'objective-year:' + year + ':' + role,
+        targetType: 'objective-year',
+        label: 'Objectif CA — ' + roleLabel + ' ' + year,
+        meta: { year: year, role: role }
+      };
+    }
+
+    if (el.matches('.obj-title')) {
+      return {
+        element: el,
+        targetId: 'objective:title',
+        targetType: 'objective',
+        label: el.textContent.replace(/\s+/g, ' ').trim() || 'Objectif CA',
+        meta: {}
+      };
+    }
+
     if (el.matches('.chart-title-actions button')) {
       var card = el.closest('.chart-card[data-chart-id]');
       var chartId = card ? card.dataset.chartId : 'unknown-chart';
@@ -477,6 +515,17 @@ body.notes-mode-active .dashboard-note-target:hover {
         targetId: 'button:' + (el.id || _slug(btnLabel)),
         targetType: 'button',
         label: btnLabel,
+        meta: { buttonId: el.id || null }
+      };
+    }
+
+    if (el.matches('#btn-dashboard-share, #btn-dashboard-save, #btn-dashboard-reset, #ce-new-chart-btn')) {
+      var explicitLabel = el.title || el.textContent.replace(/\s+/g, ' ').trim() || el.id || 'bouton';
+      return {
+        element: el,
+        targetId: 'button:' + (el.id || _slug(explicitLabel)),
+        targetType: 'button',
+        label: explicitLabel,
         meta: { buttonId: el.id || null }
       };
     }
