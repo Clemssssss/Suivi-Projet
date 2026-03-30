@@ -32,19 +32,23 @@ html.auth-pending body { visibility: hidden; }
   <div class="hdr-sep"></div>
   <div class="hdr-sub">📊 Tableau de bord interactif</div>
   <div class="hdr-right">
-    <a href="../index/index.html" class="btn-back-map">← Cartographie</a>
-    <button class="btn-hdr" id="btn-share">🔗 Partager</button>
-    <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
-    <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
-    <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
-    <label class="btn-hdr" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
-      📥 Import fichier
-      <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
-    </label>
-    <span class="hdr-pill" id="auth-user-label">🔒 Session</span>
-    <button class="btn-hdr" id="btn-logout" type="button">↩ Déconnexion</button>
-    <div class="hdr-pill" id="project-count">-- projets</div>
-    <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
+    <div class="hdr-actions-main">
+      <a href="../index/index.html" class="btn-back-map">← Cartographie</a>
+      <button class="btn-hdr" id="btn-share">🔗 Partager</button>
+      <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
+      <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
+      <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
+      <label class="btn-hdr btn-hdr-accent" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
+        📥 Import fichier
+        <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
+      </label>
+    </div>
+    <div class="hdr-actions-status">
+      <span class="hdr-pill" id="auth-user-label">🔒 Session</span>
+      <button class="btn-hdr" id="btn-logout" type="button">↩ Déconnexion</button>
+      <div class="hdr-pill" id="project-count">-- projets</div>
+      <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
+    </div>
   </div>
 </header>
 
@@ -1400,20 +1404,20 @@ html.auth-pending body { visibility: hidden; }
 </div><!-- /section-collapsible Graphiques -->
 
 <!-- ── Boutons utilitaires v3 ── -->
-<div style="margin:0 2.5rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
-  <button id="btn-dashboard-share" onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
+<div class="dashboard-utility-bar">
+  <button class="dashboard-utility-btn is-share" id="btn-dashboard-share" onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,153,255,.08);border:1px solid rgba(0,153,255,.25);
     color:#0099ff;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Copier le lien avec filtres actifs">🔗 Partager</button>
-  <button id="btn-dashboard-save" onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
+  <button class="dashboard-utility-btn is-save" id="btn-dashboard-save" onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
     color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Sauvegarder l'état du dashboard">💾 Sauvegarder</button>
-  <button id="btn-dashboard-reset" onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
+  <button class="dashboard-utility-btn is-reset" id="btn-dashboard-reset" onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(245,183,64,.08);border:1px solid rgba(245,183,64,.25);
     color:#f5b740;border-radius:8px;padding:.35rem .8rem;
