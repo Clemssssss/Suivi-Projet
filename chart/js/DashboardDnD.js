@@ -131,6 +131,7 @@ window.DashboardDnD = (() => {
     });
 
     if (animate) setTimeout(function() { _resizeChart(card); }, 340);
+    else _resizeChart(card);
   }
 
   function _resizeChart(card) {
@@ -139,7 +140,10 @@ window.DashboardDnD = (() => {
     try {
       const inst = (Chart.getChart ? Chart.getChart(canvas) : null)
         || Object.values(Chart.instances || {}).find(function(i) { return i.canvas === canvas; });
-      if (inst) inst.resize();
+      if (inst) {
+        inst.resize();
+        if (typeof inst.update === 'function') inst.update('none');
+      }
     } catch (_) {}
   }
 
@@ -148,6 +152,7 @@ window.DashboardDnD = (() => {
   ══════════════════════════════════════════════════════ */
   function _injectControls(card) {
     if (card.querySelector('.dnd-controls')) return;
+    if (!card.querySelector('canvas')) return;
     const curSize = card.dataset.dndSize || SIZE_DEFAULT;
     const actions = card.querySelector('.chart-title-actions, .chart-header');
     if (!actions) return;

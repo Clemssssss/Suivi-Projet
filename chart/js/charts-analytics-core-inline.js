@@ -75,12 +75,7 @@
   }
 
   function normalizeStatus(v) {
-    if (!v) return null;
-    var s = String(v).toLowerCase().trim();
-    if (s === 'obtenu' || s === 'gagné' || s === 'gagne') return 'obtenu';
-    if (s === 'perdu') return 'perdu';
-    if (s === 'offre' || s === 'en cours' || s.includes('étude') || s.includes('remise')) return 'offre';
-    return s;
+    return nvClean(v);
   }
 
   /* ════════════════════════════════════════════════════════════════

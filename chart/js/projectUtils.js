@@ -71,18 +71,24 @@
    */
   function parseStatusKey(rawStatus) {
     if (!rawStatus) return STATUS_KEYS.AUTRE;
-    const s = String(rawStatus).toLowerCase().replace(/\s+/g, ' ').trim();
+    const s = String(rawStatus)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
     
     // Format data.js actuel
-    if (s === 'gagné' || s === 'gagne') return STATUS_KEYS.OBTENU;
+    if (s === 'gagne' || s === 'obtenu') return STATUS_KEYS.OBTENU;
     if (s === 'perdu') return STATUS_KEYS.PERDU;
-    if (s === 'remis' || s === 'en etude' || s === 'avant projet') return STATUS_KEYS.OFFRE;
-    if (s === 'abandonné' || s === 'abandonne' || s === 'non chiffré' || s === 'non chiffre') return STATUS_KEYS.AUTRE;
+    if (s === 'remis' || s === 'remise' || s === 'en etude' || s === 'avant projet' || s === 'non chiffre' || s === 'non chiffree') return STATUS_KEYS.OFFRE;
+    if (s === 'abandonne' || s === 'abandone' || s === 'abandon') return STATUS_KEYS.PERDU;
     
     // Formats génériques
     if (s.includes('obtenu') || s.includes('gagn')) return STATUS_KEYS.OBTENU;
     if (s.includes('perdu')) return STATUS_KEYS.PERDU;
-    if (s.includes('offre') || s.includes('remis') || s.includes('étude') || s.includes('etude') || s.includes('avant projet')) return STATUS_KEYS.OFFRE;
+    if (s.includes('abandon')) return STATUS_KEYS.PERDU;
+    if (s.includes('non chiffre') || s.includes('remis') || s.includes('remise') || s.includes('offre') || s.includes('etude') || s.includes('avant projet')) return STATUS_KEYS.OFFRE;
     
     return STATUS_KEYS.AUTRE;
   }
@@ -97,21 +103,23 @@
   function getStatus(project) {
     if (!project) return STATUS_KEYS.AUTRE;
     
-    // Essayer d'abord la colonne "statut" (nouveau format)
+    // Essayer d'abord la colonne "Statut" brute issue du CSV/import
     if (project['Statut']) {
-      return parseStatusKey(project['Statut']);
+      const primary = parseStatusKey(project['Statut']);
+      if (primary !== STATUS_KEYS.AUTRE) return primary;
+    }
+
+    // Fallback utile quand le statut principal est ambigu mais qu'Odoo précise la situation
+    if (project['MG Statut Odoo MG']) {
+      const secondary = parseStatusKey(project['MG Statut Odoo MG']);
+      if (secondary !== STATUS_KEYS.AUTRE) return secondary;
     }
     
     // Rétrocompatibilité : essayer le champ normalisé "status"
     if (project.status && STATUS_KEYS[project.status.toUpperCase()]) {
       return project.status;
     }
-    
-    // Rétrocompatibilité : essayer l'ancien "etat_correspondance_trello"
-    if (project['Statut']) {
-      return parseStatusKey(project['Statut']);
-    }
-    
+
     return STATUS_KEYS.AUTRE;
   }
 
