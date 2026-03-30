@@ -352,7 +352,8 @@
       return formatValue(Number(value) || 0, mode);
     };
     var categoryTicks = function(value) {
-      var raw = this && this.getLabelForValue ? this.getLabelForValue(value) : value;
+      var idx = typeof value === 'number' ? value : parseInt(value, 10);
+      var raw = isFinite(idx) && labels[idx] != null ? labels[idx] : value;
       return String(raw == null ? '' : raw).slice(0, 32);
     };
 
