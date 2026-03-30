@@ -62,6 +62,14 @@
     }
   } catch(e) {}
 
+  function _persistVisibility() {
+    try { localStorage.setItem('chartVisibility', JSON.stringify(ChartVisibility)); } catch(e) {}
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.upsert('chart-visibility', 'shared', { chartVisibility: ChartVisibility }, 'chart')
+        .catch(function(err) { console.warn('[ChartVisibility] Sync DB impossible', err); });
+    }
+  }
+
   function toggleChartVisibility(chartKey) {
     var card = document.querySelector('[data-chart-id="' + chartKey + '"]');
     if (!card) return;
@@ -135,7 +143,7 @@
       if (toggleBtn2) toggleBtn2.classList.remove('active');
     }
 
-    try { localStorage.setItem('chartVisibility', JSON.stringify(ChartVisibility)); } catch(e) {}
+    _persistVisibility();
     updateHiddenPanel();
     // Note: re-render est géré dans requestAnimationFrame ci-dessus pour la restauration
   }
@@ -175,18 +183,37 @@
 
   // Restore saved visibility + sync toggle buttons
   document.addEventListener('DOMContentLoaded', function() {
-    Object.keys(ChartVisibility).forEach(function(key) {
-      if (ChartVisibility[key] === false) {
-        var card = document.querySelector('[data-chart-id="' + key + '"]');
-        if (card) {
-          card.classList.add('hidden-chart');
-          card.classList.remove('hidden');
-          var btn = card.querySelector('.chart-toggle-btn');
-          if (btn) btn.classList.remove('active');
+    function _applySavedVisibility() {
+      Object.keys(ChartVisibility).forEach(function(key) {
+        if (ChartVisibility[key] === false) {
+          var card = document.querySelector('[data-chart-id="' + key + '"]');
+          if (card) {
+            card.classList.add('hidden-chart');
+            card.classList.remove('hidden');
+            var btn = card.querySelector('.chart-toggle-btn');
+            if (btn) btn.classList.remove('active');
+          }
         }
-      }
-    });
-    updateHiddenPanel();
+      });
+      updateHiddenPanel();
+    }
+
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.get('chart-visibility', 'shared', 'chart')
+        .then(function(doc) {
+          if (doc && doc.payload && doc.payload.chartVisibility && typeof doc.payload.chartVisibility === 'object') {
+            ChartVisibility = doc.payload.chartVisibility;
+            try { localStorage.setItem('chartVisibility', JSON.stringify(ChartVisibility)); } catch (_) {}
+          }
+          _applySavedVisibility();
+        })
+        .catch(function(err) {
+          console.warn('[ChartVisibility] Chargement DB indisponible, fallback local', err);
+          _applySavedVisibility();
+        });
+    } else {
+      _applySavedVisibility();
+    }
 
     var restoreAll = document.getElementById('restore-all-charts');
     if (restoreAll) restoreAll.addEventListener('click', function() {
@@ -196,7 +223,7 @@
         if (btn) btn.classList.add('active');
       });
       ChartVisibility = {};
-      try { localStorage.setItem('chartVisibility', JSON.stringify(ChartVisibility)); } catch(e) {}
+      _persistVisibility();
       updateHiddenPanel();
       if (typeof update === 'function') update();
     });

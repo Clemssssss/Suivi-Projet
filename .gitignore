@@ -8,6 +8,8 @@ Desktop.ini
 !/.gitignore
 !/README.md
 !/netlify.toml
+!/package.json
+!/package-lock.json
 !/chart/
 !/chart/**
 !/netlify/

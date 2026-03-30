@@ -6,6 +6,8 @@ window.DashboardNotes = (() => {
   const STORE_NAME = 'notes';
   const STORAGE_KEY = 'analytics-dashboard-notes-fallback';
   const PAGE_KEY = 'chart';
+  const REMOTE_SCOPE = 'chart';
+  const REMOTE_TYPE = 'dashboard-note';
   const ELIGIBLE_SELECTOR = [
     '.chart-card[data-chart-id]',
     '.chart-title-actions button',
@@ -363,6 +365,21 @@ body.notes-mode-active .dashboard-note-target:hover {
   }
 
   async function _loadNotes() {
+    if (typeof DashboardSharedStore !== 'undefined') {
+      try {
+        var remoteDocs = await DashboardSharedStore.list(REMOTE_TYPE, REMOTE_SCOPE);
+        _notesCache = remoteDocs
+          .map(function(doc) { return doc && doc.payload ? doc.payload : null; })
+          .filter(function(note) { return note && note.pageKey === PAGE_KEY; });
+        if (_notesCache.length) {
+          await _saveNotesCache();
+          return _notesCache.slice();
+        }
+      } catch (err) {
+        console.warn('[DashboardNotes] Chargement DB indisponible, fallback local', err);
+      }
+    }
+
     var db = await _openDb();
     if (!db) {
       try {
@@ -415,13 +432,23 @@ body.notes-mode-active .dashboard-note-target:hover {
     var db = await _openDb();
     if (!db) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(_notesCache));
+      if (typeof DashboardSharedStore !== 'undefined') {
+        try { await DashboardSharedStore.upsert(REMOTE_TYPE, note.id, note, REMOTE_SCOPE); }
+        catch (err) { console.warn('[DashboardNotes] Sync DB note impossible', err); }
+      }
       return note;
     }
 
     return new Promise(function(resolve, reject) {
       var tx = db.transaction(STORE_NAME, 'readwrite');
       tx.objectStore(STORE_NAME).put(note);
-      tx.oncomplete = function() { resolve(note); };
+      tx.oncomplete = async function() {
+        if (typeof DashboardSharedStore !== 'undefined') {
+          try { await DashboardSharedStore.upsert(REMOTE_TYPE, note.id, note, REMOTE_SCOPE); }
+          catch (err) { console.warn('[DashboardNotes] Sync DB note impossible', err); }
+        }
+        resolve(note);
+      };
       tx.onerror = function() { reject(tx.error); };
     });
   }
@@ -431,12 +458,22 @@ body.notes-mode-active .dashboard-note-target:hover {
     var db = await _openDb();
     if (!db) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(_notesCache));
+      if (typeof DashboardSharedStore !== 'undefined') {
+        try { await DashboardSharedStore.remove(REMOTE_TYPE, id, REMOTE_SCOPE); }
+        catch (err) { console.warn('[DashboardNotes] Suppression DB note impossible', err); }
+      }
       return true;
     }
     return new Promise(function(resolve, reject) {
       var tx = db.transaction(STORE_NAME, 'readwrite');
       tx.objectStore(STORE_NAME).delete(id);
-      tx.oncomplete = function() { resolve(true); };
+      tx.oncomplete = async function() {
+        if (typeof DashboardSharedStore !== 'undefined') {
+          try { await DashboardSharedStore.remove(REMOTE_TYPE, id, REMOTE_SCOPE); }
+          catch (err) { console.warn('[DashboardNotes] Suppression DB note impossible', err); }
+        }
+        resolve(true);
+      };
       tx.onerror = function() { reject(tx.error); };
     });
   }

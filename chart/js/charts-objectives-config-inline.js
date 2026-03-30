@@ -25,6 +25,9 @@
 
   /* OBJECTIVES reste un alias mutable pour la rétrocompatibilité */
   var OBJECTIVES = OBJECTIVES_CONFIG;
+  var REMOTE_SCOPE = 'chart';
+  var REMOTE_DOC_TYPE = 'objective-config';
+  var REMOTE_DOC_KEY = 'shared';
 
   /* ── Helpers ─────────────────────────────────────────── */
   function _raw() {
@@ -57,6 +60,16 @@
         }
       }
     }
+  }
+
+  function _persistObjectives() {
+    if (typeof DashboardSharedStore === 'undefined') return;
+    DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, {
+      objectives: OBJECTIVES_CONFIG,
+      forcedYears: FORCED_YEARS
+    }, REMOTE_SCOPE).catch(function(err) {
+      console.warn('[Objectives] Sync DB impossible', err);
+    });
   }
 
   /* ── Couleur de barre selon % ────────────────────────── */
@@ -324,6 +337,7 @@
           var val = parseFloat(inputEl.value) || 0;
           OBJECTIVES_CONFIG[y] = val;
           OBJECTIVES[y] = val;
+          _persistObjectives();
           window.renderObjectiveBars && window.renderObjectiveBars();
         }
 
@@ -449,11 +463,32 @@
 
   /* ── Wiring DOM ──────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function () {
+    if (typeof DashboardSharedStore !== 'undefined') {
+      DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+        .then(function(doc) {
+          if (!doc || !doc.payload) return;
+          if (doc.payload.objectives && typeof doc.payload.objectives === 'object') {
+            OBJECTIVES_CONFIG = Object.assign({}, OBJECTIVES_CONFIG, doc.payload.objectives);
+            OBJECTIVES = OBJECTIVES_CONFIG;
+          }
+          if (Array.isArray(doc.payload.forcedYears) && doc.payload.forcedYears.length) {
+            FORCED_YEARS = doc.payload.forcedYears.map(String);
+          }
+          var tgt = document.getElementById('target-amount');
+          var yr = (document.getElementById('year-filter') || {}).value;
+          if (tgt && yr && OBJECTIVES_CONFIG[yr]) tgt.value = OBJECTIVES_CONFIG[yr];
+          if (window.renderObjectiveBars) setTimeout(window.renderObjectiveBars, 120);
+        })
+        .catch(function(err) {
+          console.warn('[Objectives] Chargement DB indisponible, fallback local', err);
+        });
+    }
 
     // Resync objectif quand le champ change
     var tgtInput = document.getElementById('target-amount');
     if (tgtInput) tgtInput.addEventListener('change', function () {
       _syncObjective();
+      _persistObjectives();
       window.renderObjectiveBars && window.renderObjectiveBars();
     });
 
@@ -461,6 +496,7 @@
     var yearFilter = document.getElementById('year-filter');
     if (yearFilter) yearFilter.addEventListener('change', function () {
       _syncObjective();
+      _persistObjectives();
       // Attendre que update() ait recalculé avant de re-render
       setTimeout(function () {
         window.renderObjectiveBars && window.renderObjectiveBars();
@@ -474,10 +510,12 @@
     setObjective:    function (year, amount) {
       OBJECTIVES_CONFIG[String(year)] = amount;
       OBJECTIVES[String(year)] = amount;
+      _persistObjectives();
     },
     setObjectives:   function (cfg) {
       Object.assign(OBJECTIVES_CONFIG, cfg);
       Object.assign(OBJECTIVES, cfg);
+      _persistObjectives();
     },
     getObjectives:   function () { return OBJECTIVES_CONFIG; },
     setForcedYears:  function (arr) { FORCED_YEARS = arr.map(String); },

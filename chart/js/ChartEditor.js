@@ -27,6 +27,9 @@ window.ChartEditor = (() => {
   'use strict';
 
   const STORAGE_KEY = 'cahors_custom_charts';
+  const REMOTE_SCOPE = 'chart';
+  const REMOTE_DOC_TYPE = 'custom-charts';
+  const REMOTE_DOC_KEY = 'shared';
 
   // Axes X disponibles
   const AXE_OPTIONS = [
@@ -87,7 +90,13 @@ window.ChartEditor = (() => {
   }
 
   function _saveTo(configs) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(configs)); }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
+      if (typeof DashboardSharedStore !== 'undefined') {
+        DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, configs, REMOTE_SCOPE)
+          .catch(function(e) { console.warn('[ChartEditor] DB sync failed:', e); });
+      }
+    }
     catch (e) { console.warn('[ChartEditor] localStorage save failed:', e); }
   }
 
@@ -503,11 +512,31 @@ window.ChartEditor = (() => {
       document.addEventListener('DOMContentLoaded', () => {
         _injectButton();
         refreshAll();
+        if (typeof DashboardSharedStore !== 'undefined') {
+          DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+            .then(function(doc) {
+              if (doc && doc.payload && typeof doc.payload === 'object') {
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(doc.payload)); } catch (_) {}
+                refreshAll();
+              }
+            })
+            .catch(function(e) { console.warn('[ChartEditor] Chargement DB indisponible', e); });
+        }
       });
     } else {
       setTimeout(() => {
         _injectButton();
         refreshAll();
+        if (typeof DashboardSharedStore !== 'undefined') {
+          DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
+            .then(function(doc) {
+              if (doc && doc.payload && typeof doc.payload === 'object') {
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(doc.payload)); } catch (_) {}
+                refreshAll();
+              }
+            })
+            .catch(function(e) { console.warn('[ChartEditor] Chargement DB indisponible', e); });
+        }
       }, 200);
     }
 

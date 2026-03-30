@@ -1,0 +1,26 @@
+{
+  "name": "new---pv",
+  "version": "1.0.0",
+  "description": "Dashboard analytics standalone en HTML/CSS/JS vanilla.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Clemssssss/Suivi-Projet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Clemssssss/Suivi-Projet/issues"
+  },
+  "homepage": "https://github.com/Clemssssss/Suivi-Projet#readme",
+  "dependencies": {
+    "pg": "^8.20.0"
+  }
+}

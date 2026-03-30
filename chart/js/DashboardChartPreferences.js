@@ -3,6 +3,10 @@ window.DashboardChartPreferences = (() => {
   'use strict';
 
   var STORAGE_PREFIX = 'dashboard-chart-preferences-v1';
+  var PAGE_KEY = 'chart';
+  var REMOTE_SCOPE = 'chart';
+  var REMOTE_DOC_TYPE = 'chart-preferences';
+  var REMOTE_DOC_KEY = 'shared';
   var _state = { charts: {} };
   var _defaults = {};
   var _restoredDataCharts = {};
@@ -35,6 +39,10 @@ window.DashboardChartPreferences = (() => {
   function _saveState() {
     try {
       localStorage.setItem(_storageKey(), JSON.stringify(_state));
+      if (typeof DashboardSharedStore !== 'undefined') {
+        DashboardSharedStore.upsert(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, _state, REMOTE_SCOPE)
+          .catch(function(err) { console.warn('[ChartPrefs] Sync DB impossible', err); });
+      }
       return true;
     } catch (err) {
       console.warn('[ChartPrefs] Ecriture localStorage impossible', err);
@@ -668,7 +676,18 @@ window.DashboardChartPreferences = (() => {
     injectStyles();
     _injectButtons();
     _wrapUpdate();
-    setTimeout(function() {
+    setTimeout(async function() {
+      if (typeof DashboardSharedStore !== 'undefined') {
+        try {
+          var remote = await DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE);
+          if (remote && remote.payload && typeof remote.payload === 'object') {
+            _state = remote.payload;
+            try { localStorage.setItem(_storageKey(), JSON.stringify(_state)); } catch (_) {}
+          }
+        } catch (err) {
+          console.warn('[ChartPrefs] Chargement DB indisponible, fallback local', err);
+        }
+      }
       _listCards().forEach(function(card) { _captureDefaults(card.dataset.chartId); });
       _restoreDataConfigs();
       _injectButtons();
