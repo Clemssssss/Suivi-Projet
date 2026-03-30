@@ -740,12 +740,14 @@ window.DashboardChartPreferences = (() => {
   }
 
   function init() {
+    if (document.getElementById('business-dashboard-root') || document.body.classList.contains('business-dashboard-simplified')) {
+      console.log('[ChartPrefs] Desactive sur le dashboard metier simplifie');
+      return;
+    }
     _loadState();
     injectStyles();
     _injectButtons();
-    if (!document.body.classList.contains('business-dashboard-simplified')) {
-      _wrapUpdate();
-    }
+    _wrapUpdate();
     setTimeout(async function() {
       if (typeof DashboardSharedStore !== 'undefined') {
         try {
@@ -764,9 +766,7 @@ window.DashboardChartPreferences = (() => {
       _listCards().forEach(function(card) { _captureDefaults(card.dataset.chartId); });
       _restoreDataConfigs();
       _injectButtons();
-      if (!document.body.classList.contains('business-dashboard-simplified')) {
-        _scheduleRefresh();
-      }
+      _scheduleRefresh();
     }, 900);
     console.log('[ChartPrefs] Edition avancee des graphiques prete');
   }

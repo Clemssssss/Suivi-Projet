@@ -953,7 +953,7 @@ body.notes-mode-active .dashboard-note-target:hover {
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
 
     var originalUpdate = window.update;
-    if (typeof originalUpdate === 'function') {
+    if (!document.body.classList.contains('business-dashboard-simplified') && typeof originalUpdate === 'function') {
       window.update = function() {
         var result = originalUpdate.apply(this, arguments);
         if (_enabled) _scheduleRefresh();
@@ -975,7 +975,11 @@ body.notes-mode-active .dashboard-note-target:hover {
     _closePanel();
     _setButtonState();
     _bindGlobalListeners();
-    console.log('[DashboardNotes] ✅ Mode notes prêt (IndexedDB/localStorage)');
+    if (document.body.classList.contains('business-dashboard-simplified')) {
+      console.log('[DashboardNotes] ✅ Mode notes prêt (simplifie, sans hook update)');
+    } else {
+      console.log('[DashboardNotes] ✅ Mode notes prêt (IndexedDB/localStorage)');
+    }
   }
 
   return {
