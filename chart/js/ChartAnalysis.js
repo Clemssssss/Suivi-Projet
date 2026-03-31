@@ -54,6 +54,90 @@ window.ChartAnalysis = (() => {
     return Math.round(((a - b) / b) * 100);
   }
 
+  function _resolveChart(chartId) {
+    if (typeof Chart === 'undefined') return null;
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return null;
+    try {
+      if (typeof Chart.getChart === 'function') {
+        return Chart.getChart(canvas) || null;
+      }
+      if (Chart.instances) {
+        return Object.values(Chart.instances).find(inst => inst && inst.canvas === canvas) || null;
+      }
+    } catch (err) {
+      return null;
+    }
+    return null;
+  }
+
+  function _formatGraphValue(value) {
+    const num = Number(value);
+    if (!isFinite(num)) return null;
+    if (Math.abs(num) <= 1) return Math.round(num * 100) + '%';
+    if (Math.abs(num) <= 100) return num.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    return _fmt(num);
+  }
+
+  function _graphSummary(chartId) {
+    const chart = _resolveChart(chartId);
+    if (!chart || !chart.data || !Array.isArray(chart.data.datasets) || !chart.data.datasets.length) return [];
+
+    const labels = Array.isArray(chart.data.labels) ? chart.data.labels : [];
+    const datasets = chart.data.datasets.filter(ds => ds && Array.isArray(ds.data));
+    if (!datasets.length) return [];
+
+    const chartType = String(chart.config && chart.config.type || 'graphique').toLowerCase();
+    const parts = [];
+    const uniqueLabels = labels.filter(v => v != null && String(v).trim() !== '');
+    if (uniqueLabels.length) {
+      parts.push(`🧭 ${uniqueLabels.length} catégorie${uniqueLabels.length > 1 ? 's' : ''} visible${uniqueLabels.length > 1 ? 's' : ''}.`);
+    }
+
+    if (datasets.length === 1) {
+      const ds = datasets[0];
+      let best = null;
+      ds.data.forEach((raw, index) => {
+        const value = typeof raw === 'object' && raw !== null
+          ? Number(raw.y != null ? raw.y : raw.x)
+          : Number(raw);
+        if (!isFinite(value)) return;
+        if (!best || value > best.value) {
+          best = {
+            label: labels[index] != null ? String(labels[index]) : ('Poste ' + (index + 1)),
+            value
+          };
+        }
+      });
+      if (best) {
+        const formatted = _formatGraphValue(best.value);
+        if (formatted) {
+          parts.push(`🏆 Point fort du ${chartType} : <strong>${best.label}</strong> (${formatted}).`);
+        }
+      }
+      return parts;
+    }
+
+    const totals = datasets.map(ds => ({
+      label: ds.label || 'Série',
+      total: ds.data.reduce((sum, raw) => {
+        const value = typeof raw === 'object' && raw !== null
+          ? Number(raw.y != null ? raw.y : raw.x)
+          : Number(raw);
+        return sum + (isFinite(value) ? value : 0);
+      }, 0)
+    })).sort((a, b) => b.total - a.total);
+
+    if (totals.length) {
+      const topSeries = totals[0];
+      const formatted = _formatGraphValue(topSeries.total);
+      if (formatted) {
+        parts.push(`📚 Série dominante : <strong>${topSeries.label}</strong> (${formatted}).`);
+      }
+    }
+    return parts;
+  }
+
   /* ── Générateurs d'analyse par type de graphique ─────────────── */
 
   const _ANALYZERS = {
@@ -280,11 +364,13 @@ window.ChartAnalysis = (() => {
     const decided = obtenus + perdus;
     const conv    = decided > 0 ? Math.round(obtenus / decided * 100) : null;
     const caTotal = data.reduce((s,p)=>s+_getCA(p,'ca_etudie'),0);
+    const graphParts = _graphSummary(chartId);
 
     return [
       `📁 ${total} projets analysés.`,
       conv !== null ? `🎯 Taux de conversion : <strong>${conv}%</strong> (${obtenus}/${decided}).` : '',
       caTotal > 0 ? `📊 CA total étudié : <strong>${_fmt(caTotal)}</strong>.` : '',
+      ...graphParts
     ].filter(Boolean).join(' &nbsp;·&nbsp; ');
   }
 
