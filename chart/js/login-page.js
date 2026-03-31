@@ -30,12 +30,6 @@
     return window.AuthClient.sanitizeNext(params.get('next'));
   }
 
-  function updateNextLabel(nextTarget) {
-    var el = document.getElementById('login-next-target');
-    if (!el) return;
-    el.textContent = 'Destination après connexion : ' + nextTarget;
-  }
-
   async function bootstrap() {
     var form = document.getElementById('login-form');
     var submit = document.getElementById('login-submit');
@@ -52,7 +46,6 @@
 
     var nextTarget = getNextTarget();
     var loginChallenge = '';
-    updateNextLabel(nextTarget);
 
     try {
       var current = await window.AuthClient.status();
@@ -97,7 +90,7 @@
           company: honeypotInput.value
         });
 
-          if (!result.ok || !result.data || !result.data.authenticated) {
+        if (!result.ok || !result.data || !result.data.authenticated) {
           if (result.status === 503) {
             setMessage("Connexion indisponible. Vérifiez les variables Netlify d'authentification.", 'error');
           } else if (result.status === 401) {
