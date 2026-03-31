@@ -101,7 +101,7 @@ window.ChartAnalysis = (() => {
   }
 
   /* ──────────────────────────────────────────────────────────────
-     TABLE BUILDER — lit Chart.js et génère une table HTML
+     TABLE BUILDER — lit Chart.js et génère une table HTML enrichie
   ────────────────────────────────────────────────────────────── */
 
   function _buildTableFromChart(chartId) {
@@ -116,7 +116,6 @@ window.ChartAnalysis = (() => {
     let rows = [];
 
     if (isMulti) {
-      // Lignes = labels, colonnes = datasets
       rows = labels.map((label, i) => {
         const cells = datasets.map(ds => {
           const raw = ds.data[i];
@@ -146,16 +145,160 @@ window.ChartAnalysis = (() => {
       ? ['Catégorie', ...datasets.map(ds => ds.label || 'Valeur')]
       : ['Catégorie', 'Valeur'];
 
-    let html = '<table class="ca-data-table">';
-    html += '<thead><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr></thead>';
-    html += '<tbody>';
+    let thead = '<tr>' + headers.map((h, i) =>
+      `<th data-col="${i}" title="Cliquer pour trier">${h}</th>`
+    ).join('') + '</tr>';
+
+    let tbody = '';
     rows.forEach(r => {
-      html += `<tr><td class="ca-dt-label">${r.label}</td>`;
-      r.cells.forEach(c => { html += `<td class="ca-dt-val">${c}</td>`; });
-      html += '</tr>';
+      tbody += `<tr><td class="ca-dt-label">${r.label}</td>`;
+      r.cells.forEach(c => { tbody += `<td class="ca-dt-val">${c}</td>`; });
+      tbody += '</tr>';
     });
-    html += '</tbody></table>';
-    return html;
+
+    return `
+      <div class="ca-table-controls">
+        <input class="ca-search-input" type="text" placeholder="🔍 Rechercher dans le tableau…" autocomplete="off">
+        <span class="ca-row-count"></span>
+        <button class="ca-export-btn" title="Exporter vers Excel">⬇ Excel</button>
+      </div>
+      <div class="ca-scroll-wrap">
+        <div class="ca-top-scroll"><div class="ca-top-scroll-inner"></div></div>
+        <div class="ca-table-scroll">
+          <table class="ca-data-table">
+            <thead>${thead}</thead>
+            <tbody>${tbody}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  /* ──────────────────────────────────────────────────────────────
+     TABLE FEATURES — tri / recherche / dual-scroll / export Excel
+  ────────────────────────────────────────────────────────────── */
+
+  function _initTableFeatures(tableView, chartId) {
+    const table      = tableView.querySelector('.ca-data-table');
+    const searchInput= tableView.querySelector('.ca-search-input');
+    const exportBtn  = tableView.querySelector('.ca-export-btn');
+    const rowCount   = tableView.querySelector('.ca-row-count');
+    const topScroll  = tableView.querySelector('.ca-top-scroll');
+    const topInner   = tableView.querySelector('.ca-top-scroll-inner');
+    const tblScroll  = tableView.querySelector('.ca-table-scroll');
+    if (!table) return;
+
+    const tbody = table.querySelector('tbody');
+    const allRows = () => Array.from(tbody.querySelectorAll('tr'));
+
+    /* ── Dual scrollbar (top + bottom sync) ── */
+    function _syncScrollWidth() {
+      if (topInner) topInner.style.width = table.scrollWidth + 'px';
+    }
+    _syncScrollWidth();
+    if (topScroll && tblScroll) {
+      let _lockTop = false, _lockBot = false;
+      topScroll.addEventListener('scroll', () => {
+        if (_lockTop) return;
+        _lockBot = true;
+        tblScroll.scrollLeft = topScroll.scrollLeft;
+        requestAnimationFrame(() => { _lockBot = false; });
+      });
+      tblScroll.addEventListener('scroll', () => {
+        if (_lockBot) return;
+        _lockTop = true;
+        topScroll.scrollLeft = tblScroll.scrollLeft;
+        requestAnimationFrame(() => { _lockTop = false; });
+      });
+      try { new ResizeObserver(_syncScrollWidth).observe(table); } catch(e) {}
+    }
+
+    /* ── Update row counter ── */
+    function _updateCount() {
+      if (!rowCount) return;
+      const visible = allRows().filter(r => r.style.display !== 'none').length;
+      const total   = allRows().length;
+      rowCount.textContent = visible < total ? `${visible} / ${total} lignes` : `${total} lignes`;
+    }
+    _updateCount();
+
+    /* ── Sort on header click ── */
+    const ths = Array.from(table.querySelectorAll('thead th'));
+    ths.forEach((th, colIdx) => {
+      th.addEventListener('click', () => {
+        const cur = th.dataset.sort;
+        ths.forEach(t => { delete t.dataset.sort; });
+        th.dataset.sort = cur === 'asc' ? 'desc' : 'asc';
+        const asc = th.dataset.sort === 'asc';
+        const rows = allRows();
+        rows.sort((a, b) => {
+          const av = (a.cells[colIdx]?.textContent || '').trim();
+          const bv = (b.cells[colIdx]?.textContent || '').trim();
+          const an = parseFloat(av.replace(/[^\d.,-]/g, '').replace(',', '.'));
+          const bn = parseFloat(bv.replace(/[^\d.,-]/g, '').replace(',', '.'));
+          if (isFinite(an) && isFinite(bn)) return asc ? an - bn : bn - an;
+          return asc ? av.localeCompare(bv, 'fr') : bv.localeCompare(av, 'fr');
+        });
+        rows.forEach(r => tbody.appendChild(r));
+      });
+    });
+
+    /* ── Search / filter rows ── */
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.toLowerCase().trim();
+        allRows().forEach(row => {
+          row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? '' : 'none';
+        });
+        _updateCount();
+      });
+    }
+
+    /* ── Export Excel (.xls HTML format, pas de CDN requis) ── */
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const hdrs = ths.map(th => th.textContent.replace(/[↑↓]$/,'').trim());
+        const visibleRows = allRows().filter(r => r.style.display !== 'none');
+
+        const thStyle = 'background:#00836b;color:#ffffff;font-weight:bold;padding:6px 10px;border:1px solid #007a5e;white-space:nowrap;';
+        const tdStyleEven = 'background:#f0faf7;padding:5px 8px;border:1px solid #d4e8e0;';
+        const tdStyleOdd  = 'background:#ffffff;padding:5px 8px;border:1px solid #d4e8e0;';
+
+        let tblHtml = '<tr>' + hdrs.map((h,i) =>
+          `<th style="${thStyle}text-align:${i===0?'left':'right'};">${h}</th>`
+        ).join('') + '</tr>';
+
+        visibleRows.forEach((row, i) => {
+          const tdStyle = i % 2 === 0 ? tdStyleEven : tdStyleOdd;
+          const cells = Array.from(row.cells).map((td, j) =>
+            `<td style="${tdStyle}text-align:${j===0?'left':'right'};">${td.textContent.trim()}</td>`
+          );
+          tblHtml += `<tr>${cells.join('')}</tr>`;
+        });
+
+        const xlsHtml = [
+          '<html xmlns:o="urn:schemas-microsoft-com:office:office"',
+          '      xmlns:x="urn:schemas-microsoft-com:office:excel">',
+          '<head><meta charset="UTF-8">',
+          '<xml><x:ExcelWorkbook><x:ExcelWorksheets>',
+          `<x:ExcelWorksheet><x:Name>${chartId}</x:Name>`,
+          '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>',
+          '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>',
+          '</head><body>',
+          `<table border="1" cellspacing="0">${tblHtml}</table>`,
+          '</body></html>',
+        ].join('\n');
+
+        const blob = new Blob(['\uFEFF' + xlsHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `export-${chartId}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
   }
 
   /* ──────────────────────────────────────────────────────────────
@@ -1028,35 +1171,123 @@ window.ChartAnalysis = (() => {
       .ca-toggle-btn:hover { background: rgba(0,153,255,.22); color: #93c5fd; }
       .ca-toggle-btn.is-table { background: rgba(0,212,170,.12); border-color: rgba(0,212,170,.3); color: #34d399; }
 
-      /* ── TABLE ── */
-      .ca-table-view { display: none; overflow: auto; max-height: 320px; }
+      /* ── TABLE WRAPPER ── */
+      .ca-table-view { display: none; }
       .ca-table-view.is-visible { display: block; }
+
+      /* ── CONTROLS (search + export) ── */
+      .ca-table-controls {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .4rem .65rem;
+        border-bottom: 1px solid rgba(0,212,170,.1);
+        background: rgba(0,212,170,.025);
+        flex-wrap: wrap;
+      }
+      .ca-search-input {
+        flex: 1;
+        min-width: 120px;
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 4px;
+        color: #c0d0e0;
+        font-family: 'DM Mono', monospace;
+        font-size: .6rem;
+        padding: .22rem .5rem;
+        outline: none;
+        transition: border-color .15s;
+      }
+      .ca-search-input::placeholder { color: rgba(155,175,195,.45); }
+      .ca-search-input:focus { border-color: rgba(0,212,170,.45); }
+      .ca-row-count {
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        color: rgba(155,175,195,.55);
+        white-space: nowrap;
+      }
+      .ca-export-btn {
+        flex-shrink: 0;
+        background: rgba(16,185,129,.1);
+        border: 1px solid rgba(16,185,129,.3);
+        color: #34d399;
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        padding: .22rem .6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .ca-export-btn:hover { background: rgba(16,185,129,.22); color: #6ee7b7; }
+
+      /* ── DUAL SCROLLBAR ── */
+      .ca-scroll-wrap { position: relative; }
+      .ca-top-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+        height: 8px;
+        border-bottom: 1px solid rgba(0,212,170,.08);
+      }
+      .ca-top-scroll::-webkit-scrollbar { height: 5px; }
+      .ca-top-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
+      .ca-top-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,170,.35); border-radius: 3px; }
+      .ca-top-scroll-inner { height: 1px; }
+      .ca-table-scroll {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 290px;
+      }
+      .ca-table-scroll::-webkit-scrollbar { height: 5px; width: 5px; }
+      .ca-table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
+      .ca-table-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,170,.35); border-radius: 3px; }
+
+      /* ── TABLE ── */
       .ca-data-table {
-        width: 100%;
+        width: max-content;
+        min-width: 100%;
         border-collapse: collapse;
         font-family: 'DM Mono', monospace;
         font-size: .65rem;
       }
       .ca-data-table thead th {
-        background: rgba(0,212,170,.1);
+        background: rgba(0,30,22,.85);
         color: #9fb3c8;
-        padding: .35rem .7rem;
+        padding: .35rem .75rem;
         text-align: left;
-        border-bottom: 1px solid rgba(0,212,170,.18);
+        border-bottom: 2px solid rgba(0,212,170,.25);
+        border-right: 1px solid rgba(0,212,170,.08);
         font-weight: 600;
         white-space: nowrap;
         position: sticky;
         top: 0;
+        z-index: 2;
+        cursor: pointer;
+        user-select: none;
+        transition: background .12s;
       }
-      .ca-data-table tbody tr:nth-child(even) td { background: rgba(255,255,255,.022); }
-      .ca-data-table tbody tr:hover td { background: rgba(0,212,170,.06); }
-      .ca-data-table td { padding: .3rem .7rem; border-bottom: 1px solid rgba(255,255,255,.04); }
-      .ca-dt-label { color: #c0d0e0; font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ca-dt-val { text-align: right; color: #9fb3c8; }
+      .ca-data-table thead th:hover { background: rgba(0,212,170,.1); color: #c0d8f0; }
+      .ca-data-table thead th::after { content: ''; display: inline-block; margin-left: 4px; opacity: .3; font-size: .55rem; }
+      .ca-data-table thead th[data-sort="asc"]::after  { content: '▲'; opacity: 1; color: #00d4aa; }
+      .ca-data-table thead th[data-sort="desc"]::after { content: '▼'; opacity: 1; color: #00d4aa; }
+
+      /* ── ROWS alternance ── */
+      .ca-data-table tbody tr:nth-child(odd)  td { background: rgba(6,18,12,.55); }
+      .ca-data-table tbody tr:nth-child(even) td { background: rgba(0,35,25,.45); }
+      .ca-data-table tbody tr:hover td { background: rgba(0,212,170,.1) !important; }
+      .ca-data-table td {
+        padding: .3rem .75rem;
+        border-bottom: 1px solid rgba(255,255,255,.035);
+        border-right: 1px solid rgba(255,255,255,.025);
+        white-space: nowrap;
+      }
+      .ca-dt-label { color: #c0d0e0; font-weight: 500; min-width: 120px; }
+      .ca-dt-val { text-align: right; color: #9fb3c8; min-width: 80px; }
 
       @media (max-width:600px) {
         .chart-analysis-block { font-size: .62rem; }
         .ca-data-table { font-size: .6rem; }
+        .ca-table-controls { gap: .3rem; }
       }
     `;
     document.head.appendChild(style);
@@ -1103,7 +1334,12 @@ window.ChartAnalysis = (() => {
 
         if (isTableNow && !tableView.dataset.built) {
           const tbl = _buildTableFromChart(chartId);
-          tableView.innerHTML = tbl || '<div style="padding:.6rem .9rem;color:#6b7d8f;font-size:.68rem;">Données non disponibles pour ce graphique.</div>';
+          if (tbl) {
+            tableView.innerHTML = tbl;
+            _initTableFeatures(tableView, chartId);
+          } else {
+            tableView.innerHTML = '<div style="padding:.6rem .9rem;color:#6b7d8f;font-size:.68rem;">Données non disponibles pour ce graphique.</div>';
+          }
           tableView.dataset.built = '1';
         }
 
@@ -1150,7 +1386,12 @@ window.ChartAnalysis = (() => {
       tableView.dataset.built = '';
       if (tableView.classList.contains('is-visible')) {
         const tbl = _buildTableFromChart(chartId);
-        tableView.innerHTML = tbl || '<div style="padding:.6rem .9rem;color:#6b7d8f;font-size:.68rem;">Données non disponibles.</div>';
+        if (tbl) {
+          tableView.innerHTML = tbl;
+          _initTableFeatures(tableView, chartId);
+        } else {
+          tableView.innerHTML = '<div style="padding:.6rem .9rem;color:#6b7d8f;font-size:.68rem;">Données non disponibles.</div>';
+        }
         tableView.dataset.built = '1';
       }
     }
@@ -1206,7 +1447,7 @@ window.ChartAnalysis = (() => {
       });
     }
 
-    console.log('%c📊 ChartAnalysis v2.0 — 35+ analyseurs + vue tableau + projection N+1', 'color:#00d4aa;font-weight:700');
+    console.log('%c📊 ChartAnalysis v2.1 — tableau avancé : tri, recherche, dual-scroll, export Excel', 'color:#00d4aa;font-weight:700');
   }
 
   if (typeof document !== 'undefined') {
