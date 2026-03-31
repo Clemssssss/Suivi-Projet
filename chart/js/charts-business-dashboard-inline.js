@@ -18,6 +18,15 @@
     return raw || 'Non renseigne';
   }
 
+  function bucketKey(value) {
+    return cleanLabel(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function getRawStatus(project) {
     return cleanLabel(project && (project['Statut'] || project['MG Statut Odoo MG']));
   }
@@ -328,16 +337,18 @@
     if (!accessor) return [];
 
     projects.forEach(function(project) {
-      var key = accessor(project);
-      if (!buckets[key]) buckets[key] = [];
-      buckets[key].push(project);
+      var label = accessor(project);
+      var key = bucketKey(label);
+      if (!buckets[key]) buckets[key] = { label: label, projects: [] };
+      buckets[key].projects.push(project);
     });
 
     return Object.keys(buckets).map(function(key) {
+      var bucket = buckets[key];
       return {
-        label: key,
-        value: computeValue(buckets[key], mode),
-        projects: buckets[key]
+        label: bucket.label,
+        value: computeValue(bucket.projects, mode),
+        projects: bucket.projects
       };
     }).sort(function(a, b) {
       return b.value - a.value;
@@ -406,8 +417,8 @@
     projects.forEach(function(project) {
       var a = cleanLabel(project[keyA]);
       var b = cleanLabel(project[keyB]);
-      var key = a + ' • ' + b;
-      if (!map[key]) map[key] = { label: key, filters: {}, projects: [] };
+      var key = bucketKey(a) + ' • ' + bucketKey(b);
+      if (!map[key]) map[key] = { label: a + ' • ' + b, filters: {}, projects: [] };
       map[key].filters[keyA] = a;
       map[key].filters[keyB] = b;
       map[key].projects.push(project);
