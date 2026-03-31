@@ -2,6 +2,7 @@ const {
   createLoginChallengeToken,
   evaluateAccessPolicy,
   getSessionPayload,
+  isAdminUser,
   jsonResponse,
   logAccess
 } = require('./_auth');
@@ -24,6 +25,7 @@ exports.handler = async function(event) {
     ok: true,
     authenticated: authenticated,
     user: authenticated && session ? session.user : '',
+    isAdmin: authenticated && session ? isAdminUser(session.user) : false,
     networkAllowed: !!access.allowed,
     loginChallenge: authenticated ? '' : createLoginChallengeToken(event.headers || {})
   };

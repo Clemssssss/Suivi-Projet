@@ -23,8 +23,11 @@
     th{font-family:'DM Mono',monospace;font-size:.72rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.04em;}
     details summary{cursor:pointer;color:#9fd9ff;}
     pre{margin:.5rem 0 0;font-size:.72rem;color:#dce8f5;}
-    .nav{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:1rem;}
-    .nav a{color:#00d4aa;text-decoration:none;font-family:'DM Mono',monospace;font-size:.8rem;}
+    .nav{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;}
+    .nav-actions{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;}
+    .nav a,.nav button,.nav .pill{color:#00d4aa;text-decoration:none;font-family:'DM Mono',monospace;font-size:.8rem;background:#0c1523;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:.68rem .85rem;}
+    .nav button{cursor:pointer;}
+    .nav .pill{color:#9ff3e1;}
     @media (max-width:900px){.toolbar{grid-template-columns:1fr 1fr;}}
     @media (max-width:520px){.toolbar{grid-template-columns:1fr;}.title{font-size:1.55rem;}}
   </style>
@@ -33,7 +36,12 @@
   <div class="wrap">
     <div class="nav">
       <div class="title">Logs <em>d'accès</em></div>
-      <a href="/chart/chart.html">← Retour dashboard</a>
+      <div class="nav-actions">
+        <span class="pill" id="auth-user-label">🔒 Session</span>
+        <button id="btn-logout" type="button">Se déconnecter</button>
+        <a href="/chart/whitelist.html">🛡️ Whitelist</a>
+        <a href="/chart/chart.html">← Retour dashboard</a>
+      </div>
     </div>
     <div class="card">
       <form id="logs-form" class="toolbar">

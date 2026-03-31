@@ -68,6 +68,19 @@
     }
   }
 
+  function bindLogout() {
+    var button = qs('btn-logout');
+    if (!button || button._logoutBound) return;
+    button._logoutBound = true;
+    button.addEventListener('click', async function() {
+      button.disabled = true;
+      try {
+        await window.AuthClient.logout();
+      } catch (_) {}
+      window.location.replace('/chart/login.html');
+    });
+  }
+
   async function init() {
     if (window.AuthClient && typeof window.AuthClient.status === 'function') {
       var auth = await window.AuthClient.status();
@@ -75,7 +88,11 @@
         window.location.replace('/chart/login.html?next=' + encodeURIComponent('/chart/logs.html'));
         return;
       }
+      if (auth.data && auth.data.user && qs('auth-user-label')) {
+        qs('auth-user-label').textContent = '🔒 ' + auth.data.user;
+      }
     }
+    bindLogout();
     qs('logs-refresh').addEventListener('click', loadLogs);
     qs('logs-form').addEventListener('submit', function(e) {
       e.preventDefault();
