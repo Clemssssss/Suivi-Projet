@@ -136,6 +136,36 @@
     <button id="timeline-clear" class="btn-hdr" style="display:none;">✕ Réinitialiser</button>
   </div>
 </div>
+<div class="ctrl-bar" id="business-filter-bar">
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Mesure</label>
+    <select id="biz-performance-view" class="ctrl-inp">
+      <option value="amount">Montant (€ Bud)</option>
+      <option value="count">Nombre de dossiers</option>
+      <option value="won_rate_amount">Taux de transfo (€)</option>
+      <option value="won_rate_count">Taux de transfo (dossiers)</option>
+    </select>
+  </div>
+  <div class="ctrl-div"></div>
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Périmètre zone / client</label>
+    <select id="biz-performance-combo-scope" class="ctrl-inp">
+      <option value="block">Même périmètre que le bloc</option>
+      <option value="all">Depuis le fichier</option>
+    </select>
+  </div>
+  <div class="ctrl-div"></div>
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Statut affiché</label>
+    <select id="biz-performance-status-filter" class="ctrl-inp">
+      <option value="all">Tout</option>
+      <option value="won">Gagné</option>
+      <option value="lost">Perdu</option>
+      <option value="decided">Gagné + Perdu</option>
+      <option value="offer">Offre</option>
+    </select>
+  </div>
+</div>
 </div><!-- /#ctrl-bars-sticky -->
 
 <!-- ══════════════════════════════════════
@@ -479,35 +509,7 @@
       <div class="business-block-header">
         <div>
           <div class="business-block-title">Prise d’affaires / Performance</div>
-          <div class="business-block-subtitle">Base Bud, statuts gagnés / perdus / décidés, taux de transformation en € et en nombre.</div>
-        </div>
-        <div class="business-control-row">
-          <label class="business-control">
-            <span>Mesure</span>
-            <select id="biz-performance-view">
-              <option value="amount">Montant (€ Bud)</option>
-              <option value="count">Nombre de dossiers</option>
-              <option value="won_rate_amount">Taux de transfo (€)</option>
-              <option value="won_rate_count">Taux de transfo (dossiers)</option>
-            </select>
-          </label>
-          <label class="business-control">
-            <span>Périmètre couple zone / client</span>
-            <select id="biz-performance-combo-scope">
-              <option value="block">Même périmètre que le bloc</option>
-              <option value="all">Depuis le fichier</option>
-            </select>
-          </label>
-          <label class="business-control">
-            <span>Statut affiché</span>
-            <select id="biz-performance-status-filter">
-              <option value="all">Tout</option>
-              <option value="won">Gagné</option>
-              <option value="lost">Perdu</option>
-              <option value="decided">Gagné + Perdu</option>
-              <option value="offer">Offre</option>
-            </select>
-          </label>
+          <div class="business-block-subtitle">Base Bud, statuts gagnés / perdus / décidés, taux de transformation en € et en nombre. Réglages disponibles dans la barre sticky.</div>
         </div>
       </div>
 
