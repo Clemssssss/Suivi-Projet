@@ -1778,7 +1778,10 @@ function update() {
       try {
         serverRecord = await DashboardServerData.hydrateDashboard();
         if (serverRecord && serverRecord.ok && typeof notify === 'function') {
-          notify('Données chargées', serverRecord.rowCount + ' projets récupérés depuis la base', 'success', 3200);
+          var sourceLabel = serverRecord.storageMode === 'session-cache'
+            ? 'projets restaurés depuis le cache de session'
+            : 'projets récupérés depuis la base';
+          notify('Données chargées', serverRecord.rowCount + ' ' + sourceLabel, 'success', 3200);
         } else if (serverRecord && serverRecord.ok === false && typeof notify === 'function') {
           var msg = 'Dataset base indisponible';
           if (serverRecord.status === 401) msg = 'Session non autorisée pour charger les données';

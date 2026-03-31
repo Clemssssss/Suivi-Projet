@@ -4,6 +4,7 @@ window.DashboardLocalData = (function() {
 
   var DB_NAME = 'analytics-dashboard-user-data';
   var FALLBACK_PREFIX = 'analytics-dashboard-user-data-fallback';
+  var SESSION_DATASET_PREFIX = 'analytics-dashboard-session-dataset';
 
   function _hideUi() {
     var button = document.getElementById('btn-clear-local-data');
@@ -35,6 +36,21 @@ window.DashboardLocalData = (function() {
     }
   }
 
+  function _clearSessionStorage() {
+    try {
+      var keys = [];
+      for (var i = 0; i < sessionStorage.length; i++) {
+        var key = sessionStorage.key(i);
+        if (key && key.indexOf(SESSION_DATASET_PREFIX + '::') === 0) keys.push(key);
+      }
+      keys.forEach(function(key) { sessionStorage.removeItem(key); });
+      return true;
+    } catch (err) {
+      console.warn('[DashboardLocalData] Suppression sessionStorage impossible', err);
+      return false;
+    }
+  }
+
   function _deleteIndexedDb() {
     return new Promise(function(resolve) {
       if (!('indexedDB' in window)) {
@@ -57,8 +73,9 @@ window.DashboardLocalData = (function() {
   async function clearCurrentUserData() {
     var idbOk = await _deleteIndexedDb();
     var fallbackOk = _clearFallbackStorage();
+    var sessionOk = _clearSessionStorage();
     _hideUi();
-    return !!(idbOk || fallbackOk);
+    return !!(idbOk || fallbackOk || sessionOk);
   }
 
   async function purgeAllLocalData() {
