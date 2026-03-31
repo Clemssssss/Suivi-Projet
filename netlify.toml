@@ -19,6 +19,21 @@
     Cross-Origin-Resource-Policy = "same-origin"
     Origin-Agent-Cluster = "?1"
 
+[[headers]]
+  for = "/chart/docs/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+    Content-Security-Policy = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-Robots-Tag = "noindex, nofollow, noarchive, nosnippet"
+    Permissions-Policy = "camera=(), geolocation=(), microphone=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+    Origin-Agent-Cluster = "?1"
+
 [[redirects]]
   from = "/"
   to = "/chart/login.html"
@@ -43,4 +58,8 @@
 
 [[edge_functions]]
   path = "/chart/source-sync.html"
+  function = "auth-gate"
+
+[[edge_functions]]
+  path = "/chart/docs/*"
   function = "auth-gate"
