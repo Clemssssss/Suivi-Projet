@@ -443,7 +443,7 @@
    * @returns {boolean}
    */
   function isCahors(project) {
-    return null === 'Oui';
+    return project?.['Consultation CAHORS'] === 'Oui';
   }
 
   /**
@@ -453,7 +453,7 @@
    * @returns {boolean}
    */
   function hasNotes(project) {
-    return !!project?.notes && project['Commentaires'].trim().length > 0;
+    return !!(project?.['Commentaires']?.trim()?.length);
   }
 
   /* ---------------------------------------------------

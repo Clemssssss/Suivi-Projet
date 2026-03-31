@@ -23,3 +23,9 @@ Desktop.ini
 *.env.local
 *.env.production
 chart/js/data.js
+
+# Variantes locales avec données embarquées (ne pas exposer)
+chart/chart-*.html
+
+# Copies Windows automatiques
+chart/docs/* (*)*.pdf
