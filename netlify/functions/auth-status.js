@@ -20,13 +20,20 @@ exports.handler = async function(event) {
     networkAllowed: !!access.allowed,
     networkReason: access.reason || ''
   }, authenticated ? session.user : '');
-  return jsonResponse(200, {
+  const payload = {
     ok: true,
     authenticated: authenticated,
     user: authenticated && session ? session.user : '',
     networkAllowed: !!access.allowed,
-    networkReason: access.reason || '',
-    clientIp: access.ip || '',
     loginChallenge: authenticated ? '' : createLoginChallengeToken(event.headers || {})
-  });
+  };
+
+  if (authenticated) {
+    payload.networkReason = access.reason || '';
+    payload.clientIp = access.ip || '';
+  } else if (!access.allowed) {
+    payload.networkReason = access.reason || '';
+  }
+
+  return jsonResponse(200, payload);
 };

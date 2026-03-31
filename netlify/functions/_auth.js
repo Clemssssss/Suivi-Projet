@@ -90,6 +90,18 @@ function verifyPassword(password) {
   return constantTimeEqual(candidate, config.hash);
 }
 
+function getAdminUser() {
+  const explicit = String(process.env.DASHBOARD_ADMIN_USER || '').trim();
+  if (explicit) return explicit;
+  return String(process.env.DASHBOARD_LOGIN_USER || '').trim();
+}
+
+function isAdminUser(username) {
+  const user = String(username || '').trim();
+  const admin = getAdminUser();
+  return !!user && !!admin && constantTimeEqual(user, admin);
+}
+
 function getSessionSecret() {
   const secret = process.env.AUTH_SESSION_SECRET;
   if (!secret || String(secret).length < 32) {
@@ -664,6 +676,7 @@ module.exports = {
   getLoginThrottleState,
   getPersistentLoginThrottleState,
   hasWhitelistAccess,
+  isAdminUser,
   getUserAgent,
   isSameOrigin,
   jsonResponse,

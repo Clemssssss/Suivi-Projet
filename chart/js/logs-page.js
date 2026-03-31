@@ -3,6 +3,15 @@
 
   function qs(id) { return document.getElementById(id); }
 
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function formatDate(value) {
     if (!value) return '';
     try {
@@ -21,15 +30,15 @@
     }
     tbody.innerHTML = logs.map(function(log) {
       return '<tr>'
-        + '<td>' + formatDate(log.createdAt) + '</td>'
-        + '<td>' + String(log.level || '') + '</td>'
-        + '<td>' + String(log.eventType || '') + '</td>'
-        + '<td>' + String(log.actor || '') + '</td>'
-        + '<td>' + String(log.ip || '') + '</td>'
-        + '<td>' + String(log.country || '') + '</td>'
-        + '<td>' + String(log.path || '') + '</td>'
+        + '<td>' + escapeHtml(formatDate(log.createdAt)) + '</td>'
+        + '<td>' + escapeHtml(log.level || '') + '</td>'
+        + '<td>' + escapeHtml(log.eventType || '') + '</td>'
+        + '<td>' + escapeHtml(log.actor || '') + '</td>'
+        + '<td>' + escapeHtml(log.ip || '') + '</td>'
+        + '<td>' + escapeHtml(log.country || '') + '</td>'
+        + '<td>' + escapeHtml(log.path || '') + '</td>'
         + '<td><details><summary>Voir</summary><pre style="white-space:pre-wrap;">'
-        + JSON.stringify(log.details || {}, null, 2)
+        + escapeHtml(JSON.stringify(log.details || {}, null, 2))
         + '</pre></details></td>'
         + '</tr>';
     }).join('');

@@ -1,4 +1,4 @@
-const { evaluateAccessPolicy, getSessionPayload, jsonResponse, logAccess } = require('./_auth');
+const { evaluateAccessPolicy, getSessionPayload, isAdminUser, jsonResponse, logAccess } = require('./_auth');
 const { ensureSchema, query } = require('./_db');
 
 function cleanText(value, max) {
@@ -16,6 +16,11 @@ exports.handler = async function(event) {
   if (!session || !session.user) {
     await logAccess(event, 'access_logs_unauthorized', 'warn', {});
     return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  if (!isAdminUser(session.user)) {
+    await logAccess(event, 'access_logs_forbidden_non_admin', 'warn', {}, session.user);
+    return jsonResponse(403, { ok: false, error: 'Forbidden' });
   }
 
   const access = await evaluateAccessPolicy(event.headers || {});

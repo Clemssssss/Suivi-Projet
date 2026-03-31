@@ -12,9 +12,10 @@ function getDatabaseUrl() {
 
 function getPool() {
   if (pool) return pool;
+  const sslRejectUnauthorized = String(process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true').toLowerCase() !== 'false';
   pool = new Pool({
     connectionString: getDatabaseUrl(),
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: sslRejectUnauthorized },
     max: 4,
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 10000
