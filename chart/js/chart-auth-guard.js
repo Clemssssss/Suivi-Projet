@@ -35,6 +35,13 @@ window.DashboardAuthGuard = (function() {
     }
   }
 
+  function updateRoleVisibility() {
+    var adminOnlyNodes = document.querySelectorAll('[data-admin-only="1"]');
+    adminOnlyNodes.forEach(function(node) {
+      node.style.display = state.isAdmin ? '' : 'none';
+    });
+  }
+
   function bindLogout() {
     var button = document.getElementById('btn-logout');
     if (!button || button._logoutBound) return;
@@ -73,6 +80,7 @@ window.DashboardAuthGuard = (function() {
       }
 
       updateHeaderUser();
+      updateRoleVisibility();
       bindLogout();
       window.AuthClient.setDocumentAuthenticated(true);
       document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {

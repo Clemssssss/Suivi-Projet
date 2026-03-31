@@ -57,12 +57,12 @@
     <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
     <button class="btn-hdr" id="btn-email-report" type="button" title="Créer un brouillon d'email avec synthèse et graphiques">✉️ Créer email</button>
     <button class="btn-hdr" id="btn-open-manual" type="button" title="Ouvrir le manuel utilisateur du dashboard">📘 Manuel</button>
-    <label class="btn-hdr" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
+    <label class="btn-hdr" id="csv-import-trigger" data-admin-only="1" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
       📥 Import CSV/Excel
-      <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
+      <input type="file" id="csv-import-input" accept=".csv,.xlsx" style="display:none">
     </label>
-    <button class="btn-hdr" id="btn-sharepoint-refresh" type="button" style="display:none;">🔄 Refresh SharePoint</button>
-    <a class="btn-hdr" id="btn-sharepoint-source" href="/chart/source-sync.html" style="display:none;text-decoration:none;">⚙️ Source SharePoint</a>
+    <button class="btn-hdr" id="btn-sharepoint-refresh" data-admin-only="1" type="button" style="display:none;">🔄 Refresh SharePoint</button>
+    <a class="btn-hdr" id="btn-sharepoint-source" data-admin-only="1" href="/chart/source-sync.html" style="display:none;text-decoration:none;">⚙️ Source SharePoint</a>
     <div class="hdr-pill" id="project-count">-- projets</div>
     <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
     <div class="hdr-actions-status">
@@ -1589,13 +1589,13 @@
     color:#0099ff;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Copier le lien avec filtres actifs">🔗 Partager</button>
-  <a href="/chart/logs.html" style="
+  <a href="/chart/logs.html" data-admin-only="1" style="
     display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;
     background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
     color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Consulter les journaux d'accès">🧾 Logs</a>
-  <a href="/chart/whitelist.html" style="
+  <a href="/chart/whitelist.html" data-admin-only="1" style="
     display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;
     background:rgba(159,217,255,.08);border:1px solid rgba(159,217,255,.25);
     color:#9fd9ff;border-radius:8px;padding:.35rem .8rem;
