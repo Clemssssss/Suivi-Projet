@@ -93,6 +93,7 @@ Le dashboard charge désormais un dataset PostgreSQL en clair, une ligne par pro
 Variables requises pour ce mode :
 
 - `NEON_DATABASE_URL`
+- `POWER_AUTOMATE_IMPORT_TOKEN` si tu veux pousser les données depuis Power Automate
 
 Import d'un fichier Excel local vers la base :
 
@@ -126,3 +127,49 @@ Pour le mode Graph :
 - le champ URL accepte le lien de partage SharePoint normal
 - le bearer token doit être un token Microsoft Graph valide permettant de lire le fichier partagé
 - le test de source affiche désormais le vrai diagnostic métier au lieu d'un simple `HTTP 400`
+
+## Import Power Automate
+
+Une alternative plus simple à Graph consiste à laisser Power Automate lire le tableau Excel SharePoint, puis pousser les lignes vers :
+
+- `POST /.netlify/functions/import-from-power-automate`
+
+Sécurité :
+
+- header obligatoire `X-Import-Token`
+- valeur stockée dans la variable d'environnement `POWER_AUTOMATE_IMPORT_TOKEN`
+- aucune session navigateur requise
+- aucune lecture de dataset n'est ouverte par ce flux
+
+Générer le token :
+
+```powershell
+node scripts/generate_import_token.js
+```
+
+Puis enregistrer la valeur dans Netlify sous :
+
+- `POWER_AUTOMATE_IMPORT_TOKEN`
+
+Exemple d'appel HTTP depuis Power Automate :
+
+Headers :
+
+```json
+{
+  "Content-Type": "application/json",
+  "X-Import-Token": "TON_SECRET"
+}
+```
+
+Body :
+
+```json
+{
+  "datasetKey": "saip-main",
+  "sourceName": "Power Automate SharePoint",
+  "rows": @{body('List_rows_present_in_a_table')?['value']}
+}
+```
+
+Le connecteur Excel doit lire un vrai tableau Excel, par exemple `Tableau1`.

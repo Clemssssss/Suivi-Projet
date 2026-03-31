@@ -251,6 +251,48 @@ function buildRows(headers, matrixRows, rowOffset) {
   return rows;
 }
 
+function normalizeObjectKeys(input) {
+  const source = input && typeof input === 'object' ? input : {};
+  const map = {};
+  Object.keys(source).forEach((key) => {
+    const normalized = headerNorm(canonicalHeader(String(key || '').trim()));
+    if (!normalized) return;
+    map[normalized] = source[key];
+  });
+  return map;
+}
+
+function normalizeImportedRowObjects(list) {
+  const rows = Array.isArray(list) ? list : [];
+  return rows.reduce((acc, item, rowIndex) => {
+    const normalizedMap = normalizeObjectKeys(item);
+    const row = {};
+
+    EXPECTED_SCHEMA.forEach((header) => {
+      const raw = normalizedMap[headerNorm(header)];
+      if (DATE_FIELDS.has(header) || DATE_FIELDS.has(header.trim())) row[header] = parseDate(raw);
+      else if (MONTANT_FIELDS.has(header)) row[header] = parseMontant(raw);
+      else if (WINPROBA_FIELDS.has(header)) row[header] = parseWinProba(raw);
+      else if (header === 'Zone Géographique') row[header] = normalizeZone(raw) || nvClean(raw);
+      else if (header === 'Statut' || header.toLowerCase() === 'statut') row[header] = nvClean(raw);
+      else if (NUM_FIELDS.has(header)) {
+        const n = parseFloat(raw);
+        row[header] = Number.isNaN(n) ? nvClean(raw) : n;
+      } else {
+        row[header] = nvClean(raw);
+      }
+    });
+
+    const hasMeaningfulValue = Object.values(row).some((value) => String(value == null ? '' : value).trim() !== '');
+    if (!hasMeaningfulValue) return acc;
+
+    row.id = Number(item && item.id) || (rowIndex + 1);
+    if (!row.notes) row.notes = '';
+    acc.push(row);
+    return acc;
+  }, []);
+}
+
 function extractExcelCellValue(cell) {
   if (!cell) return '';
   const value = cell.value;
@@ -334,5 +376,6 @@ module.exports = {
   loadWorkbookRowsFromBuffer,
   loadRowsFromRemoteBuffer,
   loadWorkbookRowsFromCsvText,
+  normalizeImportedRowObjects,
   assertExistingFile
 };
