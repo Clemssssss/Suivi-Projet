@@ -1,4 +1,4 @@
-const { getSessionPayload, jsonResponse, logAccess } = require('./_auth');
+const { evaluateAccessPolicy, getSessionPayload, jsonResponse, logAccess } = require('./_auth');
 const { ensureSchema, query } = require('./_db');
 
 function cleanText(value, max) {
@@ -16,6 +16,12 @@ exports.handler = async function(event) {
   if (!session || !session.user) {
     await logAccess(event, 'access_logs_unauthorized', 'warn', {});
     return jsonResponse(401, { ok: false, error: 'Unauthorized' });
+  }
+
+  const access = await evaluateAccessPolicy(event.headers || {});
+  if (!access.allowed) {
+    await logAccess(event, 'access_logs_network_blocked', 'warn', { code: access.reason || '', ip: access.ip || '' }, session.user);
+    return jsonResponse(403, { ok: false, error: 'Restricted network', code: access.reason || 'ip_not_whitelisted' });
   }
 
   if (event.httpMethod !== 'GET') {

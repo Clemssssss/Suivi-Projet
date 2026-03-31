@@ -10,6 +10,21 @@
     if (type === 'success') el.classList.add('is-success');
   }
 
+  function setRequestMessage(text, type) {
+    var el = document.getElementById('access-request-message');
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.remove('is-error', 'is-success');
+    if (type === 'error') el.classList.add('is-error');
+    if (type === 'success') el.classList.add('is-success');
+  }
+
+  function toggleRequestForm(visible) {
+    var form = document.getElementById('access-request-form');
+    if (!form) return;
+    form.style.display = visible ? '' : 'none';
+  }
+
   function getNextTarget() {
     var params = new URLSearchParams(window.location.search);
     return window.AuthClient.sanitizeNext(params.get('next'));
@@ -27,6 +42,12 @@
     var userInput = document.getElementById('login-username');
     var passwordInput = document.getElementById('login-password');
     var honeypotInput = document.getElementById('login-company');
+    var requestForm = document.getElementById('access-request-form');
+    var requestSubmit = document.getElementById('access-request-submit');
+    var requestName = document.getElementById('access-request-name');
+    var requestEmail = document.getElementById('access-request-email');
+    var requestReason = document.getElementById('access-request-reason');
+    var requestHoneypot = document.getElementById('access-request-company');
     if (!form || !submit || !userInput || !passwordInput || !honeypotInput) return;
 
     var nextTarget = getNextTarget();
@@ -38,6 +59,10 @@
       if (current.ok && current.data && current.data.authenticated) {
         window.location.replace(nextTarget);
         return;
+      }
+      if (current.ok && current.data && current.data.networkAllowed === false) {
+        toggleRequestForm(true);
+        setMessage('Connexion réseau bloquée: cette IP n’est pas whitelistée.', 'error');
       }
       loginChallenge = current && current.data && typeof current.data.loginChallenge === 'string'
         ? current.data.loginChallenge
@@ -80,7 +105,10 @@
           } else if (result.status === 429) {
             setMessage('Trop de tentatives. Réessaie dans quelques minutes.', 'error');
           } else if (result.status === 403) {
-            if (result.data && /^ip_|^country_/.test(result.data.code || '')) {
+            if (result.data && result.data.code === 'ip_not_whitelisted') {
+              toggleRequestForm(true);
+              setMessage('Cette IP n’est pas autorisée. Utilise la demande d’accès ci-dessous.', 'error');
+            } else if (result.data && /^ip_|^country_/.test(result.data.code || '')) {
               setMessage('Connexion refusée par la politique réseau du site.', 'error');
             } else {
               setMessage('Requête bloquée par la protection anti-bot ou réseau.', 'error');
@@ -111,6 +139,60 @@
         submit.disabled = false;
       }
     });
+
+    if (requestForm && requestSubmit && requestName && requestEmail && requestReason && requestHoneypot) {
+      requestForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        var requestedBy = requestName.value.trim();
+        var requestedEmail = requestEmail.value.trim();
+        var reason = requestReason.value.trim();
+
+        if (!requestedBy || !reason) {
+          setRequestMessage('Nom et raison requis.', 'error');
+          return;
+        }
+
+        requestSubmit.disabled = true;
+        setRequestMessage('Envoi de la demande…');
+
+        try {
+          var response = await fetch('/.netlify/functions/access-request', {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              requestedBy: requestedBy,
+              requestedEmail: requestedEmail,
+              requestReason: reason,
+              challenge: loginChallenge,
+              company: requestHoneypot.value
+            })
+          });
+          var text = await response.text();
+          var data = {};
+          try { data = JSON.parse(text); } catch (_) {}
+
+          if (!response.ok || !data || !data.ok) {
+            if (data && typeof data.loginChallenge === 'string') loginChallenge = data.loginChallenge;
+            setRequestMessage(data && data.error ? data.error : 'Envoi impossible.', 'error');
+            return;
+          }
+
+          setRequestMessage(data.message || 'Demande enregistrée.', 'success');
+          requestReason.value = '';
+          requestHoneypot.value = '';
+        } catch (err) {
+          console.error('[LoginPage] Erreur demande d’accès', err);
+          setRequestMessage('Service de demande d’accès indisponible.', 'error');
+        } finally {
+          requestSubmit.disabled = false;
+        }
+      });
+    }
   }
 
   if (document.readyState === 'loading') {

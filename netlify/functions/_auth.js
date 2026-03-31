@@ -418,6 +418,65 @@ function evaluateNetworkPolicy(headers) {
   return { allowed: true, reason: '' };
 }
 
+function normalizeIpRule(value) {
+  return clipText(String(value || '').trim(), 160);
+}
+
+async function getDbIpWhitelistEntries() {
+  await ensureSchema();
+  const result = await query(
+    `SELECT ip_rule AS "ipRule", label, notes, is_active AS "isActive", added_by AS "addedBy",
+            created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM dashboard_ip_whitelist
+      WHERE is_active = TRUE
+      ORDER BY updated_at DESC, created_at DESC`
+  );
+  return result.rows || [];
+}
+
+async function evaluateDbWhitelist(headers) {
+  const ip = getClientIP(headers);
+  if (!ip || ip === 'unknown') {
+    return { allowed: false, reason: 'ip_unknown', ip: ip, matchedRule: '' };
+  }
+
+  if (isLocalhost(headers)) {
+    return { allowed: true, reason: '', ip: ip, matchedRule: 'localhost' };
+  }
+
+  const entries = await getDbIpWhitelistEntries();
+  const matched = entries.find((entry) => ipMatchesRule(ip, entry.ipRule || ''));
+  if (matched) {
+    return {
+      allowed: true,
+      reason: '',
+      ip: ip,
+      matchedRule: matched.ipRule || ''
+    };
+  }
+
+  return { allowed: false, reason: 'ip_not_whitelisted', ip: ip, matchedRule: '' };
+}
+
+async function evaluateAccessPolicy(headers) {
+  const networkPolicy = evaluateNetworkPolicy(headers);
+  if (!networkPolicy.allowed) {
+    return {
+      allowed: false,
+      reason: networkPolicy.reason,
+      ip: getClientIP(headers),
+      matchedRule: ''
+    };
+  }
+
+  return evaluateDbWhitelist(headers);
+}
+
+async function hasWhitelistAccess(headers) {
+  const state = await evaluateAccessPolicy(headers);
+  return !!state.allowed;
+}
+
 function looksLikeBot(headers) {
   const userAgent = getUserAgent(headers).toLowerCase();
   const acceptLanguage = getAcceptLanguage(headers);
@@ -596,10 +655,15 @@ module.exports = {
   clearSessionCookie,
   createLoginChallengeToken,
   createSessionToken,
+  evaluateAccessPolicy,
   evaluateNetworkPolicy,
+  getDbIpWhitelistEntries,
+  getClientCountry,
+  getClientIP,
   getSessionPayload,
   getLoginThrottleState,
   getPersistentLoginThrottleState,
+  hasWhitelistAccess,
   getUserAgent,
   isSameOrigin,
   jsonResponse,

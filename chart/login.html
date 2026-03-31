@@ -32,6 +32,24 @@
         <p id="login-message" class="auth-message" aria-live="polite"></p>
       </form>
 
+      <form id="access-request-form" class="auth-form" novalidate style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--auth-line);">
+        <p class="auth-copy" style="margin-top:0;">Cette IP n'est pas encore autorisée. Tu peux envoyer une demande d'accès à l'administrateur.</p>
+
+        <label class="auth-label" for="access-request-name">Nom</label>
+        <input id="access-request-name" name="requestedBy" class="auth-input" type="text" maxlength="120" autocomplete="name">
+
+        <label class="auth-label" for="access-request-email">Email</label>
+        <input id="access-request-email" name="requestedEmail" class="auth-input" type="email" maxlength="160" autocomplete="email">
+
+        <label class="auth-label" for="access-request-reason">Raison de la demande</label>
+        <textarea id="access-request-reason" name="requestReason" class="auth-input" rows="4" maxlength="500" style="resize:vertical;"></textarea>
+
+        <input id="access-request-company" name="company" class="auth-honeypot" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <button id="access-request-submit" class="auth-submit" type="submit">Envoyer une demande d'accès</button>
+        <p id="access-request-message" class="auth-message" aria-live="polite"></p>
+      </form>
+
       <div class="auth-footer">
         <span id="login-next-target"></span>
         <span class="auth-footer-note">Protection active: anti-bot, temporisation humaine, limitation des tentatives.</span>

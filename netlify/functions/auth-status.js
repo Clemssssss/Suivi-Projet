@@ -1,5 +1,6 @@
 const {
   createLoginChallengeToken,
+  evaluateAccessPolicy,
   getSessionPayload,
   jsonResponse,
   logAccess
@@ -12,13 +13,20 @@ exports.handler = async function(event) {
   }
 
   const session = getSessionPayload(event);
-  await logAccess(event, session ? 'auth_status_authenticated' : 'auth_status_guest', 'info', {
-    authenticated: !!session
-  }, session ? session.user : '');
+  const access = await evaluateAccessPolicy(event.headers || {});
+  const authenticated = !!session && !!access.allowed;
+  await logAccess(event, authenticated ? 'auth_status_authenticated' : 'auth_status_guest', 'info', {
+    authenticated: authenticated,
+    networkAllowed: !!access.allowed,
+    networkReason: access.reason || ''
+  }, authenticated ? session.user : '');
   return jsonResponse(200, {
     ok: true,
-    authenticated: !!session,
-    user: session ? session.user : '',
-    loginChallenge: session ? '' : createLoginChallengeToken(event.headers || {})
+    authenticated: authenticated,
+    user: authenticated && session ? session.user : '',
+    networkAllowed: !!access.allowed,
+    networkReason: access.reason || '',
+    clientIp: access.ip || '',
+    loginChallenge: authenticated ? '' : createLoginChallengeToken(event.headers || {})
   });
 };

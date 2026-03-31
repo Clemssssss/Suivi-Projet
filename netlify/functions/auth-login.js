@@ -3,7 +3,7 @@ const {
   clearLoginFailures,
   clearPersistentLoginFailures,
   createSessionToken,
-  evaluateNetworkPolicy,
+  evaluateAccessPolicy,
   getLoginThrottleState,
   getPersistentLoginThrottleState,
   isSameOrigin,
@@ -38,10 +38,11 @@ exports.handler = async function(event) {
     return jsonResponse(400, { ok: false, error: 'Invalid request' });
   }
 
-  const networkPolicy = evaluateNetworkPolicy(event.headers || {});
+  const networkPolicy = await evaluateAccessPolicy(event.headers || {});
   if (!networkPolicy.allowed) {
     await logAccess(event, 'auth_login_network_blocked', 'warn', {
-      code: networkPolicy.reason
+      code: networkPolicy.reason,
+      ip: networkPolicy.ip || ''
     });
     return jsonResponse(403, {
       ok: false,
