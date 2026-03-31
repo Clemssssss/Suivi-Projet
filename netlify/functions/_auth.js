@@ -174,6 +174,9 @@ function isAdminUser(username) {
 function normalizeUserRole(role, username) {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'admin') return 'admin';
+  if (normalized === 'consultation' || normalized === 'viewer' || normalized === 'read_only' || normalized === 'readonly') {
+    return 'consultation';
+  }
   if (normalized === 'user') return 'user';
   return isAdminUser(username) ? 'admin' : 'user';
 }
@@ -181,6 +184,11 @@ function normalizeUserRole(role, username) {
 function isAdminSession(session) {
   if (!session || typeof session !== 'object') return false;
   return normalizeUserRole(session.role, session.user) === 'admin';
+}
+
+function isConsultationSession(session) {
+  if (!session || typeof session !== 'object') return false;
+  return normalizeUserRole(session.role, session.user) === 'consultation';
 }
 
 function getSessionSecret() {
@@ -760,6 +768,7 @@ module.exports = {
   hasWhitelistAccess,
   isAdminUser,
   isAdminSession,
+  isConsultationSession,
   getUserAgent,
   normalizeUserRole,
   isSameOrigin,

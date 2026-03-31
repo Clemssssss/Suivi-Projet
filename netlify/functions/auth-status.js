@@ -3,6 +3,7 @@ const {
   evaluateAccessPolicy,
   getSessionPayload,
   isAdminSession,
+  isConsultationSession,
   jsonResponse,
   logAccess
 } = require('./_auth');
@@ -26,6 +27,7 @@ exports.handler = async function(event) {
     authenticated: authenticated,
     user: authenticated && session ? session.user : '',
     isAdmin: authenticated && session ? isAdminSession(session) : false,
+    isReadOnly: authenticated && session ? isConsultationSession(session) : false,
     role: authenticated && session ? String(session.role || '') : '',
     networkAllowed: !!access.allowed,
     loginChallenge: authenticated ? '' : createLoginChallengeToken(event.headers || {})
