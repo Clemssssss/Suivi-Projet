@@ -419,7 +419,10 @@
   function refreshYearSelect(data) {
     var seen = {}, yrs = [];
     data.forEach(function(p) {
-      var y = p._annee ? parseInt(p._annee, 10) : NaN;
+      var y = p && p._annee ? parseInt(p._annee, 10) : NaN;
+      if (isNaN(y) && typeof Analytics !== 'undefined' && typeof Analytics.getProjectYear === 'function') {
+        y = parseInt(Analytics.getProjectYear(p), 10);
+      }
       if (!isNaN(y) && !seen[y]) { seen[y] = true; yrs.push(y); }
     });
     yrs.sort(function(a,b) { return b - a; });

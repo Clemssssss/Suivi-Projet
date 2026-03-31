@@ -819,7 +819,7 @@
       zone: 'par zone geographique',
       client: 'par client',
       type: 'par type de projet',
-      'zone-client': 'zone / client',
+      'zone-client': 'par couple zone geographique / client',
       'client-type': 'client / type de projet'
     };
 
@@ -843,7 +843,9 @@
     var monthHint = document.getElementById('biz-hint-perf-month');
     if (monthHint) monthHint.textContent = 'Annee active ' + activeYear + ' uniquement';
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
-    if (comboHint) comboHint.textContent = comboScope === 'all' ? 'Top couples zone + client depuis le fichier' : 'Top couples zone + client sur l annee active';
+    if (comboHint) comboHint.textContent = comboScope === 'all'
+      ? 'Top couples zone geographique + client depuis tout le fichier'
+      : 'Top couples zone geographique + client sur l annee active';
 
     renderKpi('biz-kpi-won-year', '€ gagnes annee active', computeValue(filteredYear, 'won_amount'), 'Base Bud, statut obtenu', filteredYear.filter(isWon), '€ gagnes — annee ' + activeYear, 'won_amount');
     renderKpi('biz-kpi-lost-year', '€ perdus annee active', computeValue(filteredYear, 'lost_amount'), 'Base Bud, statut perdu', filteredYear.filter(isLost), '€ perdus — annee ' + activeYear, 'lost_amount');
@@ -866,7 +868,7 @@
       });
       createComparisonChart(
         'biz-chart-perf-zone-client',
-        modeLabel(displayMode) + ' zone / client',
+        modeLabel(displayMode) + ' par couple zone geographique / client',
         createComparisonComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
         displayMode,
         { indexAxis: 'y' }
@@ -892,7 +894,7 @@
     });
     createChart(
       'biz-chart-perf-zone-client',
-      modeLabel(displayMode) + ' zone / client',
+      modeLabel(displayMode) + ' par couple zone geographique / client',
       createComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
       displayMode,
       { indexAxis: 'y' }
@@ -912,7 +914,7 @@
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
     var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
-    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / zone géographique' : 'Remis + En étude par client / zone géographique';
+    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par couple client / zone géographique' : 'Remis + En étude par couple client / zone géographique';
     var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / type de chantier' : 'Remis + En étude par client / type de chantier';
 
     updateTitles('biz-title-pipe-', view);
@@ -930,7 +932,7 @@
     createChart('biz-chart-pipe-type', modeLabel(view) + ' par type', createAggregateEntries(filteredYear, 'type', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' zone / client', createComboEntries(filteredYear, 'Zone Géographique', 'Client', view, 12), view, {
+    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par couple zone geographique / client', createComboEntries(filteredYear, 'Zone Géographique', 'Client', view, 12), view, {
       indexAxis: 'y'
     });
     createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {

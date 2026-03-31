@@ -1565,9 +1565,17 @@ function rebuildYearSelectFromData(data) {
 
   const current = ys.value;
   const yrs = [...new Set((Array.isArray(data) ? data : []).map(p => {
-    if (p && p._annee != null && String(p._annee).trim() !== '') return parseInt(p._annee, 10);
+    if (!p) return null;
+    if (p._annee != null && String(p._annee).trim() !== '') {
+      const parsed = parseInt(p._annee, 10);
+      if (isFinite(parsed)) return parsed;
+    }
+    if (typeof Analytics !== 'undefined' && typeof Analytics.getProjectYear === 'function') {
+      const liveYear = parseInt(Analytics.getProjectYear(p), 10);
+      if (isFinite(liveYear)) return liveYear;
+    }
     return null;
-  }).filter(Boolean))].sort().reverse();
+  }).filter(y => isFinite(y)))].sort().reverse();
 
   ys.innerHTML = '<option value="">Toutes les années</option>';
   yrs.forEach(y => {
