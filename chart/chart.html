@@ -528,6 +528,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-month">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-month">Performance par mois <span class="info-icon" data-info="Vue mensuelle de la mesure sélectionnée. En période glissante, le graphe peut traverser plusieurs années.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint" id="biz-hint-perf-month">Périmètre du bloc</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-month"></canvas></div>
@@ -536,6 +537,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-zone">Performance par zone géographique <span class="info-icon" data-info="Compare la mesure choisie par <strong>zone géographique</strong> sur le périmètre actuellement filtré.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top zones sur le périmètre filtré</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-zone"></canvas></div>
@@ -544,6 +546,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-client">Performance par client <span class="info-icon" data-info="Compare la mesure choisie par <strong>client</strong>. Les libellés sont normalisés pour fusionner les variantes de casse.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top clients sur le périmètre filtré</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-client"></canvas></div>
@@ -552,6 +555,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-type">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-type">Performance par type de projet <span class="info-icon" data-info="Répartition de la mesure métier par <strong>type de projet / activité</strong> sur le périmètre visible.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Répartition métier par activité</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-type"></canvas></div>
@@ -560,6 +564,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone-client">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-zone-client">Performance zone / client <span class="info-icon" data-info="Affiche les couples <strong>zone géographique + client</strong>. Le sélecteur de périmètre permet de rester sur le bloc courant ou d'étendre la vue au fichier visible.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint" id="biz-hint-perf-zone-client">Top couples zone + client</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-zone-client"></canvas></div>
@@ -568,6 +573,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client-type">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-client-type">Performance client / type de projet <span class="info-icon" data-info="Affiche les couples <strong>client + type de projet</strong> pour repérer les combinaisons les plus performantes.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top couples client + type</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-client-type"></canvas></div>
@@ -603,6 +609,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-pipe-zone">Pipe commercial par zone <span class="info-icon" data-info="Répartit le pipe commercial par zone géographique selon la base sélectionnée.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Offres en cours, pondérées selon la base choisie</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-zone"></canvas></div>
@@ -611,6 +618,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-pipe-client">Pipe commercial par client <span class="info-icon" data-info="Classe les clients du pipe actif selon la base choisie. Le mode <strong>Top + Autres</strong> regroupe les clients secondaires pour garder une lecture claire.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top clients sur le pipe actif</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-client"></canvas></div>
@@ -619,6 +627,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-type">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-pipe-type">Pipe commercial par type de chantier <span class="info-icon" data-info="Répartition des projets <strong>Remis + En étude</strong> par type de chantier / activité.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Répartition par activité en cours</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-type"></canvas></div>
@@ -627,6 +636,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone-client">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-pipe-zone-client">Pipe commercial zone / client <span class="info-icon" data-info="Compare les couples <strong>zone + client</strong> sur le pipe commercial actif.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top couples zone + client en cours</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-zone-client"></canvas></div>
@@ -635,6 +645,7 @@
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client-type">
           <div class="chart-header">
             <div class="chart-title" id="biz-title-pipe-client-type">Pipe commercial client / type <span class="info-icon" data-info="Compare les couples <strong>client + type de chantier</strong> sur les projets Remis + En étude.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
           </div>
           <div class="chart-hint">Top couples client + type sur le pipe</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-client-type"></canvas></div>

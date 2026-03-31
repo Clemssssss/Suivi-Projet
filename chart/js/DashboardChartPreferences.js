@@ -79,9 +79,7 @@ window.DashboardChartPreferences = (() => {
     return Array.from(document.querySelectorAll('.chart-card[data-chart-id]')).filter(function(card) {
       return card
         && card.dataset.chartId
-        && card.dataset.custom !== 'true'
-        && !_isBusinessChartCard(card)
-        && !_isBusinessChartId(card.dataset.chartId);
+        && card.dataset.custom !== 'true';
     });
   }
 
@@ -194,7 +192,27 @@ window.DashboardChartPreferences = (() => {
     }
   }
 
-  function _getAllowedTypes(chart) {
+  function _getBusinessAllowedTypes(chartId, chart, baseTypes) {
+    if (!_isBusinessChartId(chartId)) return baseTypes;
+    var current = chart && chart.config && chart.config.type ? chart.config.type : 'bar';
+    var unique = function(values) {
+      return values.filter(function(value, index, arr) {
+        return !!value && arr.indexOf(value) === index;
+      });
+    };
+    if (/(?:^|-)month$/.test(chartId)) {
+      return unique(['bar', 'line', current]);
+    }
+    var dsCount = chart && chart.data && chart.data.datasets ? chart.data.datasets.length : 0;
+    if (dsCount > 1) {
+      return unique(['bar', 'line', current]);
+    }
+    return unique(baseTypes.filter(function(type) {
+      return ['bar', 'line', 'pie', 'doughnut'].indexOf(type) !== -1;
+    }).concat(current));
+  }
+
+  function _getAllowedTypes(chart, chartId) {
     if (!chart || !chart.config) return ['bar', 'line', 'pie', 'doughnut'];
     var current = chart.config.type || 'bar';
     var datasetTypes = chart.data && chart.data.datasets
@@ -206,10 +224,11 @@ window.DashboardChartPreferences = (() => {
       return [current];
     }
     var dsCount = chart.data && chart.data.datasets ? chart.data.datasets.length : 0;
-    if (dsCount > 1) return ['bar', 'line', current];
-    return ['bar', 'line', 'pie', 'doughnut', current].filter(function(value, index, arr) {
+    var baseTypes = dsCount > 1 ? ['bar', 'line', current] : ['bar', 'line', 'pie', 'doughnut', current];
+    var normalized = baseTypes.filter(function(value, index, arr) {
       return arr.indexOf(value) === index;
     });
+    return _getBusinessAllowedTypes(chartId, chart, normalized);
   }
 
   function _getBridgeSchema(chartId) {
@@ -344,7 +363,7 @@ window.DashboardChartPreferences = (() => {
     var chart = _resolveChart(chartId);
     if (!chart) return;
     var defaults = _captureDefaults(chartId);
-    var allowedTypes = _getAllowedTypes(chart);
+    var allowedTypes = _getAllowedTypes(chart, chartId);
     var targetType = config.visual && config.visual.type && config.visual.type !== 'auto' ? config.visual.type : defaults.visual.type;
     if (allowedTypes.indexOf(targetType) === -1) targetType = defaults.visual.type;
 
@@ -414,14 +433,12 @@ window.DashboardChartPreferences = (() => {
   }
 
   function _applySingle(chartId) {
-    if (_isBusinessChartId(chartId)) return;
     var config = _currentConfig(chartId);
     _applyPresentation(chartId, config);
     setTimeout(function() { _applyVisual(chartId, config); }, 40);
   }
 
   function _applyConfigToChart(chartId, config, options) {
-    if (_isBusinessChartId(chartId)) return;
     options = options || {};
     _applyPresentation(chartId, config);
 
@@ -515,7 +532,7 @@ window.DashboardChartPreferences = (() => {
   }
 
   function _openMarkup(chartId, current, defaults, chart) {
-    var allowedTypes = _getAllowedTypes(chart);
+    var allowedTypes = _getAllowedTypes(chart, chartId);
     var typeOptions = ['auto'].concat(allowedTypes).filter(function(value, index, arr) {
       return arr.indexOf(value) === index;
     });
@@ -740,7 +757,7 @@ window.DashboardChartPreferences = (() => {
   }
 
   function init() {
-    if (document.getElementById('business-dashboard-root') || document.body.classList.contains('business-dashboard-simplified')) {
+    if (document.body.classList.contains('business-dashboard-simplified')) {
       console.log('[ChartPrefs] Desactive sur le dashboard metier simplifie');
       return;
     }
