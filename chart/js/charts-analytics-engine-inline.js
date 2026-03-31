@@ -1968,8 +1968,10 @@ function update() {
     targetInput.addEventListener('input', debounce(() => updateKPIs(AE.getFiltered()), 300));
   }
 
-  document.getElementById('search-input')
-    .addEventListener('input', debounce(function () { AE.setSearch(this.value); }, 250));
+  var searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', debounce(function () { AE.setSearch(this.value); }, 250));
+  }
 
   // ── Filtre type d'énergie ────────────────────────────────────────
   (function() {
