@@ -321,6 +321,49 @@
     return buckets;
   }
 
+  function createTimelineMonthlyEntries(projects, mode, timeline) {
+    var now = new Date();
+    var start = timeline && timeline.start ? new Date(timeline.start + 'T00:00:00') : null;
+    var end = timeline && timeline.end ? new Date(timeline.end + 'T23:59:59') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    var items = Array.isArray(projects) ? projects : [];
+
+    if (!start || !isFinite(start.getTime()) || !end || !isFinite(end.getTime()) || start > end) {
+      return [];
+    }
+
+    var monthCursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    var monthEnd = new Date(end.getFullYear(), end.getMonth(), 1);
+    var spansMultipleYears = monthCursor.getFullYear() !== monthEnd.getFullYear();
+    var buckets = [];
+
+    while (monthCursor <= monthEnd) {
+      buckets.push({
+        year: monthCursor.getFullYear(),
+        month: monthCursor.getMonth(),
+        label: MONTHS[monthCursor.getMonth()] + (spansMultipleYears ? (' ' + monthCursor.getFullYear()) : ''),
+        value: 0,
+        projects: []
+      });
+      monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
+    }
+
+    items.forEach(function(project) {
+      var dt = getDate(project);
+      if (!dt || dt < start || dt > end) return;
+      var bucket = buckets.find(function(entry) {
+        return entry.year === dt.getFullYear() && entry.month === dt.getMonth();
+      });
+      if (!bucket) return;
+      bucket.projects.push(project);
+    });
+
+    buckets.forEach(function(bucket) {
+      bucket.value = computeValue(bucket.projects, mode);
+    });
+
+    return buckets;
+  }
+
   function createComboEntries(projects, keyA, keyB, mode, limit) {
     var map = {};
     projects.forEach(function(project) {
@@ -395,6 +438,22 @@
         label: MONTHS[idx],
         values: values,
         projects: bucketProjects
+      };
+    });
+  }
+
+  function createComparisonTimelineMonthlyEntries(projects, mode, timeline) {
+    var series = comparisonSeriesForMode(mode);
+    var base = createTimelineMonthlyEntries(projects, series[0] ? series[0].key : mode, timeline);
+    return base.map(function(bucket) {
+      var values = {};
+      series.forEach(function(serie) {
+        values[serie.key] = computeValue(bucket.projects, serie.key);
+      });
+      return {
+        label: bucket.label,
+        values: values,
+        projects: bucket.projects
       };
     });
   }
@@ -845,10 +904,24 @@
     var activeYear = resolveReferenceYear(baseVisible, displayMode);
     var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
     var filteredAll = baseVisible.slice();
+    var timeline = (typeof window.getActiveTimelineRange === 'function')
+      ? window.getActiveTimelineRange()
+      : { start: null, end: null, field: 'Date réception' };
+    var hasTimeline = !!(timeline && (timeline.start || timeline.end));
+    var monthlyEntries = hasTimeline
+      ? createTimelineMonthlyEntries(baseVisible, displayMode, timeline)
+      : createMonthlyEntries(filteredYear, displayMode, activeYear);
+    var comparisonMonthlyEntries = hasTimeline
+      ? createComparisonTimelineMonthlyEntries(baseVisible, displayMode, timeline)
+      : createComparisonMonthlyEntries(filteredYear, displayMode, activeYear);
 
     updateTitles('biz-title-perf-', displayMode);
     var monthHint = document.getElementById('biz-hint-perf-month');
-    if (monthHint) monthHint.textContent = 'Annee active ' + activeYear + ' uniquement';
+    if (monthHint) {
+      monthHint.textContent = hasTimeline
+        ? 'Periode active ' + (timeline.start || 'debut') + ' → ' + (timeline.end || 'aujourd hui')
+        : 'Annee active ' + activeYear + ' uniquement';
+    }
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
     if (comboHint) comboHint.textContent = comboScope === 'all'
       ? 'Top couples zone geographique + client depuis tout le fichier'
@@ -861,7 +934,7 @@
     renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — annee ' + activeYear, 'decided_count');
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
-      createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', createComparisonMonthlyEntries(filteredYear, displayMode, activeYear), displayMode, {
+      createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
         maxBarThickness: 18
       });
       createComparisonChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createComparisonAggregateEntries(filteredYear, 'zone', displayMode, 10), displayMode, {
@@ -886,7 +959,7 @@
       return;
     }
 
-    createChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', createMonthlyEntries(filteredYear, displayMode, activeYear), displayMode, {
+    createChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', monthlyEntries, displayMode, {
       type: (displayMode === 'won_rate_amount' || displayMode === 'won_rate_count') ? 'line' : 'bar',
       maxBarThickness: 24
     });
