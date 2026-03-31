@@ -239,9 +239,19 @@
   function renderV5Widgets(data) {
     if (typeof Analytics === 'undefined' || typeof ChartsEnrichis === 'undefined') return;
 
+    function resolveActiveSummaryYear(items) {
+      var explicit = yearFilter && yearFilter.value ? parseInt(yearFilter.value, 10) : NaN;
+      if (isFinite(explicit)) return explicit;
+      if (Analytics.availableYears) {
+        var years = Analytics.availableYears(items || []);
+        if (years && years.length) return years[0];
+      }
+      return new Date().getFullYear();
+    }
+
     // Determine active year
     var yearFilter = document.getElementById('year-filter');
-    var currentYear = (yearFilter && yearFilter.value) ? parseInt(yearFilter.value, 10) : new Date().getFullYear();
+    var currentYear = resolveActiveSummaryYear(data);
 
     var objConfig = {};
     if (typeof window._v42 !== 'undefined' && window._v42.getObjectives) {

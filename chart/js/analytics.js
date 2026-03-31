@@ -2809,7 +2809,12 @@ function caByYearAllModes(projects, filters = {}) {
    * @returns {{ headline, summary, strengths, risks, projection, recommendation }}
    */
   function generateExecutiveSummary(projects, year, objectivesConfig = {}, options = {}) {
-    const y = parseInt(year, 10);
+    var requestedYear = parseInt(year, 10);
+    if (!isFinite(requestedYear)) {
+      var years = availableYears(projects);
+      requestedYear = years.length ? years[0] : new Date().getFullYear();
+    }
+    const y = requestedYear;
     const dataY = _projectsForYear(projects, y);
     const dataPrev = _projectsForYear(projects, y - 1);
     const objectif = objectivesConfig[String(y)] || 0;
