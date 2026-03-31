@@ -93,6 +93,30 @@
     return Math.max.apply(null, years);
   }
 
+  function resolveBusinessScope(projects, mode) {
+    var baseVisible = applyEngineLikeFilters(projects, { respectYear: false, includeEngineFilters: false });
+    var explicitYear = explicitSelectedYear();
+    var hasExplicitYear = isValidYear(explicitYear);
+    var referenceYear = resolveReferenceYear(baseVisible, mode);
+    var scopeYear = hasExplicitYear ? explicitYear : referenceYear;
+    var scopedYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: scopeYear, includeEngineFilters: false });
+    return {
+      baseVisible: baseVisible,
+      explicitYear: hasExplicitYear ? explicitYear : null,
+      referenceYear: referenceYear,
+      scopeYear: scopeYear,
+      scopedYear: scopedYear,
+      isReferenceYear: !hasExplicitYear
+    };
+  }
+
+  function describeScopeLabel(scope, timeline) {
+    if (timeline && (timeline.start || timeline.end)) return 'Periode filtree';
+    if (scope && isValidYear(scope.explicitYear)) return 'Annee commerciale ' + scope.explicitYear;
+    if (scope && isValidYear(scope.referenceYear)) return 'Annee de reference ' + scope.referenceYear;
+    return 'Perimetre filtre';
+  }
+
   function resolveReferenceYear(projects, mode) {
     var explicit = explicitSelectedYear();
     if (isValidYear(explicit)) return explicit;
@@ -269,7 +293,7 @@
 
   function resolvePerformanceDisplayMode(view, statusFilter) {
     if (view === 'won_rate_amount' || view === 'won_rate_count') {
-      return 'won_rate_amount';
+      return view;
     }
 
     var family = performanceMetricFamily(view);
@@ -910,41 +934,45 @@
 
   function renderPerformance(rawFiltered, rawAll) {
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
-    var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'year';
+    var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'block';
     var statusFilter = (document.getElementById('biz-performance-status-filter') || {}).value || 'all';
     var displayMode = resolvePerformanceDisplayMode(view, statusFilter);
-    var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
-    var activeYear = resolveReferenceYear(baseVisible, displayMode);
-    var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
+    var scope = resolveBusinessScope(rawAll, displayMode);
+    var baseVisible = scope.baseVisible;
+    var filteredYear = scope.scopedYear;
     var filteredAll = baseVisible.slice();
     var timeline = (typeof window.getActiveTimelineRange === 'function')
       ? window.getActiveTimelineRange()
       : { start: null, end: null, field: 'Date réception' };
     var hasTimeline = !!(timeline && (timeline.start || timeline.end));
+    var scopeLabel = describeScopeLabel(scope, timeline);
+    var monthlyBase = hasTimeline
+      ? (scope.explicitYear ? filteredYear : baseVisible)
+      : filteredYear;
     var monthlyEntries = hasTimeline
-      ? createTimelineMonthlyEntries(baseVisible, displayMode, timeline)
-      : createMonthlyEntries(filteredYear, displayMode, activeYear);
+      ? createTimelineMonthlyEntries(monthlyBase, displayMode, timeline)
+      : createMonthlyEntries(filteredYear, displayMode, scope.scopeYear);
     var comparisonMonthlyEntries = hasTimeline
-      ? createComparisonTimelineMonthlyEntries(baseVisible, displayMode, timeline)
-      : createComparisonMonthlyEntries(filteredYear, displayMode, activeYear);
+      ? createComparisonTimelineMonthlyEntries(monthlyBase, displayMode, timeline)
+      : createComparisonMonthlyEntries(filteredYear, displayMode, scope.scopeYear);
 
     updateTitles('biz-title-perf-', displayMode);
     var monthHint = document.getElementById('biz-hint-perf-month');
     if (monthHint) {
       monthHint.textContent = hasTimeline
         ? 'Periode active ' + (timeline.start || 'debut') + ' → ' + (timeline.end || 'aujourd hui')
-        : 'Annee active ' + activeYear + ' uniquement';
+        : scopeLabel;
     }
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
     if (comboHint) comboHint.textContent = comboScope === 'all'
-      ? 'Top couples zone geographique + client depuis tout le fichier'
-      : 'Top couples zone geographique + client sur l annee active';
+      ? 'Top couples zone geographique + client depuis tout le fichier filtre'
+      : 'Top couples zone geographique + client sur le meme perimetre que le bloc';
 
-    renderKpi('biz-kpi-won-year', '€ gagnes annee active', computeValue(filteredYear, 'won_amount'), 'Base Bud, statut obtenu', filteredYear.filter(isWon), '€ gagnes — annee ' + activeYear, 'won_amount');
-    renderKpi('biz-kpi-lost-year', '€ perdus annee active', computeValue(filteredYear, 'lost_amount'), 'Base Bud, statut perdu', filteredYear.filter(isLost), '€ perdus — annee ' + activeYear, 'lost_amount');
-    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(filteredYear, 'decided_amount'), 'Projets decides sur l annee active', filteredYear.filter(isDecided), '€ gagnes + perdus — annee ' + activeYear, 'decided_amount');
-    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(filteredYear, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', filteredYear.filter(isDecided), 'Taux de transformation € — annee ' + activeYear, 'won_rate_amount');
-    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — annee ' + activeYear, 'decided_count');
+    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(filteredYear, 'won_amount'), 'Base Bud, statut obtenu', filteredYear.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
+    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(filteredYear, 'lost_amount'), 'Base Bud, statut perdu', filteredYear.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
+    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(filteredYear, 'decided_amount'), 'Projets decides sur le perimetre courant', filteredYear.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount');
+    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(filteredYear, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', filteredYear.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount');
+    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count');
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
       createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
@@ -999,9 +1027,8 @@
 
   function renderPipeline(rawAll) {
     var view = (document.getElementById('biz-pipe-view') || {}).value || 'pipe_bud';
-    var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
-    var activeYear = resolveReferenceYear(baseVisible, view);
-    var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
+    var scope = resolveBusinessScope(rawAll, view);
+    var filteredYear = scope.scopedYear;
     var offers = filteredYear.filter(isPipeCommercialStatus);
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
@@ -1011,9 +1038,9 @@
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(filteredYear, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total', 'pipe_bud');
-    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(filteredYear, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba', 'pipe_weighted');
-    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio', 'pipe_ratio');
+    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(filteredYear, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud');
+    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(filteredYear, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted');
+    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio');
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(filteredYear, 'zone', view, 10), view, {
       indexAxis: 'y'
@@ -1094,8 +1121,31 @@
       var el = document.getElementById(id);
       if (!el || el._businessBound) return;
       el._businessBound = true;
-      el.addEventListener('change', render);
+      el.addEventListener('change', function() {
+        syncPerformanceControls();
+        render();
+      });
     });
+  }
+
+  function syncPerformanceControls() {
+    var viewEl = document.getElementById('biz-performance-view');
+    var statusEl = document.getElementById('biz-performance-status-filter');
+    if (!viewEl || !statusEl) return;
+    var isRateView = viewEl.value === 'won_rate_amount' || viewEl.value === 'won_rate_count';
+    if (isRateView) {
+      if (!statusEl.dataset.previousValue) statusEl.dataset.previousValue = statusEl.value || 'all';
+      statusEl.value = 'decided';
+      statusEl.disabled = true;
+      statusEl.title = 'Le taux de transformation se calcule sur Gagné + Perdu.';
+      return;
+    }
+    statusEl.disabled = false;
+    statusEl.title = '';
+    if (statusEl.value === 'decided' && statusEl.dataset.previousValue) {
+      statusEl.value = statusEl.dataset.previousValue;
+    }
+    delete statusEl.dataset.previousValue;
   }
 
   function render() {
@@ -1108,6 +1158,7 @@
   function init() {
     archiveLegacyCharts();
     bindControls();
+    syncPerformanceControls();
     render();
 
     if (typeof AE !== 'undefined' && AE.subscribe) {

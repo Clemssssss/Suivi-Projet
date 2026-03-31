@@ -483,17 +483,18 @@
         </div>
         <div class="business-control-row">
           <label class="business-control">
-            <span>Vue</span>
+            <span>Mesure</span>
             <select id="biz-performance-view">
               <option value="amount">Montant (€ Bud)</option>
-              <option value="won_rate_amount">Taux de transfo (€)</option>
               <option value="count">Nombre de dossiers</option>
+              <option value="won_rate_amount">Taux de transfo (€)</option>
+              <option value="won_rate_count">Taux de transfo (dossiers)</option>
             </select>
           </label>
           <label class="business-control">
-            <span>Couple zone géographique / client</span>
+            <span>Périmètre couple zone / client</span>
             <select id="biz-performance-combo-scope">
-              <option value="year">Année active</option>
+              <option value="block">Même périmètre que le bloc</option>
               <option value="all">Depuis le fichier</option>
             </select>
           </label>
@@ -523,7 +524,7 @@
           <div class="chart-header">
             <div class="chart-title" id="biz-title-perf-month">Performance par mois</div>
           </div>
-          <div class="chart-hint" id="biz-hint-perf-month">Année active uniquement</div>
+          <div class="chart-hint" id="biz-hint-perf-month">Périmètre du bloc</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-month"></canvas></div>
         </div>
 
