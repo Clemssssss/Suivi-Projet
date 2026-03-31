@@ -109,12 +109,14 @@
     var referenceYear = resolveReferenceYear(baseVisible, mode);
     var scopeYear = hasExplicitYear ? explicitYear : referenceYear;
     var scopedYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: scopeYear, includeEngineFilters: false });
+    var scopeProjects = hasExplicitYear ? scopedYear : baseVisible;
     return {
       baseVisible: baseVisible,
       explicitYear: hasExplicitYear ? explicitYear : null,
       referenceYear: referenceYear,
       scopeYear: scopeYear,
       scopedYear: scopedYear,
+      scopeProjects: scopeProjects,
       isReferenceYear: !hasExplicitYear
     };
   }
@@ -122,7 +124,7 @@
   function describeScopeLabel(scope, timeline) {
     if (timeline && (timeline.start || timeline.end)) return 'Periode filtree';
     if (scope && isValidYear(scope.explicitYear)) return 'Annee commerciale ' + scope.explicitYear;
-    if (scope && isValidYear(scope.referenceYear)) return 'Annee de reference ' + scope.referenceYear;
+    if (scope && isValidYear(scope.referenceYear)) return 'Toutes les annees filtrees';
     return 'Perimetre filtre';
   }
 
@@ -381,7 +383,7 @@
 
   function createMonthlyEntries(projects, mode, year) {
     var buckets = Array.from({ length: 12 }, function(_, idx) { return { label: MONTHS[idx], value: 0, projects: [] }; });
-    projects.filter(function(p) { return getYear(p) === year; }).forEach(function(project) {
+    projects.filter(function(p) { return !isValidYear(year) || getYear(p) === year; }).forEach(function(project) {
       var dt = getDate(project);
       if (!dt || !isFinite(dt.getMonth())) return;
       var idx = dt.getMonth();
@@ -497,7 +499,7 @@
     var series = comparisonSeriesForMode(mode);
     return Array.from({ length: 12 }, function(_, idx) {
       var bucketProjects = [];
-      projects.filter(function(p) { return getYear(p) === year; }).forEach(function(project) {
+      projects.filter(function(p) { return !isValidYear(year) || getYear(p) === year; }).forEach(function(project) {
         var dt = getDate(project);
         if (!dt || !isFinite(dt.getMonth()) || dt.getMonth() !== idx) return;
         bucketProjects.push(project);
@@ -1062,6 +1064,7 @@
     var scope = resolveBusinessScope(rawAll, displayMode);
     var baseVisible = scope.baseVisible;
     var filteredYear = scope.scopedYear;
+    var scopeProjects = scope.scopeProjects;
     var filteredAll = baseVisible.slice();
     var timeline = (typeof window.getActiveTimelineRange === 'function')
       ? window.getActiveTimelineRange()
@@ -1070,13 +1073,13 @@
     var scopeLabel = describeScopeLabel(scope, timeline);
     var monthlyBase = hasTimeline
       ? (scope.explicitYear ? filteredYear : baseVisible)
-      : filteredYear;
+      : scopeProjects;
     var monthlyEntries = hasTimeline
       ? createTimelineMonthlyEntries(monthlyBase, displayMode, timeline)
-      : createMonthlyEntries(filteredYear, displayMode, scope.scopeYear);
+      : createMonthlyEntries(scopeProjects, displayMode, scope.explicitYear);
     var comparisonMonthlyEntries = hasTimeline
       ? createComparisonTimelineMonthlyEntries(monthlyBase, displayMode, timeline)
-      : createComparisonMonthlyEntries(filteredYear, displayMode, scope.scopeYear);
+      : createComparisonMonthlyEntries(scopeProjects, displayMode, scope.explicitYear);
 
     updateTitles('biz-title-perf-', displayMode);
     var monthHint = document.getElementById('biz-hint-perf-month');
@@ -1090,33 +1093,33 @@
       ? ('Top couples zone geographique + client depuis tout le fichier filtre • ' + filterContextSummary())
       : ('Top couples zone geographique + client sur le meme perimetre que le bloc • ' + filterContextSummary());
 
-    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(filteredYear, 'won_amount'), 'Base Bud, statut obtenu', filteredYear.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
-    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(filteredYear, 'lost_amount'), 'Base Bud, statut perdu', filteredYear.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
-    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(filteredYear, 'decided_amount'), 'Projets decides sur le perimetre courant', filteredYear.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount');
-    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(filteredYear, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', filteredYear.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount');
-    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(filteredYear, 'decided_count'), 'Nombre de dossiers gagnes + perdus', filteredYear.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count');
+    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(scopeProjects, 'won_amount'), 'Base Bud, statut obtenu', scopeProjects.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
+    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(scopeProjects, 'lost_amount'), 'Base Bud, statut perdu', scopeProjects.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
+    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(scopeProjects, 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount');
+    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(scopeProjects, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount');
+    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count');
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
       createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
         maxBarThickness: 18
       });
-      createComparisonChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createComparisonAggregateEntries(filteredYear, 'zone', displayMode, 10), displayMode, {
+      createComparisonChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createComparisonAggregateEntries(scopeProjects, 'zone', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
-      createComparisonChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createComparisonAggregateEntries(filteredYear, 'client', displayMode, 10), displayMode, {
+      createComparisonChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createComparisonAggregateEntries(scopeProjects, 'client', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
-      createComparisonChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createComparisonAggregateEntries(filteredYear, 'type', displayMode, 10), displayMode, {
+      createComparisonChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createComparisonAggregateEntries(scopeProjects, 'type', displayMode, 10), displayMode, {
         indexAxis: 'y'
       });
       createComparisonChart(
         'biz-chart-perf-zone-client',
         modeLabel(displayMode) + ' par couple zone geographique / client',
-        createComparisonComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
+        createComparisonComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
         displayMode,
         { indexAxis: 'y' }
       );
-      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComparisonComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComparisonComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
         indexAxis: 'y'
       });
       return;
@@ -1126,23 +1129,23 @@
       type: (displayMode === 'won_rate_amount' || displayMode === 'won_rate_count') ? 'line' : 'bar',
       maxBarThickness: 24
     });
-    createChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createAggregateEntries(filteredYear, 'zone', displayMode, 10), displayMode, {
+    createChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createAggregateEntries(scopeProjects, 'zone', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createAggregateEntries(filteredYear, 'client', displayMode, 10), displayMode, {
+    createChart('biz-chart-perf-client', modeLabel(displayMode) + ' par client', createAggregateEntries(scopeProjects, 'client', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createAggregateEntries(filteredYear, 'type', displayMode, 10), displayMode, {
+    createChart('biz-chart-perf-type', modeLabel(displayMode) + ' par type', createAggregateEntries(scopeProjects, 'type', displayMode, 10), displayMode, {
       indexAxis: 'y'
     });
     createChart(
       'biz-chart-perf-zone-client',
       modeLabel(displayMode) + ' par couple zone geographique / client',
-      createComboEntries(comboScope === 'all' ? filteredAll : filteredYear, 'Zone Géographique', 'Client', displayMode, 12),
+      createComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
       displayMode,
       { indexAxis: 'y' }
     );
-    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
       indexAxis: 'y'
     });
   }
@@ -1150,8 +1153,8 @@
   function renderPipeline(rawAll) {
     var view = (document.getElementById('biz-pipe-view') || {}).value || 'pipe_bud';
     var scope = resolveBusinessScope(rawAll, view);
-    var filteredYear = scope.scopedYear;
-    var offers = filteredYear.filter(isPipeCommercialStatus);
+    var scopeProjects = scope.scopeProjects;
+    var offers = scopeProjects.filter(isPipeCommercialStatus);
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
     var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
@@ -1160,23 +1163,23 @@
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(filteredYear, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud');
-    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(filteredYear, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted');
-    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio');
+    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(scopeProjects, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud');
+    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(scopeProjects, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted');
+    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio');
 
-    createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(filteredYear, 'zone', view, 10), view, {
+    createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(scopeProjects, 'zone', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-client', modeLabel(view) + ' par client', createAggregateEntries(filteredYear, 'client', view, 10), view, {
+    createChart('biz-chart-pipe-client', modeLabel(view) + ' par client', createAggregateEntries(scopeProjects, 'client', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type', createAggregateEntries(filteredYear, 'type', view, 10), view, {
+    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type', createAggregateEntries(scopeProjects, 'type', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par couple zone geographique / client', createComboEntries(filteredYear, 'Zone Géographique', 'Client', view, 12), view, {
+    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par couple zone geographique / client', createComboEntries(scopeProjects, 'Zone Géographique', 'Client', view, 12), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(filteredYear, 'Client', 'Type de projet (Activité)', view, 12), view, {
+    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', view, 12), view, {
       indexAxis: 'y'
     });
 
