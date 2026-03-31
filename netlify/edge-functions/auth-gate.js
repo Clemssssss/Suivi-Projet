@@ -104,7 +104,36 @@ function buildRedirect(request) {
   return Response.redirect(url.origin + '/chart/login.html?next=' + next, 302);
 }
 
+function getClientIP(request) {
+  const forwarded = String(
+    request.headers.get('x-nf-client-connection-ip') ||
+    request.headers.get('x-forwarded-for') ||
+    request.headers.get('client-ip') ||
+    ''
+  ).trim();
+  return forwarded.split(',')[0].trim() || 'unknown';
+}
+
+function isRestrictedWhitelistPage(request) {
+  const url = new URL(request.url);
+  return url.pathname === '/chart/whitelist.html';
+}
+
+function exactWhitelistIPAllowed(request) {
+  return getClientIP(request) === '90.82.197.132';
+}
+
 export default async (request, context) => {
+  if (isRestrictedWhitelistPage(request) && !exactWhitelistIPAllowed(request)) {
+    return new Response('Forbidden', {
+      status: 403,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
+      }
+    });
+  }
+
   if (await hasValidSession(request, context)) {
     return context.next();
   }

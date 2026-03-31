@@ -7,6 +7,7 @@ const {
   logAccess
 } = require('./_auth');
 const { ensureSchema, query } = require('./_db');
+const WHITELIST_ADMIN_IP = '90.82.197.132';
 
 function cleanText(value, max) {
   return String(value == null ? '' : value).trim().slice(0, max || 160);
@@ -34,6 +35,19 @@ async function ensureAdminAccess(event) {
   if (!isAdminUser(session.user)) {
     await logAccess(event, 'ip_whitelist_admin_forbidden_non_admin', 'warn', {}, session.user);
     return { ok: false, response: jsonResponse(403, { ok: false, error: 'Forbidden' }) };
+  }
+
+  const clientIp = String((event && event.headers && (event.headers['x-nf-client-connection-ip'] || event.headers['x-forwarded-for'] || event.headers['client-ip'])) || '')
+    .split(',')[0]
+    .trim() || 'unknown';
+  if (clientIp !== WHITELIST_ADMIN_IP) {
+    await logAccess(event, 'ip_whitelist_admin_forbidden_ip', 'warn', {
+      ip: clientIp
+    }, session.user);
+    return {
+      ok: false,
+      response: jsonResponse(403, { ok: false, error: 'Forbidden', code: 'restricted_admin_ip' })
+    };
   }
 
   const access = await evaluateAccessPolicy(event.headers || {});
