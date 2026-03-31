@@ -38,8 +38,11 @@ window.DashboardAuthGuard = (function() {
   function updateRoleVisibility() {
     var adminOnlyNodes = document.querySelectorAll('[data-admin-only="1"]');
     adminOnlyNodes.forEach(function(node) {
-      node.style.display = state.isAdmin ? '' : 'none';
+      node.hidden = !state.isAdmin;
+      node.setAttribute('aria-hidden', state.isAdmin ? 'false' : 'true');
     });
+    document.body.classList.toggle('role-admin', !!state.isAdmin);
+    document.body.classList.toggle('role-user', !state.isAdmin);
   }
 
   function bindLogout() {

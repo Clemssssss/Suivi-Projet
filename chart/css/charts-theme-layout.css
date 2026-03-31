@@ -31,6 +31,8 @@
 html { scroll-behavior: smooth; }
 html.auth-pending body { opacity: 0; pointer-events: none; }
 html.auth-ready body { opacity: 1; transition: opacity .18s ease; }
+[data-admin-only="1"][hidden] { display: none !important; }
+body.role-user [data-admin-only="1"] { display: none !important; }
 
 body {
   font-family: var(--sans);
