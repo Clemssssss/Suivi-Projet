@@ -9,7 +9,7 @@ const {
 } = require('./_auth');
 const { ensureSchema, query } = require('./_db');
 const { upsertPlainDataset } = require('./_plain_dataset');
-const { loadWorkbookRowsFromBuffer } = require('./_dataset_import');
+const { loadRowsFromRemoteBuffer } = require('./_dataset_import');
 
 const SOURCE_KEY = 'sharepoint_excel_main';
 
@@ -174,7 +174,60 @@ async function fetchWorkbookBuffer(config) {
     throw new Error('Téléchargement SharePoint impossible (' + response.status + ')');
   }
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    contentType: response.headers.get('content-type') || '',
+    contentDisposition: response.headers.get('content-disposition') || '',
+    finalUrl: response.url || config.fileUrl,
+    status: response.status
+  };
+}
+
+function detectKind(payload) {
+  const buffer = payload && payload.buffer ? payload.buffer : Buffer.alloc(0);
+  const contentType = String(payload && payload.contentType ? payload.contentType : '').toLowerCase();
+  const prefix = buffer.slice(0, 256).toString('utf8').trim().toLowerCase();
+  if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b) return 'xlsx';
+  if (prefix.startsWith('<!doctype html') || prefix.startsWith('<html') || prefix.includes('<head') || prefix.includes('<body')) return 'html';
+  if (contentType.includes('text/csv') || contentType.includes('application/csv') || contentType.includes('text/plain')) return 'csv';
+  if (/(;|,)/.test(prefix) && /\r?\n/.test(prefix)) return 'csv';
+  return 'unknown';
+}
+
+async function testSource(config) {
+  const remote = await fetchWorkbookBuffer(config);
+  const kind = detectKind(remote);
+  const result = {
+    ok: true,
+    kind: kind,
+    contentType: remote.contentType || '',
+    contentDisposition: remote.contentDisposition || '',
+    finalUrl: remote.finalUrl || config.fileUrl,
+    status: remote.status || 200,
+    size: remote.buffer ? remote.buffer.length : 0,
+    rowCount: 0,
+    sheetName: ''
+  };
+
+  if (kind === 'html') {
+    result.ok = false;
+    result.message = 'Le lien retourne une page HTML SharePoint/Office, pas un téléchargement direct.';
+    return result;
+  }
+
+  try {
+    const loaded = await loadRowsFromRemoteBuffer(remote.buffer, { contentType: remote.contentType, url: remote.finalUrl });
+    result.rowCount = loaded.rows.length;
+    result.sheetName = loaded.sheetName || '';
+    result.message = kind === 'csv'
+      ? 'Source CSV exploitable détectée.'
+      : 'Source Excel exploitable détectée.';
+    return result;
+  } catch (err) {
+    result.ok = false;
+    result.message = err && err.message ? err.message : 'Source non exploitable';
+    return result;
+  }
 }
 
 async function syncSource(actor) {
@@ -182,8 +235,8 @@ async function syncSource(actor) {
   if (!source) throw new Error('Source SharePoint non configurée');
   if (!source.isEnabled) throw new Error('Source SharePoint désactivée');
   const config = sanitizeConfig(source.config || {});
-  const buffer = await fetchWorkbookBuffer(config);
-  const loaded = await loadWorkbookRowsFromBuffer(buffer);
+  const remote = await fetchWorkbookBuffer(config);
+  const loaded = await loadRowsFromRemoteBuffer(remote.buffer, { contentType: remote.contentType, url: remote.finalUrl });
   if (!loaded.rows.length) {
     throw new Error('Aucune donnée importable trouvée dans le fichier SharePoint');
   }
@@ -265,6 +318,14 @@ exports.handler = async function(event) {
       const result = await syncSource(auth.session.user);
       await logAccess(event, 'sharepoint_source_admin_sync', 'info', result, auth.session.user);
       return jsonResponse(200, Object.assign(await buildPayload(), { syncResult: result }));
+    }
+
+    if (action === 'test_source') {
+      const source = await getSourceRecord();
+      const config = sanitizeConfig(Object.assign({}, source && source.config ? source.config : {}, body || {}));
+      const result = await testSource(config);
+      await logAccess(event, 'sharepoint_source_admin_test', result.ok ? 'info' : 'warn', result, auth.session.user);
+      return jsonResponse(result.ok ? 200 : 400, Object.assign(await buildPayload(), { testResult: result }));
     }
 
     return jsonResponse(400, { ok: false, error: 'Unknown action' });

@@ -107,6 +107,40 @@
     setStatus('Synchronisation terminée : ' + count + ' projet(s).', 'ok');
   }
 
+  async function testSource() {
+    setStatus('Test de la source en cours…');
+    var payload = {
+      action: 'test_source',
+      fileUrl: qs('sp-file-url').value.trim(),
+      sourceName: qs('sp-source-name').value.trim(),
+      datasetKey: qs('sp-dataset-key').value.trim(),
+      authMode: qs('sp-auth-mode').value,
+      bearerToken: qs('sp-bearer-token').value.trim(),
+      isEnabled: qs('sp-enabled').value === 'true'
+    };
+    try {
+      var data = await fetchJson('/.netlify/functions/sharepoint-source-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      applySource(data.source || null);
+      var test = data.testResult || {};
+      setStatus(
+        'Test OK — type: ' + (test.kind || 'unknown')
+        + ' • lignes: ' + String(test.rowCount || 0)
+        + (test.sheetName ? (' • feuille: ' + test.sheetName) : '')
+        + (test.finalUrl ? (' • URL finale: ' + test.finalUrl) : ''),
+        'ok'
+      );
+    } catch (err) {
+      setStatus('Test KO : ' + (err && err.message ? err.message : 'source non exploitable'), 'err');
+    }
+  }
+
   async function initAuth() {
     if (!window.AuthClient || typeof window.AuthClient.status !== 'function') {
       window.location.replace('/chart/login.html?next=' + encodeURIComponent('/chart/source-sync.html'));
@@ -156,6 +190,16 @@
           setStatus('Erreur : ' + (err && err.message ? err.message : 'synchronisation impossible'), 'err');
         }).finally(function() {
           syncBtn.disabled = false;
+        });
+      });
+    }
+    var testBtn = qs('btn-test-source');
+    if (testBtn && !testBtn._bound) {
+      testBtn._bound = true;
+      testBtn.addEventListener('click', function() {
+        testBtn.disabled = true;
+        testSource().finally(function() {
+          testBtn.disabled = false;
         });
       });
     }

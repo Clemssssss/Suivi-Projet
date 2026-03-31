@@ -159,6 +159,70 @@ function sanitizeHeader(raw) {
     .trim());
 }
 
+function splitCsvLine(line, delimiter) {
+  const cells = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === delimiter && !inQuotes) {
+      cells.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  cells.push(current);
+  return cells;
+}
+
+function detectCsvDelimiter(lines) {
+  const sample = lines.slice(0, 5);
+  const semicolons = sample.reduce((sum, line) => sum + ((line.match(/;/g) || []).length), 0);
+  const commas = sample.reduce((sum, line) => sum + ((line.match(/,/g) || []).length), 0);
+  return semicolons > commas ? ';' : ',';
+}
+
+function loadWorkbookRowsFromCsvText(text) {
+  const normalized = String(text || '').replace(/^\uFEFF/, '');
+  const lines = normalized.split(/\r?\n/).filter((line) => String(line || '').trim() !== '');
+  if (!lines.length) return { score: -1, rows: [], sheetName: 'CSV' };
+  const delimiter = detectCsvDelimiter(lines);
+  const matrix = lines.map((line) => splitCsvLine(line, delimiter).map((cell) => cell.trim()));
+  const headerIndex = findHeaderRowIndex(matrix);
+  const headers = (matrix[headerIndex] || []).map(sanitizeHeader);
+  const rows = buildRows(headers, matrix.slice(headerIndex + 1), headerIndex + 1);
+  return { score: scoreHeaderCandidate(matrix[headerIndex] || []), rows, sheetName: 'CSV' };
+}
+
+function bufferLooksLikeHtml(buffer) {
+  const snippet = Buffer.from(buffer || []).slice(0, 512).toString('utf8').trim().toLowerCase();
+  return snippet.startsWith('<!doctype html') || snippet.startsWith('<html') || snippet.includes('<head') || snippet.includes('<body');
+}
+
+function bufferLooksLikeZip(buffer) {
+  if (!buffer || buffer.length < 4) return false;
+  return buffer[0] === 0x50 && buffer[1] === 0x4b;
+}
+
+function bufferLooksLikeCsv(buffer, contentType) {
+  const ct = String(contentType || '').toLowerCase();
+  if (ct.includes('text/csv') || ct.includes('application/csv') || ct.includes('text/plain')) return true;
+  const snippet = Buffer.from(buffer || []).slice(0, 1024).toString('utf8');
+  if (!snippet.trim()) return false;
+  if (bufferLooksLikeHtml(buffer)) return false;
+  return /(;|,)/.test(snippet) && /\r?\n/.test(snippet);
+}
+
 function buildRows(headers, matrixRows, rowOffset) {
   const rows = [];
   for (let rowIndex = 0; rowIndex < matrixRows.length; rowIndex += 1) {
@@ -235,9 +299,26 @@ async function loadWorkbookRowsFromFile(filePath) {
 }
 
 async function loadWorkbookRowsFromBuffer(buffer) {
+  if (bufferLooksLikeHtml(buffer)) {
+    throw new Error('Le lien renvoie une page HTML SharePoint/Office, pas un fichier téléchargeable direct');
+  }
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   return loadWorkbookRowsFromWorkbook(workbook);
+}
+
+async function loadRowsFromRemoteBuffer(buffer, meta) {
+  const contentType = meta && meta.contentType ? meta.contentType : '';
+  if (bufferLooksLikeHtml(buffer)) {
+    throw new Error('Le lien renvoie une page HTML SharePoint/Office, pas un fichier téléchargeable direct');
+  }
+  if (bufferLooksLikeZip(buffer)) {
+    return loadWorkbookRowsFromBuffer(buffer);
+  }
+  if (bufferLooksLikeCsv(buffer, contentType)) {
+    return loadWorkbookRowsFromCsvText(Buffer.from(buffer).toString('utf8'));
+  }
+  throw new Error('Format distant non pris en charge : attendu .xlsx ou CSV exploitable');
 }
 
 function assertExistingFile(filePath) {
@@ -251,5 +332,7 @@ function assertExistingFile(filePath) {
 module.exports = {
   loadWorkbookRowsFromFile,
   loadWorkbookRowsFromBuffer,
+  loadRowsFromRemoteBuffer,
+  loadWorkbookRowsFromCsvText,
   assertExistingFile
 };
