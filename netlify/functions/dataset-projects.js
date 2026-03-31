@@ -1,5 +1,6 @@
 const { getSessionPayload, jsonResponse, logAccess } = require('./_auth');
-const { getSecureDataset, DEFAULT_DATASET_KEY } = require('./_secure_dataset');
+const { getPlainDataset, DEFAULT_DATASET_KEY } = require('./_plain_dataset');
+const { getSecureDataset } = require('./_secure_dataset');
 
 exports.handler = async function(event) {
   const session = getSessionPayload(event);
@@ -17,8 +18,21 @@ exports.handler = async function(event) {
   const datasetKey = String(params.datasetKey || DEFAULT_DATASET_KEY).trim() || DEFAULT_DATASET_KEY;
 
   try {
-    const record = await getSecureDataset(datasetKey);
-    if (!record || !record.payload || !Array.isArray(record.payload.data)) {
+    let record = await getPlainDataset(datasetKey);
+    let source = 'plain';
+
+    if (!record || !Array.isArray(record.data)) {
+      const legacy = await getSecureDataset(datasetKey);
+      if (legacy && legacy.payload && Array.isArray(legacy.payload.data)) {
+        record = {
+          meta: legacy.meta,
+          data: legacy.payload.data
+        };
+        source = 'secure_fallback';
+      }
+    }
+
+    if (!record || !Array.isArray(record.data)) {
       await logAccess(event, 'dataset_projects_not_found', 'warn', { datasetKey }, session.user);
       return jsonResponse(404, { ok: false, error: 'Dataset not found' });
     }
@@ -26,7 +40,8 @@ exports.handler = async function(event) {
     await logAccess(event, 'dataset_projects_loaded', 'info', {
       datasetKey,
       rowCount: record.meta.rowCount,
-      sourceName: record.meta.sourceName
+      sourceName: record.meta.sourceName,
+      storageMode: source
     }, session.user);
 
     return jsonResponse(200, {
@@ -36,7 +51,8 @@ exports.handler = async function(event) {
       rowCount: record.meta.rowCount,
       updatedAt: record.meta.updatedAt,
       payloadHash: record.meta.payloadHash,
-      data: record.payload.data
+      storageMode: source,
+      data: record.data
     });
   } catch (err) {
     console.error('[dataset-projects] Unexpected error', err);

@@ -81,22 +81,25 @@ La table `dashboard_access_logs` enregistre notamment :
 ## Données
 
 Le dépôt versionné n'embarque aucune donnée métier.
-La version sécurisée peut désormais charger un dataset chiffré depuis PostgreSQL après authentification.
+Le dashboard charge désormais un dataset PostgreSQL en clair, une ligne par projet, après authentification.
 
 Variables requises pour ce mode :
 
 - `NEON_DATABASE_URL`
-- `DATA_ENCRYPTION_KEY`
 
-Import sécurisé d'un fichier Excel local vers la base :
+Import d'un fichier Excel local vers la base :
 
 ```powershell
 $env:NEON_DATABASE_URL="postgresql://..."
-$env:DATA_ENCRYPTION_KEY="votre_cle_longue"
 node scripts/import_secure_dataset.js "data\\SAIP - Suivi ventes & AO_VF BRUT.xlsx" saip-main admin
 ```
 
-Le dashboard lira ensuite ce dataset via la fonction Netlify protégée `/.netlify/functions/dataset-projects`.
+Le script conserve son nom pour compatibilité, mais il écrit maintenant :
+
+- une ligne par projet dans `dashboard_dataset_rows`
+- les métadonnées dans `dashboard_dataset_meta`
+
+Le dashboard lit ensuite ce dataset via la fonction Netlify protégée `/.netlify/functions/dataset-projects`.
 
 Les jeux de données locaux restent hors Git.
-La variante GitHub/Netlify utilise `chart/js/data-empty.js` au chargement initial, puis hydrate le dashboard depuis la base si un dataset sécurisé est disponible.
+La variante GitHub/Netlify utilise `chart/js/data-empty.js` au chargement initial, puis hydrate le dashboard depuis la base si un dataset en clair est disponible.

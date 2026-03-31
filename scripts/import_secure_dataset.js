@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 const { ensureSchema } = require('../netlify/functions/_db');
-const { upsertSecureDataset } = require('../netlify/functions/_secure_dataset');
+const { upsertPlainDataset } = require('../netlify/functions/_plain_dataset');
 
 const EXPECTED_SCHEMA = [
   'Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique',
@@ -225,15 +225,7 @@ async function main() {
   }
 
   await ensureSchema();
-  const payload = {
-    schemaVersion: 1,
-    importedAt: new Date().toISOString(),
-    sourcePath: path.basename(resolvedPath),
-    sourceSheet: loaded.sheetName,
-    data: loaded.rows
-  };
-
-  const saved = await upsertSecureDataset(datasetKey, path.basename(resolvedPath), payload, actor);
+  const saved = await upsertPlainDataset(datasetKey, path.basename(resolvedPath), loaded.rows, actor);
   console.log(JSON.stringify({
     ok: true,
     datasetKey: saved.datasetKey,

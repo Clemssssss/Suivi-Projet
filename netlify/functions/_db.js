@@ -135,8 +135,44 @@ async function ensureSchema() {
     );
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_dataset_meta (
+      dataset_key TEXT PRIMARY KEY,
+      source_name TEXT NOT NULL DEFAULT '',
+      row_count INTEGER NOT NULL DEFAULT 0,
+      payload_hash TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_dataset_rows (
+      dataset_key TEXT NOT NULL,
+      row_index INTEGER NOT NULL,
+      project_id BIGINT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (dataset_key, row_index)
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_dataset_audit (
+      id BIGSERIAL PRIMARY KEY,
+      dataset_key TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT '',
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_login_attempts_blocked_until ON dashboard_login_attempts (blocked_until DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_secure_dataset_audit_key_created ON dashboard_secure_dataset_audit (dataset_key, created_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_dataset_rows_key_project_id ON dashboard_dataset_rows (dataset_key, project_id);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_dataset_audit_key_created ON dashboard_dataset_audit (dataset_key, created_at DESC);`);
 }
 
 module.exports = {
