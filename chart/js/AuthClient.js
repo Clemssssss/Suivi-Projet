@@ -6,6 +6,7 @@ window.AuthClient = (function() {
   var _session = {
     authenticated: false,
     user: '',
+    role: '',
     isAdmin: false
   };
 
@@ -58,6 +59,9 @@ window.AuthClient = (function() {
     _session.user = _session.authenticated && result.data && typeof result.data.user === 'string'
       ? result.data.user
       : '';
+    _session.role = _session.authenticated && result.data && typeof result.data.role === 'string'
+      ? result.data.role
+      : '';
     _session.isAdmin = !!(_session.authenticated && result.data && result.data.isAdmin);
     return result;
   }
@@ -80,6 +84,9 @@ window.AuthClient = (function() {
     _session.user = _session.authenticated && result.data && typeof result.data.user === 'string'
       ? result.data.user
       : '';
+    _session.role = _session.authenticated && result.data && typeof result.data.role === 'string'
+      ? result.data.role
+      : '';
     _session.isAdmin = !!(_session.authenticated && result.data && result.data.isAdmin);
     return result;
   }
@@ -95,6 +102,7 @@ window.AuthClient = (function() {
     });
     _session.authenticated = false;
     _session.user = '';
+    _session.role = '';
     _session.isAdmin = false;
     return result;
   }
@@ -107,6 +115,7 @@ window.AuthClient = (function() {
   return {
     DEFAULT_NEXT: DEFAULT_NEXT,
     getCurrentUser: function() { return _session.user || ''; },
+    getRole: function() { return _session.role || ''; },
     isAdmin: function() { return !!_session.isAdmin; },
     isAuthenticated: function() { return !!_session.authenticated; },
     sanitizeNext: sanitizeNext,

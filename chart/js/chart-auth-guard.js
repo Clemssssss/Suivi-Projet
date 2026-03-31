@@ -6,6 +6,7 @@ window.DashboardAuthGuard = (function() {
     checked: false,
     authenticated: false,
     user: '',
+    role: '',
     isAdmin: false
   };
 
@@ -30,7 +31,7 @@ window.DashboardAuthGuard = (function() {
   function updateHeaderUser() {
     var userEl = document.getElementById('auth-user-label');
     if (userEl) {
-      userEl.textContent = state.user ? ('🔒 ' + state.user) : '🔒 Session';
+      userEl.textContent = state.user ? ('🔒 ' + state.user + ' · ' + (state.isAdmin ? 'admin' : 'user')) : '🔒 Session';
     }
   }
 
@@ -60,6 +61,9 @@ window.DashboardAuthGuard = (function() {
       state.authenticated = !!(result.ok && result.data && result.data.authenticated);
       state.user = state.authenticated && typeof result.data.user === 'string'
         ? result.data.user
+        : '';
+      state.role = state.authenticated && result.data && typeof result.data.role === 'string'
+        ? result.data.role
         : '';
       state.isAdmin = !!(state.authenticated && result.data && result.data.isAdmin);
 

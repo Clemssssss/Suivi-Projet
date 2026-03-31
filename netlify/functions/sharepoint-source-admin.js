@@ -1,7 +1,7 @@
 const {
   evaluateAccessPolicy,
   getSessionPayload,
-  isAdminUser,
+  isAdminSession,
   isSameOrigin,
   jsonResponse,
   logAccess,
@@ -49,7 +49,7 @@ async function ensureAdminAccess(event) {
     return { ok: false, response: jsonResponse(401, { ok: false, error: 'Unauthorized' }) };
   }
 
-  const isAdmin = session.role === 'admin' || isAdminUser(session.user);
+  const isAdmin = isAdminSession(session);
   if (!isAdmin) {
     await logAccess(event, 'sharepoint_source_admin_forbidden_non_admin', 'warn', {}, session.user);
     return { ok: false, response: jsonResponse(403, { ok: false, error: 'Forbidden' }) };

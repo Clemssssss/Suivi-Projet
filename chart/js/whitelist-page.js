@@ -5,6 +5,7 @@
     requests: [],
     whitelist: [],
     currentUser: '',
+    role: '',
     isAdmin: false
   };
 
@@ -36,7 +37,7 @@
   function updateHeaderUser() {
     var el = qs('auth-user-label');
     if (el) {
-      el.textContent = state.currentUser ? ('🔒 ' + state.currentUser) : '🔒 Session';
+      el.textContent = state.currentUser ? ('🔒 ' + state.currentUser + ' · ' + (state.role || 'user')) : '🔒 Session';
     }
   }
 
@@ -242,6 +243,7 @@
     }
 
     state.currentUser = typeof auth.data.user === 'string' ? auth.data.user : '';
+    state.role = typeof auth.data.role === 'string' ? auth.data.role : (auth.data.isAdmin ? 'admin' : 'user');
     state.isAdmin = !!auth.data.isAdmin;
     updateHeaderUser();
     return true;

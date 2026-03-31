@@ -134,6 +134,81 @@ window.DashboardEmail = (() => {
     };
   }
 
+  function getFilteredProjects() {
+    if (window.AE && typeof window.AE.getFiltered === 'function') {
+      return Array.isArray(window.AE.getFiltered()) ? window.AE.getFiltered() : [];
+    }
+    return Array.isArray(window.DATA) ? window.DATA : [];
+  }
+
+  function getProjectStatus(project) {
+    if (window.ProjectUtils && typeof window.ProjectUtils.getStatus === 'function') {
+      return window.ProjectUtils.getStatus(project);
+    }
+    return String(project && project['Statut'] || '').trim().toLowerCase();
+  }
+
+  function getProjectAmount(project, field) {
+    var raw = project && project[field];
+    if (window.ProjectUtils && typeof window.ProjectUtils.parseMontant === 'function') {
+      return window.ProjectUtils.parseMontant(raw) || 0;
+    }
+    var n = parseFloat(raw);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatAmount(value) {
+    if (window.ProjectUtils && typeof window.ProjectUtils.formatMontant === 'function') {
+      return window.ProjectUtils.formatMontant(value, true);
+    }
+    return Math.round(Number(value || 0)).toLocaleString('fr-FR') + ' €';
+  }
+
+  function summarizeByDimension(projects, field, matcher, amountField, limit) {
+    var buckets = {};
+    (Array.isArray(projects) ? projects : []).forEach(function(project) {
+      if (typeof matcher === 'function' && !matcher(project)) return;
+      var label = String(project && project[field] || '').trim() || 'Non renseigné';
+      if (!buckets[label]) buckets[label] = { label: label, amount: 0, count: 0 };
+      buckets[label].amount += getProjectAmount(project, amountField || 'Bud');
+      buckets[label].count += 1;
+    });
+    return Object.keys(buckets).map(function(key) {
+      return buckets[key];
+    }).sort(function(a, b) {
+      return b.amount - a.amount || b.count - a.count || a.label.localeCompare(b.label);
+    }).slice(0, limit || 5);
+  }
+
+  function collectNarrativeSections() {
+    var projects = getFilteredProjects();
+    var wonMatcher = function(project) { return getProjectStatus(project) === 'obtenu'; };
+    var lostMatcher = function(project) { return getProjectStatus(project) === 'perdu'; };
+    var pipeMatcher = function(project) {
+      var raw = String(project && (project['Statut'] || project['MG Statut Odoo MG']) || '').trim().toLowerCase();
+      return raw === 'remis' || raw === 'en etude';
+    };
+
+    return [
+      {
+        title: 'Top clients gagnés',
+        rows: summarizeByDimension(projects, 'Client', wonMatcher, 'Bud', 5)
+      },
+      {
+        title: 'Top zones gagnées',
+        rows: summarizeByDimension(projects, 'Zone Géographique', wonMatcher, 'Bud', 5)
+      },
+      {
+        title: 'Top clients perdus',
+        rows: summarizeByDimension(projects, 'Client', lostMatcher, 'Bud', 5)
+      },
+      {
+        title: 'Top pipe pondéré par client',
+        rows: summarizeByDimension(projects, 'Client', pipeMatcher, 'CA win proba', 5)
+      }
+    ].filter(function(section) { return section.rows && section.rows.length; });
+  }
+
   function collectContext() {
     return [
       { label: 'Année commerciale', value: labelOfSelect('year-filter') || 'Toutes les années' },
@@ -184,11 +259,33 @@ window.DashboardEmail = (() => {
     '</div>';
   }
 
+  function renderNarrativeSections(sections) {
+    if (!sections.length) return '';
+    return '<div style="margin-top:22px;">' +
+      '<div style="font-size:18px;font-weight:800;color:#162334;margin-bottom:12px;">Lectures clés</div>' +
+      sections.map(function(section) {
+        return '<div style="margin-bottom:18px;padding:14px;border:1px solid #d9e2ec;border-radius:16px;background:#ffffff;">' +
+          '<div style="font-size:15px;font-weight:800;color:#162334;margin-bottom:10px;">' + safeText(section.title) + '</div>' +
+          '<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">' +
+          section.rows.map(function(row) {
+            return '<tr>' +
+              '<td style="padding:8px 10px;border-top:1px solid #eef3f7;font-weight:700;">' + safeText(row.label) + '</td>' +
+              '<td style="padding:8px 10px;border-top:1px solid #eef3f7;text-align:right;">' + safeText(formatAmount(row.amount)) + '</td>' +
+              '<td style="padding:8px 10px;border-top:1px solid #eef3f7;text-align:right;color:#5a7089;">' + safeText(String(row.count) + ' dossier(s)') + '</td>' +
+            '</tr>';
+          }).join('') +
+          '</table>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
   function buildEmailHtml() {
     var ts = currentTimestamp();
     var context = collectContext();
     var kpis = collectKpis();
     var charts = collectCharts();
+    var narrative = collectNarrativeSections();
     var shareUrl = buildShareUrl();
     return [
       '<!DOCTYPE html>',
@@ -208,6 +305,7 @@ window.DashboardEmail = (() => {
       '</table>',
       renderKpiCards('Prise d’affaires / Performance', kpis.performance, '#00d4aa'),
       renderKpiCards('Pipe commercial', kpis.pipeline, '#0099ff'),
+      renderNarrativeSections(narrative),
       renderCharts(charts),
       '<div style="margin-top:22px;font-size:12px;color:#5a7089;">Email généré automatiquement depuis le dashboard. Les graphiques correspondent à l’état courant des filtres visibles.</div>',
       '</div></body></html>'

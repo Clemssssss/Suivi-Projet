@@ -78,6 +78,12 @@
     return nvClean(v);
   }
 
+  function sanitizeImportedText(v) {
+    var cleaned = nvClean(v);
+    if (!cleaned) return cleaned;
+    return /^[=+\-@]/.test(cleaned) ? ("'" + cleaned) : cleaned;
+  }
+
   /* ════════════════════════════════════════════════════════════════
      PARSER CSV
      ─ Séparateur auto-détecté (; ou ,)
@@ -196,19 +202,19 @@
         } else if (WINPROBA_FIELDS.indexOf(h) !== -1) {
           obj[h] = parseWinProba(raw);
         } else if (h === 'Zone Géographique') {
-          obj[h] = normalizeZone(raw) || nvClean(raw);
+          obj[h] = normalizeZone(raw) || sanitizeImportedText(raw);
         } else if (h === 'GoNogo') {
           if (raw) {
             var gn = String(raw).trim().toLowerCase();
-            obj[h] = (gn === 'go') ? 'Go' : (gn.includes('nogo') || gn.includes('no go')) ? 'NoGo' : nvClean(raw);
+            obj[h] = (gn === 'go') ? 'Go' : (gn.includes('nogo') || gn.includes('no go')) ? 'NoGo' : sanitizeImportedText(raw);
           } else { obj[h] = null; }
         } else if (h === 'Statut' || h.toLowerCase() === 'statut') {
-          obj[h] = normalizeStatus(raw) || nvClean(raw);
+          obj[h] = normalizeStatus(raw) || sanitizeImportedText(raw);
         } else if (NUM_FIELDS.indexOf(h) !== -1) {
           var n = parseFloat(raw);
           obj[h] = isNaN(n) ? nvClean(raw) : n;
         } else {
-          obj[h] = nvClean(raw);
+          obj[h] = sanitizeImportedText(raw);
         }
       });
 
@@ -384,6 +390,30 @@
     if (el) el.remove();
   }
 
+  var MAX_IMPORT_FILE_BYTES = 8 * 1024 * 1024;
+
+  function setImportVisibility(isAdmin) {
+    var trigger = document.getElementById('csv-import-trigger');
+    if (!trigger) return;
+    trigger.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
+
+  function bindImportVisibility() {
+    document.addEventListener('dashboard-auth-ready', function(event) {
+      setImportVisibility(!!(event && event.detail && event.detail.isAdmin));
+    });
+
+    if (window.AuthClient && typeof window.AuthClient.status === 'function') {
+      window.AuthClient.status().then(function(result) {
+        setImportVisibility(!!(result && result.ok && result.data && result.data.isAdmin));
+      }).catch(function() {
+        setImportVisibility(false);
+      });
+    } else {
+      setImportVisibility(false);
+    }
+  }
+
   /* ════════════════════════════════════════════════════════════════
      NORMALISATION _annee
      Source unique de vérité : Analytics.getProjectYear()
@@ -527,20 +557,34 @@
   var inputEl = document.getElementById('csv-import-input');
   if (inputEl && !inputEl._csvChangeAttached) {
     inputEl._csvChangeAttached = true;
+    bindImportVisibility();
 
     inputEl.addEventListener('change', function(e) {
       var file = e.target.files[0];
       if (!file) return;
 
+      if (!(window.AuthClient && typeof window.AuthClient.isAdmin === 'function' && window.AuthClient.isAdmin())) {
+        if (typeof notify === 'function')
+          notify('Accès refusé', 'Import réservé au compte administrateur', 'error', 0);
+        e.target.value = '';
+        return;
+      }
+
       var fileName = file.name.toLowerCase();
       var isCSV = fileName.endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/csv';
-      var isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') ||
-        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        file.type === 'application/vnd.ms-excel';
+      var isExcel = fileName.endsWith('.xlsx') ||
+        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
       if (!isCSV && !isExcel) {
         if (typeof notify === 'function')
-          notify('Erreur', 'Fichier CSV ou Excel requis (.csv, .xlsx, .xls)', 'error', 0);
+          notify('Erreur', 'Fichier CSV ou Excel requis (.csv, .xlsx)', 'error', 0);
+        e.target.value = '';
+        return;
+      }
+
+      if (file.size > MAX_IMPORT_FILE_BYTES) {
+        if (typeof notify === 'function')
+          notify('Erreur', 'Fichier trop volumineux (max 8 Mo)', 'error', 0);
         e.target.value = '';
         return;
       }
@@ -570,6 +614,10 @@
         excelReader.onload = function(ev) {
           try {
             showLoader('Analyse Excel…');
+            var bytes = new Uint8Array(ev.target.result || []);
+            if (!(bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B)) {
+              throw new Error('Le fichier .xlsx ne semble pas valide');
+            }
             var data = parseWorkbook(ev.target.result);
             finalizeImport(data, 'Excel');
           } catch (err) {
@@ -630,6 +678,8 @@
     });
   } else if (!inputEl) {
     console.warn('[ImportCSV] #csv-import-input introuvable au chargement');
+  } else {
+    bindImportVisibility();
   }
 
   // API publique pour usage programmatique (console, tests)

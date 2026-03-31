@@ -89,7 +89,7 @@
         return;
       }
       if (auth.data && auth.data.user && qs('auth-user-label')) {
-        qs('auth-user-label').textContent = '🔒 ' + auth.data.user;
+        qs('auth-user-label').textContent = '🔒 ' + auth.data.user + ' · ' + (auth.data.isAdmin ? 'admin' : 'user');
       }
     }
     bindLogout();

@@ -145,17 +145,19 @@ exports.handler = async function(event) {
   clearLoginFailures(event.headers || {}, username);
   try { await clearPersistentLoginFailures(event.headers || {}, username); } catch (_) {}
   const sessionUser = passwordResult.user || username;
-  const token = createSessionToken(sessionUser);
+  const sessionRole = passwordResult.role || 'user';
   await logAccess(event, 'auth_login_success', 'info', {
     usernameAttempt: username,
     sessionIssued: true,
-    role: passwordResult.role || 'user'
+    role: sessionRole
   }, sessionUser);
   return jsonResponse(200, {
     ok: true,
     authenticated: true,
-    user: sessionUser
+    user: sessionUser,
+    isAdmin: sessionRole === 'admin',
+    role: sessionRole
   }, {
-    'Set-Cookie': buildSessionCookie(token, event.headers || {})
+    'Set-Cookie': buildSessionCookie(createSessionToken(sessionUser, sessionRole), event.headers || {})
   });
 };

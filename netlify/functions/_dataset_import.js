@@ -30,6 +30,12 @@ function nvClean(v) {
   return s;
 }
 
+function sanitizeImportedText(v) {
+  const cleaned = nvClean(v);
+  if (!cleaned) return cleaned;
+  return /^[=+\-@]/.test(cleaned) ? ("'" + cleaned) : cleaned;
+}
+
 function parseDate(v) {
   if (v === null || v === undefined || v === '') return null;
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
@@ -236,12 +242,12 @@ function buildRows(headers, matrixRows, rowOffset) {
       if (DATE_FIELDS.has(header) || DATE_FIELDS.has(header.trim())) obj[header] = parseDate(raw);
       else if (MONTANT_FIELDS.has(header)) obj[header] = parseMontant(raw);
       else if (WINPROBA_FIELDS.has(header)) obj[header] = parseWinProba(raw);
-      else if (header === 'Zone Géographique') obj[header] = normalizeZone(raw) || nvClean(raw);
-      else if (header === 'Statut' || header.toLowerCase() === 'statut') obj[header] = nvClean(raw);
+      else if (header === 'Zone Géographique') obj[header] = normalizeZone(raw) || sanitizeImportedText(raw);
+      else if (header === 'Statut' || header.toLowerCase() === 'statut') obj[header] = sanitizeImportedText(raw);
       else if (NUM_FIELDS.has(header)) {
         const n = parseFloat(raw);
         obj[header] = Number.isNaN(n) ? nvClean(raw) : n;
-      } else obj[header] = nvClean(raw);
+      } else obj[header] = sanitizeImportedText(raw);
     });
 
     if (!obj.id) obj.id = rowOffset + rowIndex + 1;
@@ -274,12 +280,12 @@ function normalizeImportedRowObjects(list) {
       else if (MONTANT_FIELDS.has(header)) row[header] = parseMontant(raw);
       else if (WINPROBA_FIELDS.has(header)) row[header] = parseWinProba(raw);
       else if (header === 'Zone Géographique') row[header] = normalizeZone(raw) || nvClean(raw);
-      else if (header === 'Statut' || header.toLowerCase() === 'statut') row[header] = nvClean(raw);
+      else if (header === 'Statut' || header.toLowerCase() === 'statut') row[header] = sanitizeImportedText(raw);
       else if (NUM_FIELDS.has(header)) {
         const n = parseFloat(raw);
         row[header] = Number.isNaN(n) ? nvClean(raw) : n;
       } else {
-        row[header] = nvClean(raw);
+        row[header] = sanitizeImportedText(raw);
       }
     });
 

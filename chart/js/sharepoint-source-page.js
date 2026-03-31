@@ -3,6 +3,7 @@
 
   var state = {
     currentUser: '',
+    role: '',
     source: null
   };
 
@@ -33,7 +34,7 @@
 
   function updateHeaderUser() {
     var el = qs('auth-user-label');
-    if (el) el.textContent = state.currentUser ? ('🔒 ' + state.currentUser) : '🔒 Session';
+    if (el) el.textContent = state.currentUser ? ('🔒 ' + state.currentUser + ' · ' + (state.role || 'user')) : '🔒 Session';
   }
 
   function applySource(source) {
@@ -162,6 +163,7 @@
       return false;
     }
     state.currentUser = typeof auth.data.user === 'string' ? auth.data.user : '';
+    state.role = typeof auth.data.role === 'string' ? auth.data.role : (auth.data.isAdmin ? 'admin' : 'user');
     updateHeaderUser();
     return true;
   }

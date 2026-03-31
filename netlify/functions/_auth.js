@@ -162,14 +162,25 @@ async function verifyPasswordForUserAsync(username, password) {
 
 function getAdminUser() {
   const explicit = String(process.env.DASHBOARD_ADMIN_USER || '').trim();
-  if (explicit) return explicit;
-  return String(process.env.DASHBOARD_LOGIN_USER || '').trim();
+  return explicit;
 }
 
 function isAdminUser(username) {
   const user = String(username || '').trim();
   const admin = getAdminUser();
   return !!user && !!admin && constantTimeEqual(user, admin);
+}
+
+function normalizeUserRole(role, username) {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'user') return 'user';
+  return isAdminUser(username) ? 'admin' : 'user';
+}
+
+function isAdminSession(session) {
+  if (!session || typeof session !== 'object') return false;
+  return normalizeUserRole(session.role, session.user) === 'admin';
 }
 
 function getSessionSecret() {
@@ -193,10 +204,10 @@ function sha256(input) {
   return crypto.createHash('sha256').update(String(input || '')).digest('hex');
 }
 
-function createSessionToken(username) {
+function createSessionToken(username, role) {
   const payload = {
     user: String(username),
-    role: isAdminUser(username) ? 'admin' : 'user',
+    role: normalizeUserRole(role, username),
     nonce: toBase64Url(crypto.randomBytes(16)),
     exp: Date.now() + (SESSION_TTL_SECONDS * 1000)
   };
@@ -748,7 +759,9 @@ module.exports = {
   getPersistentLoginThrottleState,
   hasWhitelistAccess,
   isAdminUser,
+  isAdminSession,
   getUserAgent,
+  normalizeUserRole,
   isSameOrigin,
   jsonResponse,
   logAccess,

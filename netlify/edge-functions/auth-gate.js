@@ -98,6 +98,33 @@ async function hasValidSession(request, context) {
   }
 }
 
+async function readSessionPayload(request, context) {
+  const token = getCookie(request, 'sp_dashboard_session');
+  if (!token || token.indexOf('.') === -1) return null;
+
+  const secret = readSecret(context);
+  if (!secret || secret.length < 32) return null;
+
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+
+  const encodedPayload = parts[0];
+  const signature = parts[1];
+  const expectedSignature = await signPayload(encodedPayload, secret);
+  if (!timingSafeEqual(signature, expectedSignature)) return null;
+
+  try {
+    const payloadText = new TextDecoder().decode(fromBase64Url(encodedPayload));
+    const payload = JSON.parse(payloadText);
+    if (!(payload && typeof payload.user === 'string' && typeof payload.exp === 'number' && payload.exp > Date.now())) {
+      return null;
+    }
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
 function buildRedirect(request) {
   const url = new URL(request.url);
   const next = encodeURIComponent(url.pathname + (url.search || ''));
@@ -119,6 +146,13 @@ function isRestrictedWhitelistPage(request) {
   return url.pathname === '/chart/whitelist.html';
 }
 
+function isAdminOnlyPage(request) {
+  const url = new URL(request.url);
+  return url.pathname === '/chart/logs.html'
+    || url.pathname === '/chart/source-sync.html'
+    || url.pathname === '/chart/whitelist.html';
+}
+
 function exactWhitelistIPAllowed(request) {
   return getClientIP(request) === '90.82.197.132';
 }
@@ -134,7 +168,17 @@ export default async (request, context) => {
     });
   }
 
-  if (await hasValidSession(request, context)) {
+  const session = await readSessionPayload(request, context);
+  if (session) {
+    if (isAdminOnlyPage(request) && String(session.role || '').toLowerCase() !== 'admin') {
+      return new Response('Forbidden', {
+        status: 403,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
     return context.next();
   }
   return buildRedirect(request);

@@ -1,7 +1,7 @@
 const {
   evaluateAccessPolicy,
   getSessionPayload,
-  isAdminUser,
+  isAdminSession,
   isSameOrigin,
   jsonResponse,
   logAccess
@@ -32,7 +32,7 @@ async function ensureAdminAccess(event) {
     return { ok: false, response: jsonResponse(401, { ok: false, error: 'Unauthorized' }) };
   }
 
-  if (!isAdminUser(session.user)) {
+  if (!isAdminSession(session)) {
     await logAccess(event, 'ip_whitelist_admin_forbidden_non_admin', 'warn', {}, session.user);
     return { ok: false, response: jsonResponse(403, { ok: false, error: 'Forbidden' }) };
   }

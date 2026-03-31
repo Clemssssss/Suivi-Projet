@@ -534,12 +534,26 @@
   // Stockage de la plage temporelle active
   var _timeline = { start: null, end: null, preset: '' };
 
+  function _resolveTimelineReferenceYear() {
+    var selectedYearEl = document.getElementById('year-filter');
+    var selectedYear = selectedYearEl && selectedYearEl.value ? parseInt(selectedYearEl.value, 10) : NaN;
+    if (isFinite(selectedYear)) return selectedYear;
+
+    if (typeof AE !== 'undefined' && typeof AE.getFiltered === 'function') {
+      var filtered = AE.getFiltered() || [];
+      var years = filtered.map(resolveProjectYearValue).filter(function(year) { return isFinite(year); });
+      if (years.length) return Math.max.apply(null, years);
+    }
+
+    return new Date().getFullYear();
+  }
+
   function _getDateRange(preset) {
     var now = new Date();
-    var y   = now.getFullYear();
-    var m   = now.getMonth();
+    var y   = _resolveTimelineReferenceYear();
     switch (preset) {
-      case 'ytd': return { start: y + '-01-01', end: null };
+      case 'ytd':
+        return { start: y + '-01-01', end: y === now.getFullYear() ? null : (y + '-12-31') };
       case '12m': {
         var d12 = new Date(now); d12.setFullYear(d12.getFullYear() - 1);
         return { start: d12.toISOString().slice(0, 10), end: null };
