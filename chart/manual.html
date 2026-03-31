@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr" style="color-scheme: dark;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#060c14">
+<title>Manuel Suivi4Me</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/charts-theme-layout.css">
+</head>
+<body style="padding:2rem 1.2rem 3rem;">
+  <main style="max-width:1180px;margin:0 auto;">
+    <div class="manual-doc">
+      <section class="manual-hero">
+        <div>
+          <div class="manual-pill">Guide utilisateur</div>
+          <h2>Manuel Suivi4Me</h2>
+          <p>Cette page présente le fonctionnement du dashboard commercial, les droits par profil, les filtres globaux et les usages recommandés pour suivre la performance, le pipe et les projets.</p>
+        </div>
+        <div class="manual-hero-grid">
+          <div class="manual-card">
+            <span class="manual-card-kicker">1</span>
+            <strong>Se repérer</strong>
+            <p>Le header donne accès aux exports, au manuel et au statut de session selon votre rôle.</p>
+          </div>
+          <div class="manual-card">
+            <span class="manual-card-kicker">2</span>
+            <strong>Filtrer</strong>
+            <p>La barre sticky pilote année, champ date, mode CA, énergie, période et mesure.</p>
+          </div>
+          <div class="manual-card">
+            <span class="manual-card-kicker">3</span>
+            <strong>Décider</strong>
+            <p>Les KPI, graphes métier et synthèses textuelles servent de base au pilotage commercial.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="manual-section">
+        <h3>Architecture de la page</h3>
+        <div class="manual-columns">
+          <article class="manual-panel">
+            <h4>Header</h4>
+            <p>Le header regroupe les actions disponibles selon le rôle connecté : exports, email, manuel, import ou administration.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Filtres globaux</h4>
+            <p>Ils pilotent la vue courante et impactent KPI, graphes, analyses textuelles, PDF et email.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Blocs métier</h4>
+            <p>Les sections “Prise d’affaires / Performance” et “Pipe commercial” donnent la lecture métier la plus directe.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="manual-section">
+        <h3>Filtres et lecture métier</h3>
+        <div class="manual-columns">
+          <article class="manual-panel">
+            <h4>Année commerciale</h4>
+            <p>Quand une année est choisie, les calculs se concentrent dessus. En mode “Toutes les années”, le dashboard garde tout le périmètre filtré visible.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Champ date</h4>
+            <p>Il définit la date qui sert de référence pour l’année et les analyses temporelles. Vérifie toujours ce point avant d’interpréter un graphique de période.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Période</h4>
+            <p>Les périodes glissantes et trimestres permettent d’isoler des fenêtres courtes sans casser le reste du modèle métier.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="manual-section">
+        <h3>Droits par profil</h3>
+        <div class="manual-columns">
+          <article class="manual-panel">
+            <h4>Consultation</h4>
+            <p>Profil lecture seule. Peut consulter, lire le manuel et se déconnecter, sans modifier les filtres ni lancer d’action.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>User</h4>
+            <p>Profil opérationnel. Utilise le dashboard et ses analyses sans accès à l’administration.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Admin</h4>
+            <p>Profil complet avec import, source SharePoint, logs, whitelist et maintenance des données.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="manual-section">
+        <h3>Graphes et analyses</h3>
+        <div class="manual-columns">
+          <article class="manual-panel">
+            <h4>Personnalisation</h4>
+            <p>Certains graphes proposent un bouton <strong>🎛</strong> pour changer le type d’affichage selon l’utilisateur.</p>
+          </article>
+          <article class="manual-panel">
+            <h4>Bloc texte</h4>
+            <p>Le texte sous les graphes reprend le périmètre filtré et ajoute des informations liées au graphe lui-même : top catégorie, série dominante, volume visible.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="manual-section manual-section-accent">
+        <h3>Bonnes pratiques</h3>
+        <ul>
+          <li>Faire un hard refresh après déploiement ou changement majeur.</li>
+          <li>Vérifier le profil connecté avant de conclure qu’une action “manque”.</li>
+          <li>Contrôler le champ date avant de lire les années, périodes et trimestres.</li>
+          <li>Si la base dataset est indisponible, la session peut désormais restaurer la dernière copie chargée.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -764,16 +764,115 @@
     <div class="manual-modal-header">
       <div>
         <div class="manual-modal-kicker">Aide intégrée</div>
-        <div class="manual-modal-title" id="manual-modal-title">Manuel Dashboard Analytics</div>
+        <div class="manual-modal-title" id="manual-modal-title">Manuel Suivi4Me</div>
       </div>
       <div class="manual-modal-actions">
-        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>
-        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" download>⬇ Télécharger</a>
+        <a class="btn-hdr" href="manual.html" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>
+        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" download rel="noopener noreferrer">⬇ Télécharger PDF</a>
         <button class="btn-hdr" id="btn-close-manual" type="button">✕ Fermer</button>
       </div>
     </div>
     <div class="manual-modal-body">
-      <iframe id="manual-frame" src="docs/Manuel_Dashboard_Analytics_v3.pdf#view=FitH" title="Manuel Dashboard Analytics"></iframe>
+      <div class="manual-doc">
+        <section class="manual-hero">
+          <div>
+            <div class="manual-pill">Tableau de bord commercial</div>
+            <h2>Guide rapide Suivi4Me</h2>
+            <p>Le dashboard centralise le suivi des AO, la performance commerciale, le pipe actif et les outils d’analyse. Les vues changent selon vos droits : <strong>admin</strong>, <strong>user</strong> ou <strong>consultation</strong>.</p>
+          </div>
+          <div class="manual-hero-grid">
+            <div class="manual-card">
+              <span class="manual-card-kicker">1</span>
+              <strong>Filtrer</strong>
+              <p>Année, champ date, énergie, période et mesure pilotent toute la lecture métier.</p>
+            </div>
+            <div class="manual-card">
+              <span class="manual-card-kicker">2</span>
+              <strong>Analyser</strong>
+              <p>Les KPI, textes d’analyse et graphes se mettent à jour selon le périmètre visible.</p>
+            </div>
+            <div class="manual-card">
+              <span class="manual-card-kicker">3</span>
+              <strong>Partager</strong>
+              <p>Export, email et PDF permettent de diffuser la synthèse selon votre rôle.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Lecture de la page</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>Barre sticky</h4>
+              <ul>
+                <li><strong>Année commerciale</strong> : restreint la vue à une année ou garde tout le périmètre.</li>
+                <li><strong>Champ date</strong> : choisit la date de référence métier.</li>
+                <li><strong>Mode CA</strong> : bascule entre Bud total et CA gagné.</li>
+                <li><strong>Période</strong> : applique des fenêtres glissantes ou des trimestres.</li>
+              </ul>
+            </article>
+            <article class="manual-panel">
+              <h4>Bloc métier</h4>
+              <ul>
+                <li><strong>Prise d’affaires / Performance</strong> : gagné, perdu, gagné + perdu, taux, dossiers.</li>
+                <li><strong>Pipe commercial</strong> : remis + en étude, en Bud, CA win proba et ratio.</li>
+                <li>Le bouton <strong>🎛</strong> permet de personnaliser certains graphes par utilisateur.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Comprendre les indicateurs</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>KPIs haut de page</h4>
+              <p>Ils résument les projets visibles : volume total, obtenus, perdus, offres en cours, CA, taux de conversion, puissance, délai, pipeline et top société.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>Texte d’analyse</h4>
+              <p>Chaque bloc ajoute maintenant un résumé du périmètre actif <strong>et</strong> une lecture du graphique affiché : top catégorie, série dominante ou nombre de catégories visibles.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Droits d’accès</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>Consultation</h4>
+              <p>Lecture seule : visualisation, manuel et déconnexion. Aucun export, aucun filtre éditable, aucune action métier.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>User</h4>
+              <p>Utilisation normale du dashboard sans accès aux zones d’administration, logs, whitelist ni source SharePoint.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>Admin</h4>
+              <p>Accès complet : import, source SharePoint, refresh, logs, whitelist et maintenance du dataset.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Cas d’usage rapides</h3>
+          <div class="manual-steps">
+            <div class="manual-step"><span>01</span><div><strong>Faire un bilan annuel</strong><p>Choisir l’année, vérifier les KPI, puis lire les blocs performance et pipe.</p></div></div>
+            <div class="manual-step"><span>02</span><div><strong>Comparer les clients</strong><p>Ouvrir les graphes par client, appliquer si besoin un type de graphe plus lisible, puis lire les analyses.</p></div></div>
+            <div class="manual-step"><span>03</span><div><strong>Partager une synthèse</strong><p>Utiliser l’email, le PDF ou les exports selon les droits du profil connecté.</p></div></div>
+          </div>
+        </section>
+
+        <section class="manual-section manual-section-accent">
+          <h3>Bonnes pratiques</h3>
+          <ul>
+            <li>Faire un <strong>hard refresh</strong> après déploiement ou changement de source.</li>
+            <li>Vérifier le <strong>champ date</strong> avant d’interpréter une année ou un trimestre.</li>
+            <li>Lire les bulles <strong>ⓘ</strong> pour comprendre le calcul exact d’un KPI ou d’un graphe.</li>
+            <li>En cas de dataset indisponible, la session peut réutiliser la dernière copie chargée.</li>
+          </ul>
+        </section>
+      </div>
     </div>
   </div>
 </div>
