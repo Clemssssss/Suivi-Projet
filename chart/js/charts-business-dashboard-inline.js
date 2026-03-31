@@ -22,6 +22,15 @@
     return cleanLabel(project && (project['Statut'] || project['MG Statut Odoo MG']));
   }
 
+  function getRawStatusKey(project) {
+    return String(getRawStatus(project) || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function getStatus(project) {
     return (typeof ProjectUtils !== 'undefined' && ProjectUtils.getStatus)
       ? ProjectUtils.getStatus(project)
@@ -165,6 +174,10 @@
   function isWon(project) { return getStatus(project) === 'obtenu'; }
   function isLost(project) { return getStatus(project) === 'perdu'; }
   function isOffer(project) { return getStatus(project) === 'offre'; }
+  function isPipeCommercialStatus(project) {
+    var raw = getRawStatusKey(project);
+    return raw === 'remis' || raw === 'en etude';
+  }
   function isDecided(project) { var s = getStatus(project); return s === 'obtenu' || s === 'perdu'; }
 
   function computeValue(projects, mode) {
@@ -193,9 +206,9 @@
         var lostCount = computeValue(items, 'lost_count');
         return (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount)) : 0;
       case 'pipe_bud':
-        return items.filter(isOffer).reduce(function(sum, p) { return sum + getBud(p); }, 0);
+        return items.filter(isPipeCommercialStatus).reduce(function(sum, p) { return sum + getBud(p); }, 0);
       case 'pipe_weighted':
-        return items.filter(isOffer).reduce(function(sum, p) { return sum + getWeighted(p); }, 0);
+        return items.filter(isPipeCommercialStatus).reduce(function(sum, p) { return sum + getWeighted(p); }, 0);
       case 'pipe_ratio':
         var bud = computeValue(items, 'pipe_bud');
         var weighted = computeValue(items, 'pipe_weighted');
@@ -207,7 +220,7 @@
 
   function modeScopeProjects(projects, mode) {
     var items = Array.isArray(projects) ? projects : [];
-    if (mode.indexOf('pipe_') === 0) return items.filter(isOffer);
+    if (mode.indexOf('pipe_') === 0) return items.filter(isPipeCommercialStatus);
     if (mode === 'won_amount' || mode === 'won_count') return items.filter(isWon);
     if (mode === 'lost_amount' || mode === 'lost_count') return items.filter(isLost);
     if (mode === 'compare_status_amount' || mode === 'compare_status_count') return items.filter(function(p) { return isWon(p) || isLost(p) || isOffer(p); });
@@ -989,7 +1002,7 @@
     var baseVisible = applyEngineLikeFilters(rawAll, { respectYear: false, includeEngineFilters: false });
     var activeYear = resolveReferenceYear(baseVisible, view);
     var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
-    var offers = filteredYear.filter(isOffer);
+    var offers = filteredYear.filter(isPipeCommercialStatus);
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
     var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
