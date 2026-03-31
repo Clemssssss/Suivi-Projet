@@ -575,6 +575,22 @@
     if (typeof window.update === 'function') window.update();
   }
 
+  function _getActiveDateField() {
+    if (typeof Analytics !== 'undefined' && Analytics.config && Analytics.config.activeDateField) {
+      return Analytics.config.activeDateField;
+    }
+    return 'Date réception';
+  }
+
+  function _getTimelineRange() {
+    return {
+      start: _timeline.start,
+      end: _timeline.end,
+      preset: _timeline.preset,
+      field: _getActiveDateField()
+    };
+  }
+
   // Patch AE.getFiltered pour intégrer le filtre temporel
   var _origGetFiltered = null;
   function _patchAE() {
@@ -584,9 +600,11 @@
       var data = _origGetFiltered();
       if (!_timeline.start && !_timeline.end) return data;
       if (typeof Analytics === 'undefined') return data;
-      return Analytics.filterByDateRange(data, _timeline.start, _timeline.end, 'creation');
+      return Analytics.filterByDateRange(data, _timeline.start, _timeline.end, _getActiveDateField());
     };
   }
+
+  window.getActiveTimelineRange = _getTimelineRange;
 
   // Wrap update() pour aussi déclencher les nouveaux graphiques
   var _originalUpdate = window.update;

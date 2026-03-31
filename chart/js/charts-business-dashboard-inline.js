@@ -115,6 +115,9 @@
       var s = String(v).trim();
       return s ? s : null;
     };
+    var timeline = (typeof window.getActiveTimelineRange === 'function')
+      ? window.getActiveTimelineRange()
+      : { start: null, end: null, field: 'Date réception' };
 
     if (opts.respectYear !== false) {
       data = data.filter(function(p) { return getYear(p) === year; });
@@ -140,6 +143,10 @@
         var eolien = /[eé]olien/i.test(nom) || /[eé]olien/i.test(type);
         return energy === 'eolien' ? eolien : !eolien;
       });
+    }
+
+    if (timeline && (timeline.start || timeline.end) && typeof Analytics !== 'undefined' && typeof Analytics.filterByDateRange === 'function') {
+      data = Analytics.filterByDateRange(data, timeline.start, timeline.end, timeline.field || 'Date réception');
     }
 
     Object.keys(filters).forEach(function(k) {
@@ -1009,8 +1016,7 @@
   function render() {
     if (typeof AE === 'undefined' || typeof CM === 'undefined') return;
     var rawAll = (AE.getRaw && AE.getRaw()) || window.DATA || [];
-    var rawFiltered = (AE.getFiltered && AE.getFiltered()) || rawAll;
-    renderPerformance(rawFiltered, rawAll);
+    renderPerformance(rawAll, rawAll);
     renderPipeline(rawAll);
   }
 
