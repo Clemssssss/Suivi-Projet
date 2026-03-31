@@ -1922,8 +1922,10 @@ function update() {
       notify('Mode CA', labels[this.value] || this.value, 'info', 1800);
     });
 
-  document.getElementById('target-amount')
-    .addEventListener('input', debounce(() => updateKPIs(AE.getFiltered()), 300));
+  const targetInput = document.getElementById('target-amount');
+  if (targetInput) {
+    targetInput.addEventListener('input', debounce(() => updateKPIs(AE.getFiltered()), 300));
+  }
 
   document.getElementById('search-input')
     .addEventListener('input', debounce(function () { AE.setSearch(this.value); }, 250));
