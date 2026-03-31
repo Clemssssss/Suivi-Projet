@@ -1952,6 +1952,83 @@ body.business-dashboard-simplified .legacy-business-hidden {
   margin-bottom: .8rem;
   letter-spacing: .02em;
 }
+.manual-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: none;
+}
+
+.manual-modal.is-open {
+  display: block;
+}
+
+.manual-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(6,12,20,.82);
+  backdrop-filter: blur(8px);
+}
+
+.manual-modal-dialog {
+  position: relative;
+  width: min(1200px, calc(100vw - 32px));
+  height: min(88vh, 920px);
+  margin: 4vh auto;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, rgba(15,23,35,.98), rgba(11,19,34,.98));
+  box-shadow: 0 24px 80px rgba(0,0,0,.45);
+  display: flex;
+  flex-direction: column;
+}
+
+.manual-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.manual-modal-kicker {
+  font-family: var(--mono);
+  font-size: .66rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--brand2);
+  margin-bottom: .25rem;
+}
+
+.manual-modal-title {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--snow);
+}
+
+.manual-modal-actions {
+  display: flex;
+  gap: .55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.manual-modal-body {
+  flex: 1;
+  min-height: 0;
+  background: #111827;
+}
+
+.manual-modal-body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #111827;
+}
+
 .chart-container { position: relative; height: 300px; }
 .chart-container canvas { width: 100% !important; height: 100% !important; }
 canvas { max-width: 100%; cursor: pointer !important; }
@@ -2178,6 +2255,9 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .chart-title-actions  { gap: .32rem; }
   .chart-title-actions button,
   .chart-title-actions .chart-filter-badge { min-height: 30px; }
+  .manual-modal-dialog  { width: calc(100vw - 20px); height: 92vh; margin: 2vh auto; }
+  .manual-modal-header  { align-items: flex-start; }
+  .manual-modal-actions { width: 100%; justify-content: flex-start; }
   .chart-container      { height: 230px; }
   .chart-info-popup     { top: 3.1rem; right: .6rem; left: .6rem; padding: .9rem 1rem; }
   .dashboard-utility-bar { margin-left: 1rem; margin-right: 1rem; }

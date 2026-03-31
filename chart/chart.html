@@ -56,6 +56,7 @@
     <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
     <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
     <button class="btn-hdr" id="btn-email-report" type="button" title="Créer un brouillon d'email avec synthèse et graphiques">✉️ Créer email</button>
+    <button class="btn-hdr" id="btn-open-manual" type="button" title="Ouvrir le manuel utilisateur du dashboard">📘 Manuel</button>
     <label class="btn-hdr" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
       📥 Import CSV/Excel
       <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
@@ -75,7 +76,7 @@
 <div id="ctrl-bars-sticky">
 <div class="ctrl-bar">
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Année commerciale</label>
+    <label class="ctrl-lbl">Année commerciale <span class="info-icon" data-info="Filtre l'ensemble du dashboard sur une année commerciale précise. En mode <strong>Toutes les années</strong>, les graphiques utilisent tout le périmètre visible au lieu de forcer une année de référence.">ⓘ</span></label>
     <select id="year-filter" class="ctrl-inp">
       <option value="">Toutes les années</option>
     </select>
@@ -102,7 +103,7 @@
   </div>
   <div class="ctrl-div"></div>
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">⚡ Énergie</label>
+    <label class="ctrl-lbl">⚡ Énergie <span class="info-icon" data-info="Filtre tout le dashboard par type d'énergie détecté sur les projets. Permet d'isoler <strong>Éolien</strong> ou <strong>Photovoltaïque</strong> sur l'ensemble des KPI et graphiques.">ⓘ</span></label>
     <select id="energy-type-filter" class="ctrl-inp" title="Filtrer par type d'énergie — détecté sur le nom du projet">
       <option value="">Tous types</option>
       <option value="eolien">🌬️ Éolien</option>
@@ -112,7 +113,7 @@
 </div>
 <div class="ctrl-bar" id="timeline-filter-bar">
   <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="white-space:nowrap;">🕒 Période</label>
+    <label class="ctrl-lbl" style="white-space:nowrap;">🕒 Période <span class="info-icon" data-info="Applique une fenêtre temporelle glissante sur le <strong>champ date</strong> choisi. Exemple : <strong>6 derniers mois</strong> inclut bien la fin d'année précédente si nécessaire.">ⓘ</span></label>
     <select id="timeline-preset" class="ctrl-inp">
       <option value="">Toutes les périodes</option>
       <option value="ytd">YTD — Année en cours</option>
@@ -134,7 +135,7 @@
   </div>
   <div class="ctrl-div"></div>
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Mesure</label>
+    <label class="ctrl-lbl">Mesure <span class="info-icon" data-info="Choisit la mesure principale de la section <strong>Prise d’affaires / Performance</strong> : montant Bud, nombre de dossiers, taux de transfo en € ou taux de transfo en dossiers.">ⓘ</span></label>
     <select id="biz-performance-view" class="ctrl-inp">
       <option value="amount">Montant (€ Bud)</option>
       <option value="count">Nombre de dossiers</option>
@@ -144,7 +145,7 @@
   </div>
   <div class="ctrl-div"></div>
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Périmètre zone / client</label>
+    <label class="ctrl-lbl">Périmètre zone / client <span class="info-icon" data-info="Pilote uniquement le graphe <strong>couple zone / client</strong>. <strong>Même périmètre que le bloc</strong> suit les filtres courants. <strong>Depuis le fichier</strong> affiche le couple sur tout le dataset visible.">ⓘ</span></label>
     <select id="biz-performance-combo-scope" class="ctrl-inp">
       <option value="block">Même périmètre que le bloc</option>
       <option value="all">Depuis le fichier</option>
@@ -152,7 +153,7 @@
   </div>
   <div class="ctrl-div"></div>
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Statut affiché</label>
+    <label class="ctrl-lbl">Statut affiché <span class="info-icon" data-info="Définit quelles séries sont visibles dans la performance : <strong>Gagné</strong>, <strong>Perdu</strong>, <strong>Gagné + Perdu</strong> ou <strong>Offre</strong>. En mode taux de transfo, ce filtre est neutralisé automatiquement.">ⓘ</span></label>
     <select id="biz-performance-status-filter" class="ctrl-inp">
       <option value="all">Tout</option>
       <option value="won">Gagné</option>
@@ -502,7 +503,7 @@
 <!-- ── ENTONNOIR ── -->
 <div id="business-dashboard-root" class="business-dashboard-root">
   <div class="section-div business-section-head">
-    <span class="section-lbl">Pilotage métier — Performance & Pipe commercial</span>
+    <span class="section-lbl">Pilotage métier — Performance & Pipe commercial <span class="info-icon" data-info="Bloc métier principal : suivi de la <strong>prise d’affaires</strong> sur base Bud et du <strong>pipe commercial</strong> sur base Bud, CA win proba et ratio pondéré.">ⓘ</span></span>
     <span class="business-section-pill">Bud / CA win proba / taux / dossiers</span>
   </div>
 
@@ -510,7 +511,7 @@
     <section class="business-block" data-business-block="performance">
       <div class="business-block-header">
         <div>
-          <div class="business-block-title">Prise d’affaires / Performance</div>
+          <div class="business-block-title">Prise d’affaires / Performance <span class="info-icon" data-info="Analyse métier sur base <strong>Bud</strong> : gagné, perdu, gagné + perdu, taux de transfo et nombre de dossiers. Les réglages globaux sont dans la barre sticky.">ⓘ</span></div>
           <div class="business-block-subtitle">Base Bud, statuts gagnés / perdus / décidés, taux de transformation en € et en nombre. Réglages disponibles dans la barre sticky.</div>
         </div>
       </div>
@@ -526,7 +527,7 @@
       <div class="charts-grid business-charts-grid">
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-month">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-month">Performance par mois</div>
+            <div class="chart-title" id="biz-title-perf-month">Performance par mois <span class="info-icon" data-info="Vue mensuelle de la mesure sélectionnée. En période glissante, le graphe peut traverser plusieurs années.">ⓘ</span></div>
           </div>
           <div class="chart-hint" id="biz-hint-perf-month">Périmètre du bloc</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-month"></canvas></div>
@@ -534,7 +535,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-zone">Performance par zone géographique</div>
+            <div class="chart-title" id="biz-title-perf-zone">Performance par zone géographique <span class="info-icon" data-info="Compare la mesure choisie par <strong>zone géographique</strong> sur le périmètre actuellement filtré.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top zones sur le périmètre filtré</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-zone"></canvas></div>
@@ -542,7 +543,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-client">Performance par client</div>
+            <div class="chart-title" id="biz-title-perf-client">Performance par client <span class="info-icon" data-info="Compare la mesure choisie par <strong>client</strong>. Les libellés sont normalisés pour fusionner les variantes de casse.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top clients sur le périmètre filtré</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-client"></canvas></div>
@@ -550,7 +551,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-type">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-type">Performance par type de projet</div>
+            <div class="chart-title" id="biz-title-perf-type">Performance par type de projet <span class="info-icon" data-info="Répartition de la mesure métier par <strong>type de projet / activité</strong> sur le périmètre visible.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Répartition métier par activité</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-type"></canvas></div>
@@ -558,7 +559,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone-client">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-zone-client">Performance zone / client</div>
+            <div class="chart-title" id="biz-title-perf-zone-client">Performance zone / client <span class="info-icon" data-info="Affiche les couples <strong>zone géographique + client</strong>. Le sélecteur de périmètre permet de rester sur le bloc courant ou d'étendre la vue au fichier visible.">ⓘ</span></div>
           </div>
           <div class="chart-hint" id="biz-hint-perf-zone-client">Top couples zone + client</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-zone-client"></canvas></div>
@@ -566,7 +567,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client-type">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-perf-client-type">Performance client / type de projet</div>
+            <div class="chart-title" id="biz-title-perf-client-type">Performance client / type de projet <span class="info-icon" data-info="Affiche les couples <strong>client + type de projet</strong> pour repérer les combinaisons les plus performantes.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top couples client + type</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-client-type"></canvas></div>
@@ -577,12 +578,12 @@
     <section class="business-block" data-business-block="pipeline">
       <div class="business-block-header">
         <div>
-          <div class="business-block-title">Pipe commercial — Remis + En études</div>
+          <div class="business-block-title">Pipe commercial — Remis + En études <span class="info-icon" data-info="Bloc dédié aux projets en <strong>Remis</strong> et <strong>En étude</strong>. Les KPI et graphiques se déclinent en Bud, CA win proba et ratio CA win proba / Bud.">ⓘ</span></div>
           <div class="business-block-subtitle">Offres en cours normalisées via les statuts métier existants.</div>
         </div>
         <div class="business-control-row">
           <label class="business-control">
-            <span>Base pipe</span>
+            <span>Base pipe <span class="info-icon" data-info="Sélectionne la base de lecture du pipe : <strong>Bud</strong>, <strong>CA win proba</strong> ou <strong>% CA win proba / Bud</strong>.">ⓘ</span></span>
             <select id="biz-pipe-view">
               <option value="pipe_bud">Bud</option>
               <option value="pipe_weighted">CA win proba</option>
@@ -601,7 +602,7 @@
       <div class="charts-grid business-charts-grid">
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-pipe-zone">Pipe commercial par zone</div>
+            <div class="chart-title" id="biz-title-pipe-zone">Pipe commercial par zone <span class="info-icon" data-info="Répartit le pipe commercial par zone géographique selon la base sélectionnée.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Offres en cours, pondérées selon la base choisie</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-zone"></canvas></div>
@@ -609,7 +610,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-pipe-client">Pipe commercial par client</div>
+            <div class="chart-title" id="biz-title-pipe-client">Pipe commercial par client <span class="info-icon" data-info="Classe les clients du pipe actif selon la base choisie. Le mode <strong>Top + Autres</strong> regroupe les clients secondaires pour garder une lecture claire.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top clients sur le pipe actif</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-client"></canvas></div>
@@ -617,7 +618,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-type">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-pipe-type">Pipe commercial par type de chantier</div>
+            <div class="chart-title" id="biz-title-pipe-type">Pipe commercial par type de chantier <span class="info-icon" data-info="Répartition des projets <strong>Remis + En étude</strong> par type de chantier / activité.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Répartition par activité en cours</div>
           <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-type"></canvas></div>
@@ -625,7 +626,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone-client">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-pipe-zone-client">Pipe commercial zone / client</div>
+            <div class="chart-title" id="biz-title-pipe-zone-client">Pipe commercial zone / client <span class="info-icon" data-info="Compare les couples <strong>zone + client</strong> sur le pipe commercial actif.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top couples zone + client en cours</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-zone-client"></canvas></div>
@@ -633,7 +634,7 @@
 
         <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client-type">
           <div class="chart-header">
-            <div class="chart-title" id="biz-title-pipe-client-type">Pipe commercial client / type</div>
+            <div class="chart-title" id="biz-title-pipe-client-type">Pipe commercial client / type <span class="info-icon" data-info="Compare les couples <strong>client + type de chantier</strong> sur les projets Remis + En étude.">ⓘ</span></div>
           </div>
           <div class="chart-hint">Top couples client + type sur le pipe</div>
           <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-client-type"></canvas></div>
@@ -743,6 +744,26 @@
       </thead>
       <tbody id="dtable-body"></tbody>
     </table>
+  </div>
+</div>
+
+<div class="manual-modal" id="manual-modal" aria-hidden="true">
+  <div class="manual-modal-backdrop" data-manual-close="1"></div>
+  <div class="manual-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="manual-modal-title">
+    <div class="manual-modal-header">
+      <div>
+        <div class="manual-modal-kicker">Aide intégrée</div>
+        <div class="manual-modal-title" id="manual-modal-title">Manuel Dashboard Analytics</div>
+      </div>
+      <div class="manual-modal-actions">
+        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>
+        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" download>⬇ Télécharger</a>
+        <button class="btn-hdr" id="btn-close-manual" type="button">✕ Fermer</button>
+      </div>
+    </div>
+    <div class="manual-modal-body">
+      <iframe id="manual-frame" src="docs/Manuel_Dashboard_Analytics_v3.pdf#view=FitH" title="Manuel Dashboard Analytics"></iframe>
+    </div>
   </div>
 </div>
 
@@ -1740,6 +1761,7 @@
 <script src="js/DashboardSections.js"></script>
 <script src="js/DashboardNotes.js"></script>
 <script src="js/DashboardChartPreferences.js"></script>
+<script src="js/DashboardManual.js"></script>
 <script src="js/charts-modules-init-inline.js"></script>
 <script src="js/charts-mobile-shell-inline.js"></script>
 
