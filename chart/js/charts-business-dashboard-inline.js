@@ -126,6 +126,11 @@
     return 'Perimetre filtre';
   }
 
+  function describeScopeDetail(scope, timeline) {
+    var base = describeScopeLabel(scope, timeline);
+    return base + ' • ' + filterContextSummary();
+  }
+
   function resolveReferenceYear(projects, mode) {
     var explicit = explicitSelectedYear();
     if (isValidYear(explicit)) return explicit;
@@ -525,29 +530,120 @@
   }
 
   function paletteFor(mode, count) {
-    var base = (mode === 'lost_amount' || mode === 'lost_count') ? 'rgba(255,77,109,' :
-      (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 'rgba(245,183,64,' :
-      (mode.indexOf('pipe_') === 0) ? 'rgba(0,153,255,' :
-      'rgba(0,212,170,';
-
+    var base = (mode === 'lost_amount' || mode === 'lost_count') ? 'rgba(255,77,109,.86)' :
+      (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 'rgba(245,183,64,.9)' :
+      (mode.indexOf('pipe_') === 0 || mode === 'offer_count') ? 'rgba(0,153,255,.86)' :
+      'rgba(0,212,170,.86)';
     var arr = [];
     for (var i = 0; i < count; i++) {
-      var alpha = Math.max(.35, .86 - (i * .03));
-      arr.push(base + alpha + ')');
+      arr.push(base);
     }
     return arr;
   }
 
-  function tooltipFormatter(mode) {
-    return function(context) {
-      return formatValue(context.raw, mode);
+  function toPercentString(value) {
+    return ((Number(value) || 0) * 100).toFixed(1).replace('.', ',') + ' %';
+  }
+
+  function filterContextSummary() {
+    var yearEl = document.getElementById('year-filter');
+    var dateFieldEl = document.getElementById('date-field-selector');
+    var timelineEl = document.getElementById('timeline-preset');
+    var energyEl = document.getElementById('energy-type-filter');
+    var parts = [];
+    if (yearEl && yearEl.value) parts.push('Année ' + yearEl.value);
+    else parts.push('Toutes années');
+    if (dateFieldEl) parts.push(dateFieldEl.options[dateFieldEl.selectedIndex] ? dateFieldEl.options[dateFieldEl.selectedIndex].text : 'Date réception');
+    if (timelineEl && timelineEl.value) parts.push(timelineEl.options[timelineEl.selectedIndex] ? timelineEl.options[timelineEl.selectedIndex].text : 'Période');
+    if (energyEl && energyEl.value) parts.push(energyEl.options[energyEl.selectedIndex] ? energyEl.options[energyEl.selectedIndex].text : 'Tous types');
+    return parts.join(' • ');
+  }
+
+  function wrapCategoryLabel(value) {
+    var text = String(value == null ? '' : value).trim();
+    if (text.length <= 20) return text;
+    var words = text.split(/\s+/);
+    if (words.length === 1) return text.slice(0, 18) + '…';
+    var lines = [''];
+    words.forEach(function(word) {
+      var last = lines[lines.length - 1];
+      if (!last.length) {
+        lines[lines.length - 1] = word;
+        return;
+      }
+      if ((last + ' ' + word).length <= 18 && lines.length < 3) {
+        lines[lines.length - 1] = last + ' ' + word;
+      } else if (lines.length < 3) {
+        lines.push(word);
+      } else {
+        lines[lines.length - 1] = lines[lines.length - 1].slice(0, 16) + '…';
+      }
+    });
+    return lines;
+  }
+
+  function tooltipFormatter(mode, entries) {
+    return {
+      title: function(items) {
+        if (!items || !items.length) return '';
+        var idx = items[0].dataIndex;
+        var entry = entries && entries[idx];
+        return entry && entry.label ? entry.label : items[0].label;
+      },
+      label: function(context) {
+        return formatValue(context.raw, mode);
+      },
+      afterLabel: function(context) {
+        var idx = context.dataIndex;
+        var entry = entries && entries[idx];
+        if (!entry) return '';
+        var count = Array.isArray(entry.projects) ? entry.projects.length : 0;
+        return count ? ('Dossiers : ' + count) : '';
+      },
+      footer: function(items) {
+        if (!items || !items.length || !entries) return '';
+        var idx = items[0].dataIndex;
+        var entry = entries[idx];
+        if (!entry) return filterContextSummary();
+        var total = entries.reduce(function(sum, current) { return sum + (Number(current.value) || 0); }, 0);
+        if (total > 0 && mode !== 'won_rate_amount' && mode !== 'won_rate_count' && mode !== 'pipe_ratio') {
+          return 'Part du total : ' + toPercentString((Number(entry.value) || 0) / total) + '\n' + filterContextSummary();
+        }
+        return filterContextSummary();
+      }
     };
   }
 
-  function comparisonTooltipFormatter(mode) {
-    return function(context) {
-      var seriesMode = context.dataset && context.dataset._seriesMode ? context.dataset._seriesMode : mode;
-      return context.dataset.label + ' : ' + formatValue(context.raw, seriesMode);
+  function comparisonTooltipFormatter(mode, entries) {
+    return {
+      title: function(items) {
+        if (!items || !items.length) return '';
+        var idx = items[0].dataIndex;
+        var entry = entries && entries[idx];
+        return entry && entry.label ? entry.label : items[0].label;
+      },
+      label: function(context) {
+        var seriesMode = context.dataset && context.dataset._seriesMode ? context.dataset._seriesMode : mode;
+        return context.dataset.label + ' : ' + formatValue(context.raw, seriesMode);
+      },
+      afterLabel: function(context) {
+        var idx = context.dataIndex;
+        var datasetIndex = context.datasetIndex;
+        var entry = entries && entries[idx];
+        if (!entry) return '';
+        var projects = entry.projects || [];
+        var count = projects.length;
+        if (typeof datasetIndex === 'number' && context.dataset && context.dataset._seriesMode) {
+          var seriesMode = context.dataset._seriesMode;
+          if (seriesMode === 'won_amount' || seriesMode === 'won_count') count = projects.filter(isWon).length;
+          if (seriesMode === 'lost_amount' || seriesMode === 'lost_count') count = projects.filter(isLost).length;
+          if (seriesMode === 'pipe_bud' || seriesMode === 'offer_count') count = projects.filter(isOffer).length;
+        }
+        return count ? ('Dossiers : ' + count) : '';
+      },
+      footer: function() {
+        return filterContextSummary();
+      }
     };
   }
 
@@ -783,7 +879,7 @@
     var categoryTicks = function(value) {
       var idx = typeof value === 'number' ? value : parseInt(value, 10);
       var raw = isFinite(idx) && labels[idx] != null ? labels[idx] : value;
-      return String(raw == null ? '' : raw).slice(0, 32);
+      return wrapCategoryLabel(raw);
     };
 
     CM.create(id, {
@@ -819,9 +915,7 @@
           legend: { display: false },
           tooltip: {
             displayColors: false,
-            callbacks: {
-              label: tooltipFormatter(mode)
-            }
+            callbacks: tooltipFormatter(mode, entries)
           }
         },
         onClick: function(_, elements) {
@@ -849,7 +943,7 @@
     var categoryTicks = function(value) {
       var idx = typeof value === 'number' ? value : parseInt(value, 10);
       var raw = isFinite(idx) && labels[idx] != null ? labels[idx] : value;
-      return String(raw == null ? '' : raw).slice(0, 32);
+      return wrapCategoryLabel(raw);
     };
 
     CM.create(id, {
@@ -897,13 +991,11 @@
         plugins: {
           legend: {
             display: true,
-            labels: { color: '#dce8f5', boxWidth: 10, boxHeight: 10 }
+            labels: { color: '#dce8f5', boxWidth: 10, boxHeight: 10, padding: 12 }
           },
           tooltip: {
             displayColors: true,
-            callbacks: {
-              label: comparisonTooltipFormatter(mode)
-            }
+            callbacks: comparisonTooltipFormatter(mode, entries)
           }
         },
         onClick: function(_, elements) {
@@ -971,13 +1063,13 @@
     var monthHint = document.getElementById('biz-hint-perf-month');
     if (monthHint) {
       monthHint.textContent = hasTimeline
-        ? 'Periode active ' + (timeline.start || 'debut') + ' → ' + (timeline.end || 'aujourd hui')
-        : scopeLabel;
+        ? ('Periode active ' + (timeline.start || 'debut') + ' → ' + (timeline.end || 'aujourd hui') + ' • ' + filterContextSummary())
+        : describeScopeDetail(scope, timeline);
     }
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
     if (comboHint) comboHint.textContent = comboScope === 'all'
-      ? 'Top couples zone geographique + client depuis tout le fichier filtre'
-      : 'Top couples zone geographique + client sur le meme perimetre que le bloc';
+      ? ('Top couples zone geographique + client depuis tout le fichier filtre • ' + filterContextSummary())
+      : ('Top couples zone geographique + client sur le meme perimetre que le bloc • ' + filterContextSummary());
 
     renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(filteredYear, 'won_amount'), 'Base Bud, statut obtenu', filteredYear.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
     renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(filteredYear, 'lost_amount'), 'Base Bud, statut perdu', filteredYear.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
