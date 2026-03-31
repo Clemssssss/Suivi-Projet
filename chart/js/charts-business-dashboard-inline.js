@@ -917,7 +917,6 @@
     var activeYear = resolveReferenceYear(baseVisible, view);
     var filteredYear = applyEngineLikeFilters(baseVisible, { respectYear: true, year: activeYear, includeEngineFilters: false });
     var offers = filteredYear.filter(isOffer);
-    var totalLabel = view === 'pipe_ratio' ? '% Remis + En étude total' : '€ Remis + En étude total';
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
     var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
@@ -926,8 +925,8 @@
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', totalLabel, computeValue(filteredYear, view), 'Statut Remis + En étude', offers, modeLabel(view) + ' total', view);
-    renderKpi('biz-kpi-pipe-weighted', 'Base sélectionnée', view === 'pipe_bud' ? computeValue(filteredYear, 'pipe_bud') : computeValue(filteredYear, 'pipe_weighted'), view === 'pipe_bud' ? 'Colonne Bud' : 'Colonne CA win proba', offers, modeLabel(view) + ' base', view === 'pipe_bud' ? 'pipe_bud' : 'pipe_weighted');
+    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(filteredYear, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total', 'pipe_bud');
+    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(filteredYear, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba', 'pipe_weighted');
     renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(filteredYear, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio', 'pipe_ratio');
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(filteredYear, 'zone', view, 10), view, {
