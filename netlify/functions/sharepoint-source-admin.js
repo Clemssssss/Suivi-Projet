@@ -19,9 +19,12 @@ function cleanText(value, max) {
 
 function sanitizeConfig(input) {
   const config = input && typeof input === 'object' ? input : {};
+  const requestedAuthMode = cleanText(config.authMode || 'none', 40);
   return {
     fileUrl: cleanText(config.fileUrl, 2000),
-    authMode: cleanText(config.authMode || 'none', 20) === 'bearer' ? 'bearer' : 'none',
+    authMode: requestedAuthMode === 'graph_share'
+      ? 'graph_share'
+      : (requestedAuthMode === 'bearer' ? 'bearer' : 'none'),
     bearerToken: cleanText(config.bearerToken, 4000),
     sourceName: cleanText(config.sourceName || 'SharePoint Excel', 255),
     datasetKey: cleanText(config.datasetKey || 'saip-main', 120) || 'saip-main'
@@ -161,9 +164,79 @@ function buildFetchHeaders(config) {
   return headers;
 }
 
+function buildGraphHeaders(config) {
+  if (!config.bearerToken) {
+    throw new Error('Bearer token Graph/SharePoint manquant');
+  }
+  return {
+    'Accept': 'application/json',
+    'Authorization': 'Bearer ' + config.bearerToken,
+    'User-Agent': 'suivi4me-sharepoint-sync/1.0'
+  };
+}
+
+function encodeShareUrlForGraph(url) {
+  return 'u!' + Buffer
+    .from(String(url || ''), 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+async function fetchResponseBuffer(response) {
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+async function fetchGraphShareDownload(config) {
+  if (!config.fileUrl) {
+    throw new Error('Lien de partage SharePoint manquant');
+  }
+  const shareId = encodeShareUrlForGraph(config.fileUrl);
+  const graphUrl = 'https://graph.microsoft.com/v1.0/shares/' + shareId + '/driveItem';
+  const graphResponse = await fetch(graphUrl, {
+    method: 'GET',
+    headers: buildGraphHeaders(config),
+    redirect: 'follow'
+  });
+  if (!graphResponse.ok) {
+    throw new Error('Résolution Graph impossible (' + graphResponse.status + ')');
+  }
+  const metadata = await graphResponse.json();
+  const downloadUrl = metadata && metadata['@microsoft.graph.downloadUrl'];
+  if (!downloadUrl) {
+    throw new Error('Graph n’a pas fourni d’URL de téléchargement');
+  }
+  const downloadResponse = await fetch(downloadUrl, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv;q=0.9, */*;q=0.5',
+      'User-Agent': 'suivi4me-sharepoint-sync/1.0'
+    },
+    redirect: 'follow'
+  });
+  if (!downloadResponse.ok) {
+    throw new Error('Téléchargement Graph impossible (' + downloadResponse.status + ')');
+  }
+  return {
+    buffer: await fetchResponseBuffer(downloadResponse),
+    contentType: downloadResponse.headers.get('content-type') || '',
+    contentDisposition: downloadResponse.headers.get('content-disposition') || '',
+    finalUrl: downloadResponse.url || downloadUrl,
+    status: downloadResponse.status,
+    resolver: 'graph',
+    graphItemName: metadata && metadata.name ? String(metadata.name) : '',
+    graphItemId: metadata && metadata.id ? String(metadata.id) : ''
+  };
+}
+
 async function fetchWorkbookBuffer(config) {
   if (!config.fileUrl) {
     throw new Error('URL SharePoint/Excel manquante');
+  }
+  if (config.authMode === 'graph_share') {
+    return fetchGraphShareDownload(config);
   }
   const response = await fetch(config.fileUrl, {
     method: 'GET',
@@ -173,13 +246,13 @@ async function fetchWorkbookBuffer(config) {
   if (!response.ok) {
     throw new Error('Téléchargement SharePoint impossible (' + response.status + ')');
   }
-  const arrayBuffer = await response.arrayBuffer();
   return {
-    buffer: Buffer.from(arrayBuffer),
+    buffer: await fetchResponseBuffer(response),
     contentType: response.headers.get('content-type') || '',
     contentDisposition: response.headers.get('content-disposition') || '',
     finalUrl: response.url || config.fileUrl,
-    status: response.status
+    status: response.status,
+    resolver: 'direct'
   };
 }
 
@@ -206,7 +279,10 @@ async function testSource(config) {
     status: remote.status || 200,
     size: remote.buffer ? remote.buffer.length : 0,
     rowCount: 0,
-    sheetName: ''
+    sheetName: '',
+    resolver: remote.resolver || 'direct',
+    graphItemName: remote.graphItemName || '',
+    graphItemId: remote.graphItemId || ''
   };
 
   if (kind === 'html') {
@@ -325,7 +401,7 @@ exports.handler = async function(event) {
       const config = sanitizeConfig(Object.assign({}, source && source.config ? source.config : {}, body || {}));
       const result = await testSource(config);
       await logAccess(event, 'sharepoint_source_admin_test', result.ok ? 'info' : 'warn', result, auth.session.user);
-      return jsonResponse(result.ok ? 200 : 400, Object.assign(await buildPayload(), { testResult: result }));
+      return jsonResponse(200, Object.assign(await buildPayload(), { testResult: result }));
     }
 
     return jsonResponse(400, { ok: false, error: 'Unknown action' });

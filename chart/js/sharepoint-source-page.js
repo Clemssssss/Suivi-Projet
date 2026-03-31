@@ -129,10 +129,16 @@
       });
       applySource(data.source || null);
       var test = data.testResult || {};
+      if (!test.ok) {
+        setStatus('Test KO : ' + (test.message || 'source non exploitable'), 'err');
+        return;
+      }
       setStatus(
         'Test OK — type: ' + (test.kind || 'unknown')
         + ' • lignes: ' + String(test.rowCount || 0)
         + (test.sheetName ? (' • feuille: ' + test.sheetName) : '')
+        + (test.resolver ? (' • mode: ' + test.resolver) : '')
+        + (test.graphItemName ? (' • fichier: ' + test.graphItemName) : '')
         + (test.finalUrl ? (' • URL finale: ' + test.finalUrl) : ''),
         'ok'
       );

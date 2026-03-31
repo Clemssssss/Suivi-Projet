@@ -72,6 +72,7 @@
             <select id="sp-auth-mode">
               <option value="none">Aucun header d'auth</option>
               <option value="bearer">Bearer token</option>
+              <option value="graph_share">Lien de partage SharePoint + Graph</option>
             </select>
           </div>
           <div class="field">
@@ -93,14 +94,17 @@
         </form>
         <div class="status" id="source-status">Chargement…</div>
         <div class="notice">
-          Ce mode fonctionne immédiatement si tu fournis une vraie URL Excel téléchargeable par le serveur Netlify. Si ton lien SharePoint ne télécharge pas directement le fichier, utilise soit une URL de téléchargement directe, soit un bearer token compatible.
+          Ce mode fonctionne immédiatement si tu fournis une vraie URL Excel téléchargeable par le serveur Netlify. Si ton lien SharePoint ouvre seulement Office/SharePoint, utilise le mode <strong>Lien de partage SharePoint + Graph</strong> avec un bearer token Microsoft Graph.
         </div>
         <div class="notice" style="margin-top:.75rem;background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.18);">
           <strong>Comment remplir les champs</strong><br>
-          1. <strong>URL du fichier Excel SharePoint</strong> : colle soit une URL de téléchargement direct, soit une URL CSV exploitable, pas une page d’édition Office.<br>
+          1. <strong>URL du fichier Excel SharePoint</strong> : colle soit une URL de téléchargement direct, soit ton lien de partage SharePoint normal.<br>
           2. <strong>Nom de source</strong> : libellé libre affiché dans le suivi.<br>
           3. <strong>Dataset key</strong> : laisse <code>saip-main</code> si tu veux mettre à jour le dashboard principal.<br>
-          4. <strong>Mode d'authentification</strong> : laisse <strong>Aucun header d'auth</strong> si le lien est publiquement téléchargeable. Utilise <strong>Bearer token</strong> uniquement si SharePoint exige un jeton.<br>
+          4. <strong>Mode d'authentification</strong> :<br>
+          - <strong>Aucun header d'auth</strong> si le lien est publiquement téléchargeable.<br>
+          - <strong>Bearer token</strong> si tu as déjà une vraie URL de fichier protégée.<br>
+          - <strong>Lien de partage SharePoint + Graph</strong> si tu colles un lien SharePoint standard comme <code>/:x:/r/...</code>.<br>
           5. <strong>Activation</strong> : active la source pour autoriser le refresh automatique.<br><br>
           Ordre conseillé : <strong>Sauvegarder → Tester la source → Refresh SharePoint</strong>.
         </div>

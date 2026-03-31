@@ -110,3 +110,19 @@ Le dashboard lit ensuite ce dataset via la fonction Netlify protégée `/.netlif
 
 Les jeux de données locaux restent hors Git.
 La variante GitHub/Netlify utilise `chart/js/data-empty.js` au chargement initial, puis hydrate le dashboard depuis la base si un dataset en clair est disponible.
+
+## Source SharePoint / Microsoft Graph
+
+Une page admin `chart/source-sync.html` permet de relier le dashboard à un fichier Excel distant puis de le réimporter via le bouton `Refresh SharePoint`.
+
+Modes supportés :
+
+- `Aucun header d'auth` : pour une vraie URL directe `.xlsx` ou `.csv`
+- `Bearer token` : pour une URL de fichier protégée, si tu disposes déjà du bon endpoint
+- `Lien de partage SharePoint + Graph` : pour coller une URL de partage SharePoint standard (`/:x:/r/...`) et laisser le serveur résoudre le vrai téléchargement via Microsoft Graph
+
+Pour le mode Graph :
+
+- le champ URL accepte le lien de partage SharePoint normal
+- le bearer token doit être un token Microsoft Graph valide permettant de lire le fichier partagé
+- le test de source affiche désormais le vrai diagnostic métier au lieu d'un simple `HTTP 400`
