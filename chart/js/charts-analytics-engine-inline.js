@@ -1559,22 +1559,65 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
+function resolveProjectYearValue(project) {
+  if (!project) return null;
+
+  function toYear(raw) {
+    if (raw == null) return null;
+    const str = String(raw).trim();
+    if (!str) return null;
+    const parsedInt = parseInt(str, 10);
+    if (/^\d{4}$/.test(str) && isFinite(parsedInt)) return parsedInt;
+    if (typeof ProjectUtils !== 'undefined' && typeof ProjectUtils.parseDate === 'function') {
+      const date = ProjectUtils.parseDate(str);
+      if (date && typeof date.getFullYear === 'function') {
+        const year = date.getFullYear();
+        if (isFinite(year)) return year;
+      }
+    }
+    return null;
+  }
+
+  const directYear = toYear(project._annee);
+  if (directYear) return directYear;
+
+  if (typeof Analytics !== 'undefined' && typeof Analytics.getProjectYear === 'function') {
+    const liveYear = toYear(Analytics.getProjectYear(project));
+    if (liveYear) return liveYear;
+  }
+
+  const activeField = (typeof Analytics !== 'undefined' && Analytics.config && Analytics.config.activeDateField)
+    ? Analytics.config.activeDateField
+    : null;
+  const fields = [
+    activeField,
+    'Date réception',
+    'Date de retour demandée',
+    'Décidé le ',
+    'Décidé le',
+    'Date de démarrage VRD prévisionnelle',
+    'Date de démarrage GE prévisionnelle',
+    'Date de MSI prévisionnelle',
+    'creation',
+    'date_reception_ao',
+    'date_remise_offre'
+  ].filter(Boolean);
+
+  for (const field of fields) {
+    const year = toYear(project[field]);
+    if (year) return year;
+  }
+
+  return null;
+}
+
 function rebuildYearSelectFromData(data) {
   const ys = document.getElementById('year-filter');
   if (!ys) return;
 
   const current = ys.value;
   const yrs = [...new Set((Array.isArray(data) ? data : []).map(p => {
-    if (!p) return null;
-    if (p._annee != null && String(p._annee).trim() !== '') {
-      const parsed = parseInt(p._annee, 10);
-      if (isFinite(parsed)) return parsed;
-    }
-    if (typeof Analytics !== 'undefined' && typeof Analytics.getProjectYear === 'function') {
-      const liveYear = parseInt(Analytics.getProjectYear(p), 10);
-      if (isFinite(liveYear)) return liveYear;
-    }
-    return null;
+    return resolveProjectYearValue(p);
   }).filter(y => isFinite(y)))].sort().reverse();
 
   ys.innerHTML = '<option value="">Toutes les années</option>';
@@ -1617,7 +1660,12 @@ function setDashboardData(newData, options) {
   const source = Array.isArray(newData) ? newData : [];
 
   window.DATA = source.map(function(p) {
-    return Object.assign({}, p);
+    const normalized = Object.assign({}, p);
+    if (normalized._annee == null || String(normalized._annee).trim() === '') {
+      const year = resolveProjectYearValue(normalized);
+      if (year) normalized._annee = String(year);
+    }
+    return normalized;
   });
 
   if (typeof DataFilterEngine !== 'undefined') {
@@ -1883,8 +1931,7 @@ function update() {
           if (yrSel && window.DATA) {
             var currentVal = yrSel.value;
             var yrs = [...new Set(window.DATA.map(function(p) {
-              if (p._annee != null && String(p._annee).trim() !== '') return parseInt(p._annee, 10);
-              return null;
+              return resolveProjectYearValue(p);
             }).filter(Boolean))].sort().reverse();
             yrSel.innerHTML = '<option value="">Toutes les années</option>';
             yrs.forEach(function(y) {
