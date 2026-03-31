@@ -142,6 +142,18 @@ async function ensureSchema() {
   `);
 
   await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_access_request_attempts (
+      throttle_key TEXT PRIMARY KEY,
+      ip_hash TEXT NOT NULL DEFAULT '',
+      user_agent_hash TEXT NOT NULL DEFAULT '',
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      first_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_until TIMESTAMPTZ
+    );
+  `);
+
+  await query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboard_ip_access_requests_pending_ip
       ON dashboard_ip_access_requests (requested_ip)
       WHERE status = 'pending';
@@ -249,6 +261,7 @@ async function ensureSchema() {
   `);
 
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_login_attempts_blocked_until ON dashboard_login_attempts (blocked_until DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_request_attempts_blocked_until ON dashboard_access_request_attempts (blocked_until DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_ip_whitelist_active ON dashboard_ip_whitelist (is_active, updated_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_ip_access_requests_status_created ON dashboard_ip_access_requests (status, created_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_secure_dataset_audit_key_created ON dashboard_secure_dataset_audit (dataset_key, created_at DESC);`);

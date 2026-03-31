@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { ensureSchema } = require('../netlify/functions/_db');
 const { upsertPlainDataset } = require('../netlify/functions/_plain_dataset');
 
@@ -189,21 +189,49 @@ function buildRows(headers, matrixRows, rowOffset) {
   return rows;
 }
 
-function loadWorkbookRows(filePath) {
-  const workbook = XLSX.readFile(filePath, { cellDates: true });
+function extractExcelCellValue(cell) {
+  if (!cell) return '';
+  const value = cell.value;
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value;
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) {
+      return value.richText.map((item) => item && item.text ? item.text : '').join('');
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'result')) return value.result;
+    if (Object.prototype.hasOwnProperty.call(value, 'text')) return value.text;
+    if (Object.prototype.hasOwnProperty.call(value, 'hyperlink')) return value.text || value.hyperlink;
+    if (Object.prototype.hasOwnProperty.call(value, 'formula')) return value.result != null ? value.result : '';
+  }
+  return value;
+}
+
+async function loadWorkbookRows(filePath) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+
   let best = { score: -1, rows: [], sheetName: '' };
-  workbook.SheetNames.forEach((sheetName) => {
-    const sheet = workbook.Sheets[sheetName];
-    const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
-    if (!matrix || !matrix.length) return;
+  workbook.worksheets.forEach((sheet) => {
+    const matrix = [];
+    sheet.eachRow({ includeEmpty: true }, (row) => {
+      const width = Math.max(row.cellCount || 0, row.actualCellCount || 0, 1);
+      const values = [];
+      for (let col = 1; col <= width; col += 1) {
+        values.push(extractExcelCellValue(row.getCell(col)));
+      }
+      matrix.push(values);
+    });
+    if (!matrix.length) return;
+
     const headerIndex = findHeaderRowIndex(matrix);
     const score = scoreHeaderCandidate(matrix[headerIndex] || []);
     if (score > best.score) {
       const headers = (matrix[headerIndex] || []).map(sanitizeHeader);
       const rows = buildRows(headers, matrix.slice(headerIndex + 1), headerIndex + 1);
-      best = { score, rows, sheetName };
+      best = { score, rows, sheetName: sheet.name };
     }
   });
+
   return best;
 }
 
@@ -219,7 +247,7 @@ async function main() {
     throw new Error('Fichier introuvable : ' + resolvedPath);
   }
 
-  const loaded = loadWorkbookRows(resolvedPath);
+  const loaded = await loadWorkbookRows(resolvedPath);
   if (!loaded.rows.length) {
     throw new Error('Aucune donnée importable trouvée dans le fichier');
   }

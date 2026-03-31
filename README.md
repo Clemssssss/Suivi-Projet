@@ -34,10 +34,11 @@ Restrictions réseau optionnelles :
 Variables d'environnement à définir dans Netlify :
 
 - `AUTH_SESSION_SECRET` : secret long et aléatoire pour signer la session
-- `DASHBOARD_LOGIN_USER` : identifiant autorisé
-- `DASHBOARD_LOGIN_PASSWORD_HASH` : hash du mot de passe
+- `DASHBOARD_LOGIN_USER` : identifiant utilisateur standard
+- `DASHBOARD_LOGIN_PASSWORD_HASH` : hash du mot de passe utilisateur standard
+- `DASHBOARD_ADMIN_USER` : identifiant administrateur distinct
+- `DASHBOARD_ADMIN_PASSWORD_HASH` : hash du mot de passe administrateur distinct
 - `NEON_DATABASE_URL` : URL PostgreSQL Neon pour la persistance partagée et les journaux d'accès
-- `DATA_ENCRYPTION_KEY` : clé dédiée pour chiffrer/déchiffrer le dataset métier stocké en base
 
 Génération du hash :
 
@@ -45,7 +46,13 @@ Génération du hash :
 node scripts/generate_auth_hash.js "MonMotDePasseFort"
 ```
 
-Copier ensuite la valeur affichée dans `DASHBOARD_LOGIN_PASSWORD_HASH`.
+Copier ensuite la valeur affichée dans `DASHBOARD_LOGIN_PASSWORD_HASH` ou `DASHBOARD_ADMIN_PASSWORD_HASH`.
+
+Recommandation sécurité :
+
+- utiliser un compte admin séparé du compte utilisateur standard
+- ne pas partager le compte admin
+- réserver les pages `Logs` et `Whitelist` au seul admin
 
 ## Journaux d'accès
 
@@ -94,7 +101,7 @@ $env:NEON_DATABASE_URL="postgresql://..."
 node scripts/import_secure_dataset.js "data\\SAIP - Suivi ventes & AO_VF BRUT.xlsx" saip-main admin
 ```
 
-Le script conserve son nom pour compatibilité, mais il écrit maintenant :
+Le script conserve son nom pour compatibilité, mais il s'appuie maintenant sur `exceljs` côté serveur et écrit :
 
 - une ligne par projet dans `dashboard_dataset_rows`
 - les métadonnées dans `dashboard_dataset_meta`

@@ -63,9 +63,8 @@ function constantTimeEqual(a, b) {
   return crypto.timingSafeEqual(left, right);
 }
 
-function getPasswordConfig() {
-  const encoded = process.env.DASHBOARD_LOGIN_PASSWORD_HASH;
-  if (!encoded) throw new Error('Missing DASHBOARD_LOGIN_PASSWORD_HASH');
+function parsePasswordConfig(encoded, envName) {
+  if (!encoded) throw new Error('Missing ' + envName);
 
   const parts = String(encoded).split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2_sha256') {
@@ -79,15 +78,56 @@ function getPasswordConfig() {
   };
 }
 
+function getPasswordConfigForUser(username) {
+  const user = String(username || '').trim();
+  const loginUser = String(process.env.DASHBOARD_LOGIN_USER || '').trim();
+  const adminUser = String(process.env.DASHBOARD_ADMIN_USER || '').trim();
+
+  if (adminUser && user === adminUser) {
+    const adminHash = String(process.env.DASHBOARD_ADMIN_PASSWORD_HASH || '').trim();
+    if (!adminHash) {
+      throw new Error('Missing DASHBOARD_ADMIN_PASSWORD_HASH');
+    }
+    return {
+      user: adminUser,
+      role: 'admin',
+      config: parsePasswordConfig(adminHash, 'DASHBOARD_ADMIN_PASSWORD_HASH')
+    };
+  }
+
+  if (loginUser && user === loginUser) {
+    const loginHash = String(process.env.DASHBOARD_LOGIN_PASSWORD_HASH || '').trim();
+    return {
+      user: loginUser,
+      role: 'user',
+      config: parsePasswordConfig(loginHash, 'DASHBOARD_LOGIN_PASSWORD_HASH')
+    };
+  }
+
+  return null;
+}
+
 function hashPassword(password, salt, iterations) {
   const derived = crypto.pbkdf2Sync(String(password), fromBase64Url(salt), iterations, 32, 'sha256');
   return toBase64Url(derived);
 }
 
 function verifyPassword(password) {
-  const config = getPasswordConfig();
+  const config = parsePasswordConfig(process.env.DASHBOARD_LOGIN_PASSWORD_HASH, 'DASHBOARD_LOGIN_PASSWORD_HASH');
   const candidate = hashPassword(password, config.salt, config.iterations);
   return constantTimeEqual(candidate, config.hash);
+}
+
+function verifyPasswordForUser(username, password) {
+  const resolved = getPasswordConfigForUser(username);
+  if (!resolved) return { ok: false, role: '', user: '' };
+  const config = resolved.config;
+  const candidate = hashPassword(password, config.salt, config.iterations);
+  return {
+    ok: constantTimeEqual(candidate, config.hash),
+    role: resolved.role,
+    user: resolved.user
+  };
 }
 
 function getAdminUser() {
@@ -686,6 +726,7 @@ module.exports = {
   markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
+  verifyPasswordForUser,
   verifyPassword,
   clearPersistentLoginFailures
 };

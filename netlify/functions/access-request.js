@@ -11,10 +11,93 @@ const {
   readRequestBody,
   verifyLoginChallengeToken
 } = require('./_auth');
+const crypto = require('crypto');
 const { ensureSchema, query } = require('./_db');
+
+const ACCESS_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+const ACCESS_REQUEST_LOCK_MS = 60 * 60 * 1000;
+const ACCESS_REQUEST_MAX_ATTEMPTS = 3;
 
 function cleanText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength || 160);
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function getThrottleKey(headers) {
+  return sha256(
+    getClientIP(headers || {}) + '|' +
+    String(getUserAgent(headers || {})).toLowerCase()
+  );
+}
+
+async function getAccessRequestThrottleState(headers) {
+  const now = Date.now();
+  const throttleKey = getThrottleKey(headers);
+  await ensureSchema();
+  const result = await query(
+    `SELECT blocked_until AS "blockedUntil"
+       FROM dashboard_access_request_attempts
+      WHERE throttle_key = $1
+      LIMIT 1`,
+    [throttleKey]
+  );
+  const row = result.rows[0];
+  const blockedUntilMs = row && row.blockedUntil ? new Date(row.blockedUntil).getTime() : 0;
+  if (blockedUntilMs > now) {
+    return { key: throttleKey, blocked: true, retryAfterMs: blockedUntilMs - now };
+  }
+  return { key: throttleKey, blocked: false, retryAfterMs: 0 };
+}
+
+async function markAccessRequestFailure(headers) {
+  const now = Date.now();
+  const throttleKey = getThrottleKey(headers);
+  const ipHash = sha256(getClientIP(headers || {}));
+  const userAgentHash = sha256(String(getUserAgent(headers || {})).toLowerCase());
+  await ensureSchema();
+
+  const currentResult = await query(
+    `SELECT failure_count, first_attempt_at AS "firstAttemptAt"
+       FROM dashboard_access_request_attempts
+      WHERE throttle_key = $1
+      LIMIT 1`,
+    [throttleKey]
+  );
+
+  const current = currentResult.rows[0];
+  const freshWindow = !current || ((new Date(current.firstAttemptAt).getTime() + ACCESS_REQUEST_WINDOW_MS) < now);
+  const failureCount = freshWindow ? 1 : (Number(current.failureCount || 0) + 1);
+  const firstAttemptAt = freshWindow ? new Date(now) : new Date(current.firstAttemptAt);
+  const blockedUntil = failureCount >= ACCESS_REQUEST_MAX_ATTEMPTS ? new Date(now + ACCESS_REQUEST_LOCK_MS) : null;
+
+  await query(
+    `INSERT INTO dashboard_access_request_attempts
+      (throttle_key, ip_hash, user_agent_hash, failure_count, first_attempt_at, last_attempt_at, blocked_until)
+     VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+     ON CONFLICT (throttle_key)
+     DO UPDATE SET
+       ip_hash = EXCLUDED.ip_hash,
+       user_agent_hash = EXCLUDED.user_agent_hash,
+       failure_count = EXCLUDED.failure_count,
+       first_attempt_at = EXCLUDED.first_attempt_at,
+       last_attempt_at = NOW(),
+       blocked_until = EXCLUDED.blocked_until`,
+    [throttleKey, ipHash, userAgentHash, failureCount, firstAttemptAt.toISOString(), blockedUntil ? blockedUntil.toISOString() : null]
+  );
+
+  return {
+    count: failureCount,
+    blockedUntil: blockedUntil ? blockedUntil.getTime() : 0
+  };
+}
+
+async function clearAccessRequestFailures(headers) {
+  const throttleKey = getThrottleKey(headers);
+  await ensureSchema();
+  await query(`DELETE FROM dashboard_access_request_attempts WHERE throttle_key = $1`, [throttleKey]);
 }
 
 exports.handler = async function(event) {
@@ -40,9 +123,26 @@ exports.handler = async function(event) {
 
   const honeypot = cleanText(body.company, 120);
   const challenge = cleanText(body.challenge, 600);
+  const throttle = await getAccessRequestThrottleState(event.headers || {});
+  if (throttle.blocked) {
+    const retryAfterSeconds = Math.ceil((throttle.retryAfterMs || 0) / 1000);
+    await logAccess(event, 'access_request_throttled', 'warn', {
+      retryAfterSeconds: retryAfterSeconds
+    });
+    return jsonResponse(429, {
+      ok: false,
+      error: 'Too many requests',
+      retryAfterSeconds: retryAfterSeconds,
+      loginChallenge: createLoginChallengeToken(event.headers || {})
+    }, {
+      'Retry-After': String(retryAfterSeconds)
+    });
+  }
+
   const looksBot = looksLikeBot(event.headers || {});
   const challengeValid = verifyLoginChallengeToken(challenge, event.headers || {}) != null;
   if (honeypot || looksBot || !challengeValid) {
+    await markAccessRequestFailure(event.headers || {});
     await logAccess(event, 'access_request_suspicious', 'warn', {
       honeypotFilled: !!honeypot,
       looksLikeBot: looksBot,
@@ -141,6 +241,7 @@ exports.handler = async function(event) {
       ip: requestedIp,
       requestId: result.rows[0].id
     }, requestedBy);
+    await clearAccessRequestFailures(event.headers || {});
 
     return jsonResponse(200, {
       ok: true,

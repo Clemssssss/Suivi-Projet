@@ -14,7 +14,7 @@ const {
   markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
-  verifyPassword
+  verifyPasswordForUser
 } = require('./_auth');
 
 exports.handler = async function(event) {
@@ -51,10 +51,11 @@ exports.handler = async function(event) {
     });
   }
 
-  const expectedUser = String(process.env.DASHBOARD_LOGIN_USER || '');
-  if (!expectedUser) {
+  const expectedUser = String(process.env.DASHBOARD_LOGIN_USER || '').trim();
+  const adminUser = String(process.env.DASHBOARD_ADMIN_USER || '').trim();
+  if (!expectedUser && !adminUser) {
     await logAccess(event, 'auth_login_unavailable', 'error', {
-      missingEnv: 'DASHBOARD_LOGIN_USER'
+      missingEnv: 'DASHBOARD_LOGIN_USER_OR_DASHBOARD_ADMIN_USER'
     });
     return jsonResponse(503, { ok: false, error: 'Authentication unavailable' });
   }
@@ -109,9 +110,9 @@ exports.handler = async function(event) {
     return jsonResponse(403, { ok: false, error: 'Suspicious request' });
   }
 
-  let passwordValid = false;
+  let passwordResult = { ok: false, role: '', user: '' };
   try {
-    passwordValid = verifyPassword(password);
+    passwordResult = verifyPasswordForUser(username, password);
   } catch (err) {
     console.error('[auth-login] Password config error', err);
     await logAccess(event, 'auth_login_password_config_error', 'error', {
@@ -120,7 +121,7 @@ exports.handler = async function(event) {
     return jsonResponse(503, { ok: false, error: 'Authentication unavailable' });
   }
 
-  if (username !== expectedUser || !passwordValid) {
+  if (!passwordResult.ok) {
     const failure = markLoginFailure(throttle.key);
     let persistentFailure = null;
     try {
@@ -142,15 +143,17 @@ exports.handler = async function(event) {
 
   clearLoginFailures(event.headers || {}, username);
   try { await clearPersistentLoginFailures(event.headers || {}, username); } catch (_) {}
-  const token = createSessionToken(expectedUser);
+  const sessionUser = passwordResult.user || username;
+  const token = createSessionToken(sessionUser);
   await logAccess(event, 'auth_login_success', 'info', {
     usernameAttempt: username,
-    sessionIssued: true
-  }, expectedUser);
+    sessionIssued: true,
+    role: passwordResult.role || 'user'
+  }, sessionUser);
   return jsonResponse(200, {
     ok: true,
     authenticated: true,
-    user: expectedUser
+    user: sessionUser
   }, {
     'Set-Cookie': buildSessionCookie(token, event.headers || {})
   });

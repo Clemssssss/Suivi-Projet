@@ -9,6 +9,7 @@
   [headers.values]
     Cache-Control = "no-store, max-age=0"
     Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
@@ -30,4 +31,8 @@
 
 [[edge_functions]]
   path = "/chart/logs.html"
+  function = "auth-gate"
+
+[[edge_functions]]
+  path = "/chart/whitelist.html"
   function = "auth-gate"

@@ -97,9 +97,9 @@
           company: honeypotInput.value
         });
 
-        if (!result.ok || !result.data || !result.data.authenticated) {
+          if (!result.ok || !result.data || !result.data.authenticated) {
           if (result.status === 503) {
-            setMessage("Connexion indisponible. Vérifiez les variables Netlify: AUTH_SESSION_SECRET, DASHBOARD_LOGIN_USER, DASHBOARD_LOGIN_PASSWORD_HASH.", 'error');
+            setMessage("Connexion indisponible. Vérifiez les variables Netlify d'authentification.", 'error');
           } else if (result.status === 401) {
             setMessage('Connexion refusée. Vérifiez vos identifiants.', 'error');
           } else if (result.status === 429) {
