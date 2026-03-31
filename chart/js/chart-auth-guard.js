@@ -5,7 +5,8 @@ window.DashboardAuthGuard = (function() {
   var state = {
     checked: false,
     authenticated: false,
-    user: ''
+    user: '',
+    isAdmin: false
   };
 
   function getNextURL() {
@@ -60,6 +61,7 @@ window.DashboardAuthGuard = (function() {
       state.user = state.authenticated && typeof result.data.user === 'string'
         ? result.data.user
         : '';
+      state.isAdmin = !!(state.authenticated && result.data && result.data.isAdmin);
 
       if (!state.authenticated) {
         await redirectToLogin();
@@ -70,7 +72,7 @@ window.DashboardAuthGuard = (function() {
       bindLogout();
       window.AuthClient.setDocumentAuthenticated(true);
       document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
-        detail: { user: state.user }
+        detail: { user: state.user, isAdmin: state.isAdmin }
       }));
       return true;
     } catch (err) {
@@ -92,7 +94,8 @@ window.DashboardAuthGuard = (function() {
     ensureAuthenticated: ensureAuthenticated,
     isAuthenticated: function() { return state.authenticated; },
     isReady: function() { return state.checked; },
-    getUser: function() { return state.user || ''; }
+    getUser: function() { return state.user || ''; },
+    isAdmin: function() { return !!state.isAdmin; }
   };
 })();
 }

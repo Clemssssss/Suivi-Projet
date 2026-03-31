@@ -273,6 +273,35 @@ async function ensureSchema() {
     );
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_external_sources (
+      source_key TEXT PRIMARY KEY,
+      provider TEXT NOT NULL DEFAULT 'sharepoint_excel_url',
+      dataset_key TEXT NOT NULL DEFAULT 'saip-main',
+      source_name TEXT NOT NULL DEFAULT '',
+      config JSONB NOT NULL DEFAULT '{}'::jsonb,
+      is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      last_sync_status TEXT NOT NULL DEFAULT 'never',
+      last_sync_message TEXT NOT NULL DEFAULT '',
+      last_sync_at TIMESTAMPTZ,
+      last_row_count INTEGER NOT NULL DEFAULT 0,
+      updated_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_external_source_audit (
+      id BIGSERIAL PRIMARY KEY,
+      source_key TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT '',
+      details JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_login_attempts_blocked_until ON dashboard_login_attempts (blocked_until DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_auth_users_role_active ON dashboard_auth_users (role, is_active);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_request_attempts_blocked_until ON dashboard_access_request_attempts (blocked_until DESC);`);
@@ -281,6 +310,8 @@ async function ensureSchema() {
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_secure_dataset_audit_key_created ON dashboard_secure_dataset_audit (dataset_key, created_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_dataset_rows_key_project_id ON dashboard_dataset_rows (dataset_key, project_id);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_dataset_audit_key_created ON dashboard_dataset_audit (dataset_key, created_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_external_sources_enabled ON dashboard_external_sources (is_enabled, updated_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_external_source_audit_key_created ON dashboard_external_source_audit (source_key, created_at DESC);`);
 }
 
 module.exports = {

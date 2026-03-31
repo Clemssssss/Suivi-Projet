@@ -40,3 +40,7 @@
 [[edge_functions]]
   path = "/chart/whitelist.html"
   function = "auth-gate"
+
+[[edge_functions]]
+  path = "/chart/source-sync.html"
+  function = "auth-gate"

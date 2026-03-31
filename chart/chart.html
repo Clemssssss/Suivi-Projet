@@ -59,6 +59,8 @@
       📥 Import CSV/Excel
       <input type="file" id="csv-import-input" accept=".csv,.xlsx,.xls" style="display:none">
     </label>
+    <button class="btn-hdr" id="btn-sharepoint-refresh" type="button" style="display:none;">🔄 Refresh SharePoint</button>
+    <a class="btn-hdr" id="btn-sharepoint-source" href="/chart/source-sync.html" style="display:none;text-decoration:none;">⚙️ Source SharePoint</a>
     <div class="hdr-pill" id="project-count">-- projets</div>
     <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
     <div class="hdr-actions-status">
@@ -1760,6 +1762,7 @@
      On mesure leur hauteur totale et on l'applique au shell.
 ══════════════════════════════════════════════════════════ -->
 <script src="js/charts-shell-padding-sync-inline.js"></script>
+<script src="js/sharepoint-source-controls.js"></script>
 </body>
 </html>
 
