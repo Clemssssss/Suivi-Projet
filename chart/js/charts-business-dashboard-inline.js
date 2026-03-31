@@ -348,7 +348,7 @@
       buckets[key].projects.push(project);
     });
 
-    return Object.keys(buckets).map(function(key) {
+    var entries = Object.keys(buckets).map(function(key) {
       var bucket = buckets[key];
       return {
         label: bucket.label,
@@ -357,7 +357,26 @@
       };
     }).sort(function(a, b) {
       return b.value - a.value;
-    }).slice(0, limit || 12);
+    });
+    return dimension === 'client' ? finalizeTopEntries(entries, limit || 12) : entries.slice(0, limit || 12);
+  }
+
+  function finalizeTopEntries(entries, limit) {
+    var list = Array.isArray(entries) ? entries.slice() : [];
+    var max = Number(limit) || 12;
+    if (list.length <= max) return list;
+    var top = list.slice(0, max);
+    var rest = list.slice(max);
+    var othersProjects = [];
+    rest.forEach(function(entry) {
+      if (Array.isArray(entry.projects)) othersProjects = othersProjects.concat(entry.projects);
+    });
+    top.push({
+      label: 'Autres',
+      value: rest.reduce(function(sum, entry) { return sum + (Number(entry.value) || 0); }, 0),
+      projects: othersProjects
+    });
+    return top;
   }
 
   function createMonthlyEntries(projects, mode, year) {
@@ -429,7 +448,7 @@
       map[key].projects.push(project);
     });
 
-    return Object.keys(map).map(function(key) {
+    return finalizeTopEntries(Object.keys(map).map(function(key) {
       var item = map[key];
       return {
         label: item.label,
@@ -439,7 +458,7 @@
       };
     }).sort(function(a, b) {
       return b.value - a.value;
-    }).slice(0, limit || 12);
+    }), limit || 12);
   }
 
   function comparisonSeriesForMode(mode) {

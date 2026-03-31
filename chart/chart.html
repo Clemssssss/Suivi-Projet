@@ -131,14 +131,7 @@
     <label class="ctrl-lbl">Au</label>
     <input type="date" id="timeline-end" class="ctrl-inp" style="width:145px">
   </div>
-  <div class="ctrl-grp" style="margin-left:auto;">
-    <span id="timeline-active-badge" style="display:none;background:rgba(0,153,255,.15);border:1px solid rgba(0,153,255,.3);color:var(--brand2);font-family:var(--mono);font-size:.7rem;padding:.22rem .65rem;border-radius:99px;">
-      🕒 <span id="timeline-badge-text">Filtre actif</span>
-    </span>
-    <button id="timeline-clear" class="btn-hdr" style="display:none;">✕ Réinitialiser</button>
-  </div>
-</div>
-<div class="ctrl-bar" id="business-filter-bar">
+  <div class="ctrl-div"></div>
   <div class="ctrl-grp">
     <label class="ctrl-lbl">Mesure</label>
     <select id="biz-performance-view" class="ctrl-inp">
@@ -166,6 +159,12 @@
       <option value="decided">Gagné + Perdu</option>
       <option value="offer">Offre</option>
     </select>
+  </div>
+  <div class="ctrl-grp" style="margin-left:auto;">
+    <span id="timeline-active-badge" style="display:none;background:rgba(0,153,255,.15);border:1px solid rgba(0,153,255,.3);color:var(--brand2);font-family:var(--mono);font-size:.7rem;padding:.22rem .65rem;border-radius:99px;">
+      🕒 <span id="timeline-badge-text">Filtre actif</span>
+    </span>
+    <button id="timeline-clear" class="btn-hdr" style="display:none;">✕ Réinitialiser</button>
   </div>
 </div>
 </div><!-- /#ctrl-bars-sticky -->
