@@ -1,120 +1,1074 @@
 <!DOCTYPE html>
-<html lang="fr" style="color-scheme: dark;">
+<html lang="fr" style="color-scheme:light;">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#060c14">
-<title>Manuel Suivi4Me</title>
+<title>Analytics Dashboard — Manuel Utilisateur v3.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/charts-theme-layout.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:14px;}
+body{font-family:'DM Sans',sans-serif;color:#1a2332;background:#fff;line-height:1.6;}
+
+/* ── COVER PAGE ── */
+.cover{
+  background:linear-gradient(160deg,#004d3a 0%,#00705a 45%,#009070 100%);
+  color:#fff;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  padding:0;
+  page-break-after:always;
+  position:relative;
+  overflow:hidden;
+}
+.cover::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:6px;
+  background:linear-gradient(90deg,#00d4aa,#0099ff,#8b78f8,#f5b740);
+}
+.cover-inner{flex:1;display:flex;flex-direction:column;justify-content:center;padding:5rem 4rem 3rem;}
+.cover-title{font-family:'Fraunces',serif;font-size:3.2rem;font-weight:900;line-height:1.1;margin-bottom:.6rem;}
+.cover-sub{font-size:1.1rem;opacity:.85;margin-bottom:.4rem;font-weight:400;}
+.cover-tags{font-size:.85rem;opacity:.65;margin-bottom:2.5rem;letter-spacing:.02em;}
+.cover-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);border-radius:4px;margin-bottom:2.5rem;}
+.cover-stat{padding:1rem 1.2rem;background:rgba(0,0,0,.12);}
+.cover-stat-num{font-family:'Fraunces',serif;font-size:2rem;font-weight:700;color:#fff;display:block;}
+.cover-stat-lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;opacity:.65;display:block;margin-top:.1rem;}
+.cover-list{list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-bottom:2.5rem;}
+.cover-list li{font-size:.9rem;opacity:.85;}
+.cover-list li::before{content:'› ';color:#00d4aa;font-weight:700;}
+.cover-footer{font-size:.75rem;opacity:.55;text-align:center;padding:1.5rem;border-top:1px solid rgba(255,255,255,.1);margin-top:auto;}
+
+/* ── PAGE LAYOUT ── */
+.page{
+  max-width:860px;
+  margin:0 auto;
+  padding:2.5rem 2.5rem 1.5rem;
+  page-break-after:always;
+}
+.page-header{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:'DM Mono',monospace;font-size:.65rem;color:#888;
+  border-bottom:1px solid #e8edf3;padding-bottom:.6rem;margin-bottom:2rem;
+}
+.page-header .version{color:#009070;font-weight:700;}
+.page-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'DM Mono',monospace;font-size:.62rem;color:#aaa;
+  border-top:1px solid #e8edf3;padding-top:.6rem;margin-top:2rem;
+}
+.page-footer .pnum{color:#009070;font-weight:700;}
+
+/* ── SECTION HEADER ── */
+.sec-header{
+  display:flex;align-items:stretch;gap:0;
+  border:1px solid #d0dde8;border-radius:4px;overflow:hidden;
+  margin-bottom:1.4rem;
+}
+.sec-num{
+  background:#009070;color:#fff;
+  font-family:'DM Mono',monospace;font-size:.7rem;font-weight:700;
+  padding:.6rem .9rem;display:flex;align-items:center;justify-content:center;
+  min-width:42px;
+}
+.sec-title{
+  padding:.6rem 1rem;font-size:1.05rem;font-weight:700;
+  border-left:3px solid #009070;
+  display:flex;align-items:center;
+}
+
+/* ── TYPOGRAPHY ── */
+h2{font-family:'Fraunces',serif;font-size:1.9rem;font-weight:700;color:#1a2332;margin-bottom:1.2rem;}
+h3{font-size:1.05rem;font-weight:700;color:#1a2332;margin:1.5rem 0 .7rem;}
+h4{font-size:.9rem;font-weight:700;color:#009070;margin:.6rem 0 .35rem;}
+p{margin-bottom:.75rem;font-size:.88rem;line-height:1.65;}
+
+/* ── TABLES ── */
+.tbl{width:100%;border-collapse:collapse;font-size:.82rem;margin:1rem 0;}
+.tbl th{background:#009070;color:#fff;padding:.5rem .8rem;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;}
+.tbl td{padding:.5rem .8rem;border-bottom:1px solid #e8edf3;vertical-align:top;line-height:1.5;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:nth-child(even) td{background:#f7fafc;}
+.tbl td:first-child{font-weight:700;color:#1a2332;white-space:nowrap;}
+
+/* ── KPI TABLE ── */
+.kpi-block{border:1px solid #d0dde8;border-radius:6px;overflow:hidden;margin-bottom:1.2rem;}
+.kpi-block-title{background:#f0f7f4;padding:.65rem 1rem;font-size:.95rem;font-weight:700;color:#1a2332;border-bottom:3px solid #009070;}
+.kpi-block-row{display:grid;grid-template-columns:130px 1fr;border-bottom:1px solid #edf2f7;}
+.kpi-block-row:last-child{border-bottom:none;}
+.kpi-block-label{padding:.55rem .9rem;background:#f7fafc;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7d8f;display:flex;align-items:flex-start;padding-top:.7rem;}
+.kpi-block-val{padding:.55rem .9rem;font-size:.82rem;line-height:1.55;}
+.kpi-example{color:#009070;font-style:italic;}
+
+/* ── STEP BLOCKS ── */
+.steps{display:flex;flex-direction:column;gap:.5rem;}
+.step{display:grid;grid-template-columns:32px 1fr;gap:.7rem;align-items:flex-start;padding:.55rem .8rem;border:1px solid #d0dde8;border-radius:5px;}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;font-size:.9rem;color:#fff;flex-shrink:0;}
+.step-num.green{background:#009070;}
+.step-num.blue{background:#0099ff;}
+.step-num.purple{background:#8b78f8;}
+.step-num.orange{background:#f5b740;color:#1a2332;}
+.step-num.red{background:#ff4d6d;}
+.step-title{font-weight:700;font-size:.85rem;margin-bottom:.15rem;}
+.step-body{font-size:.8rem;color:#5a6b7a;line-height:1.5;}
+
+/* ── BUTTON TABLE ── */
+.btn-row{display:grid;grid-template-columns:180px 1fr;gap:0;border-bottom:1px solid #edf2f7;align-items:start;}
+.btn-row:last-child{border-bottom:none;}
+.btn-tag{padding:.6rem .9rem;display:flex;align-items:center;justify-content:center;}
+.btn-tag span{display:inline-block;padding:.3rem .7rem;border-radius:5px;font-weight:700;font-size:.77rem;color:#fff;text-align:center;line-height:1.3;}
+.btn-desc{padding:.6rem .9rem;font-size:.82rem;line-height:1.55;}
+
+/* ── CHART CARDS ── */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.6rem 0;}
+.chart-card{border:1px solid #d0dde8;border-radius:5px;overflow:hidden;padding:.6rem .8rem;position:relative;}
+.chart-card-type{position:absolute;top:.4rem;right:.5rem;font-family:'DM Mono',monospace;font-size:.6rem;font-weight:700;color:#fff;padding:.12rem .4rem;border-radius:3px;}
+.chart-card-title{font-weight:700;font-size:.8rem;color:#1a2332;margin-bottom:.25rem;padding-right:60px;}
+.chart-card-body{font-size:.73rem;color:#5a6b7a;line-height:1.45;}
+.chart-section-h{font-size:.9rem;font-weight:700;color:#1a2332;margin:1.1rem 0 .5rem;padding-bottom:.35rem;border-bottom:2px solid #009070;}
+
+/* ── CONSEIL / ALERT BOXES ── */
+.box-conseil{background:#fffbea;border:1px solid #f5b740;border-left:4px solid #f5b740;border-radius:4px;padding:.7rem 1rem;margin:1rem 0;font-size:.82rem;line-height:1.55;}
+.box-conseil strong{color:#c48800;}
+.box-info{background:#edf7f5;border:1px solid #009070;border-left:4px solid #009070;border-radius:4px;padding:.7rem 1rem;margin:1rem 0;font-size:.82rem;line-height:1.55;}
+.box-info strong{color:#007a5a;}
+
+/* ── TOC ── */
+.toc-entry{display:grid;grid-template-columns:42px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #edf2f7;}
+.toc-entry:last-child{border-bottom:none;}
+.toc-num{font-family:'Fraunces',serif;font-weight:700;font-size:.95rem;}
+.toc-title{font-weight:700;font-size:.9rem;margin-bottom:.2rem;}
+.toc-items{font-size:.78rem;color:#5a6b7a;list-style:none;}
+.toc-items li::before{content:'› ';color:#009070;}
+.toc-num.c01{color:#009070;}
+.toc-num.c02{color:#0099ff;}
+.toc-num.c03{color:#f5b740;}
+.toc-num.c04{color:#8b78f8;}
+.toc-num.c05{color:#009070;}
+.toc-num.c06{color:#0099ff;}
+.toc-num.c07{color:#ff4d6d;}
+.toc-num.c08{color:#f5b740;}
+.toc-num.c09{color:#8b78f8;}
+.toc-num.c10{color:#009070;}
+.toc-num.c11{color:#0099ff;}
+
+/* ── GLOSSARY ── */
+.gloss-row{display:grid;grid-template-columns:180px 1fr;gap:0;border-bottom:1px solid #edf2f7;}
+.gloss-row:last-child{border-bottom:none;}
+.gloss-term{padding:.55rem .9rem;font-weight:700;font-size:.82rem;color:#1a2332;background:#f7fafc;}
+.gloss-def{padding:.55rem .9rem;font-size:.82rem;line-height:1.55;}
+
+/* ── SHORTCUT TABLE ── */
+.sc-row{display:grid;grid-template-columns:260px 1fr;gap:0;border-bottom:1px solid #edf2f7;}
+.sc-row:last-child{border-bottom:none;}
+.sc-action{padding:.48rem .9rem;font-size:.8rem;color:#1a2332;background:#f7fafc;}
+.sc-result{padding:.48rem .9rem;font-size:.8rem;color:#5a6b7a;}
+
+/* ── FINAL BOX ── */
+.final-box{background:#009070;color:#fff;border-radius:8px;padding:1.8rem 2rem;text-align:center;margin-top:1.5rem;}
+.final-box p{color:rgba(255,255,255,.85);margin-bottom:.4rem;}
+.final-box p:last-child{margin-bottom:0;font-size:.75rem;opacity:.6;}
+
+/* ── BACK LINK ── */
+.back-link{font-family:'DM Mono',monospace;font-size:.68rem;color:#009070;text-decoration:none;display:block;text-align:right;margin-top:.6rem;}
+
+/* ── PRINT ── */
+@media print{
+  .cover{min-height:297mm;}
+  .page{max-width:100%;padding:18mm 16mm 16mm;}
+  .page-header,.page-footer{font-size:.58rem;}
+  h2{font-size:1.6rem;}
+  .chart-grid{grid-template-columns:1fr 1fr;}
+  .cover-stats{grid-template-columns:repeat(4,1fr);}
+  body{font-size:13px;}
+}
+</style>
 </head>
-<body style="padding:2rem 1.2rem 3rem;">
-  <main style="max-width:1180px;margin:0 auto;">
-    <div class="manual-doc">
-      <section class="manual-hero">
-        <div>
-          <div class="manual-pill">Guide utilisateur</div>
-          <h2>Manuel Suivi4Me</h2>
-          <p>Cette page présente le fonctionnement du dashboard commercial, les droits par profil, les filtres globaux et les usages recommandés pour suivre la performance, le pipe et les projets.</p>
-        </div>
-        <div class="manual-hero-grid">
-          <div class="manual-card">
-            <span class="manual-card-kicker">1</span>
-            <strong>Se repérer</strong>
-            <p>Le header donne accès aux exports, au manuel et au statut de session selon votre rôle.</p>
-          </div>
-          <div class="manual-card">
-            <span class="manual-card-kicker">2</span>
-            <strong>Filtrer</strong>
-            <p>La barre sticky pilote année, champ date, mode CA, énergie, période et mesure.</p>
-          </div>
-          <div class="manual-card">
-            <span class="manual-card-kicker">3</span>
-            <strong>Décider</strong>
-            <p>Les KPI, graphes métier et synthèses textuelles servent de base au pilotage commercial.</p>
-          </div>
-        </div>
-      </section>
+<body>
 
-      <section class="manual-section">
-        <h3>Architecture de la page</h3>
-        <div class="manual-columns">
-          <article class="manual-panel">
-            <h4>Header</h4>
-            <p>Le header regroupe les actions disponibles selon le rôle connecté : exports, email, manuel, import ou administration.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Filtres globaux</h4>
-            <p>Ils pilotent la vue courante et impactent KPI, graphes, analyses textuelles, PDF et email.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Blocs métier</h4>
-            <p>Les sections “Prise d’affaires / Performance” et “Pipe commercial” donnent la lecture métier la plus directe.</p>
-          </article>
-        </div>
-      </section>
+<!-- ═══════════════════════════════════
+     COVER
+═══════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-title">Analytics Dashboard</div>
+    <div class="cover-sub">Manuel Utilisateur Complet — v3.0</div>
+    <div class="cover-tags">Guide utilisation · KPIs · Graphiques · Exports · Éolien & PV</div>
 
-      <section class="manual-section">
-        <h3>Filtres et lecture métier</h3>
-        <div class="manual-columns">
-          <article class="manual-panel">
-            <h4>Année commerciale</h4>
-            <p>Quand une année est choisie, les calculs se concentrent dessus. En mode “Toutes les années”, le dashboard garde tout le périmètre filtré visible.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Champ date</h4>
-            <p>Il définit la date qui sert de référence pour l’année et les analyses temporelles. Vérifie toujours ce point avant d’interpréter un graphique de période.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Période</h4>
-            <p>Les périodes glissantes et trimestres permettent d’isoler des fenêtres courtes sans casser le reste du modèle métier.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="manual-section">
-        <h3>Droits par profil</h3>
-        <div class="manual-columns">
-          <article class="manual-panel">
-            <h4>Consultation</h4>
-            <p>Profil lecture seule. Peut consulter, lire le manuel et se déconnecter, sans modifier les filtres ni lancer d’action.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>User</h4>
-            <p>Profil opérationnel. Utilise le dashboard et ses analyses sans accès à l’administration.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Admin</h4>
-            <p>Profil complet avec import, source SharePoint, logs, whitelist et maintenance des données.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="manual-section">
-        <h3>Graphes et analyses</h3>
-        <div class="manual-columns">
-          <article class="manual-panel">
-            <h4>Personnalisation</h4>
-            <p>Certains graphes proposent un bouton <strong>🎛</strong> pour changer le type d’affichage selon l’utilisateur.</p>
-          </article>
-          <article class="manual-panel">
-            <h4>Bloc texte</h4>
-            <p>Le texte sous les graphes reprend le périmètre filtré et ajoute des informations liées au graphe lui-même : top catégorie, série dominante, volume visible.</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="manual-section manual-section-accent">
-        <h3>Bonnes pratiques</h3>
-        <ul>
-          <li>Faire un hard refresh après déploiement ou changement majeur.</li>
-          <li>Vérifier le profil connecté avant de conclure qu’une action “manque”.</li>
-          <li>Contrôler le champ date avant de lire les années, périodes et trimestres.</li>
-          <li>Si la base dataset est indisponible, la session peut désormais restaurer la dernière copie chargée.</li>
-        </ul>
-      </section>
+    <div class="cover-stats">
+      <div class="cover-stat">
+        <span class="cover-stat-num">11</span>
+        <span class="cover-stat-lbl">Sections</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-num">10</span>
+        <span class="cover-stat-lbl">KPIs</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-num">35+</span>
+        <span class="cover-stat-lbl">Graphiques</span>
+      </div>
+      <div class="cover-stat">
+        <span class="cover-stat-num">3</span>
+        <span class="cover-stat-lbl">Profils</span>
+      </div>
     </div>
-  </main>
+
+    <ul class="cover-list">
+      <li>Structure et navigation du dashboard</li>
+      <li>Les 10 KPIs et indicateurs de vélocité</li>
+      <li>Système de filtres multicritères (Énergie, Zone, Période…)</li>
+      <li>35+ graphiques interactifs documentés</li>
+      <li>Tous les boutons : Export CSV/Excel/JSON/PDF/Email, Import, Partage</li>
+      <li>Widgets intelligents : Score, Projection, Diagnostics, Comparaison N vs N-1</li>
+      <li>Tableau drill-down et bloc Objectif CA</li>
+    </ul>
+
+    <div style="font-size:.75rem;opacity:.55;text-align:center;">v3.0 · Mars 2026 · Usage interne — Solutions30 EOLIEN</div>
+    <div style="font-size:.72rem;opacity:.45;text-align:center;margin-top:.3rem;">Public cible : Utilisateurs métier · Chefs de projet · Managers · Admins</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     TABLE DES MATIÈRES — p.2
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <h2>Table des matières</h2>
+
+  <div class="toc-entry">
+    <div class="toc-num c01">01</div>
+    <div><div class="toc-title" style="color:#009070;">Introduction & Prise en main</div>
+    <ul class="toc-items"><li>Présentation du dashboard</li><li>Objectifs : suivi AO, performance, décision</li><li>Prise en main rapide</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c02">02</div>
+    <div><div class="toc-title" style="color:#0099ff;">Structure du Dashboard</div>
+    <ul class="toc-items"><li>Header — boutons et sélecteurs</li><li>Barre filtres sticky · Objectif CA · Zone KPIs · Vélocité</li><li>Zone graphiques · Barre filtres flottante · Tableau détail</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c03">03</div>
+    <div><div class="toc-title" style="color:#f5b740;">Les 10 Indicateurs KPI</div>
+    <ul class="toc-items"><li>Total projets · Obtenus · Perdus · Offres en cours · CA Total</li><li>Taux de conversion · Puissance totale · Délai décision · CA Pipeline · Top société</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c04">04</div>
+    <div><div class="toc-title" style="color:#8b78f8;">Le Système de Filtres</div>
+    <ul class="toc-items"><li>Année · Champ date · Mode CA · Énergie · Période · Mesure · Statut affiché</li><li>Appliquer, combiner et supprimer un filtre</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c05">05</div>
+    <div><div class="toc-title" style="color:#009070;">35+ Graphiques Interactifs</div>
+    <ul class="toc-items"><li>Pilotage métier (Performance & Pipe commercial)</li><li>Graphiques de volume, CA, zone, client, type</li><li>Graphiques avancés (Scatter, Heatmap, Funnel, Distribution, Cumulé)</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c06">06</div>
+    <div><div class="toc-title" style="color:#0099ff;">Interaction avec les Graphiques</div>
+    <ul class="toc-items"><li>Clic, Tooltip, Highlight visuel</li><li>Filtrage automatique · Export PNG · Configuration</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c07">07</div>
+    <div><div class="toc-title" style="color:#ff4d6d;">Boutons du Dashboard</div>
+    <ul class="toc-items"><li>Partager · Export CSV · Export Excel · Export JSON · Créer email</li><li>Import CSV/Excel · Export PDF · Mode Volume/Valeur · Diagnostics · Projection · Comparer</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c08">08</div>
+    <div><div class="toc-title" style="color:#f5b740;">Widgets Intelligents</div>
+    <ul class="toc-items"><li>Score de Performance · Projection Fin d'Année</li><li>Efficacité Commerciale · Concentration Client · Diagnostics · Analyse Auto</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c09">09</div>
+    <div><div class="toc-title" style="color:#8b78f8;">Tableau Détaillé — Drill-Down</div>
+    <ul class="toc-items"><li>Déclenchement · Colonnes disponibles</li><li>Tri, filtrage statut · Export Excel depuis le drill-down</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c10">10</div>
+    <div><div class="toc-title" style="color:#009070;">Analyse Avancée</div>
+    <ul class="toc-items"><li>Corrélations entre KPIs</li><li>Signaux d'alerte · Analyses croisées recommandées · Comparaison N vs N-1</li></ul></div>
+  </div>
+  <div class="toc-entry">
+    <div class="toc-num c11">11</div>
+    <div><div class="toc-title" style="color:#0099ff;">Référence Rapide & Glossaire</div>
+    <ul class="toc-items"><li>Tableau des raccourcis</li><li>Glossaire des termes métier</li></ul></div>
+  </div>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 2</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     01 — INTRODUCTION
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num">01</div>
+    <div class="sec-title">Introduction &amp; Prise en main</div>
+  </div>
+
+  <p>Le Dashboard Analytics est une application web interactive centralisant le suivi des appels d'offres éoliens et photovoltaïques de Solutions30. Il permet de visualiser en temps réel la performance commerciale du portefeuille de projets, d'identifier les tendances et d'alimenter les décisions — directement depuis le navigateur, sans export manuel vers Excel.</p>
+
+  <div class="cover-stats" style="background:#f0f7f4;border:1px solid #c0ddd4;border-radius:6px;margin-bottom:1.2rem;">
+    <div style="padding:.8rem 1rem;border-right:1px solid #c0ddd4;">
+      <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:#009070;">10</div>
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6b7d8f;">KPIs stratégiques</div>
+      <div style="font-size:.72rem;color:#888;margin-top:.2rem;">Recalculés en temps réel</div>
+    </div>
+    <div style="padding:.8rem 1rem;border-right:1px solid #c0ddd4;">
+      <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:#0099ff;">35+</div>
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6b7d8f;">Graphiques interactifs</div>
+      <div style="font-size:.72rem;color:#888;margin-top:.2rem;">Tous cliquables</div>
+    </div>
+    <div style="padding:.8rem 1rem;border-right:1px solid #c0ddd4;">
+      <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:#8b78f8;">5</div>
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6b7d8f;">Modes d'export</div>
+      <div style="font-size:.72rem;color:#888;margin-top:.2rem;">CSV / Excel / JSON / PDF / Email</div>
+    </div>
+    <div style="padding:.8rem 1rem;">
+      <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;color:#f5b740;">11</div>
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#6b7d8f;">Sections du manuel</div>
+      <div style="font-size:.72rem;color:#888;margin-top:.2rem;">Guide complet</div>
+    </div>
+  </div>
+
+  <h3>Objectifs</h3>
+  <table class="tbl">
+    <thead><tr><th>SUIVI</th><th>ANALYSE</th><th>DÉCISION</th></tr></thead>
+    <tbody>
+      <tr>
+        <td style="font-weight:400;">Connaître l'état du portefeuille AO éolien/PV et la performance commerciale à tout moment.</td>
+        <td style="font-weight:400;">Comprendre les facteurs de succès et d'échec par zone, client, type et période.</td>
+        <td style="font-weight:400;">Identifier les actions prioritaires grâce à des données fiables et actualisées.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box-conseil">
+    <strong>Conseil</strong> — Commencez par la Section 02 pour découvrir l'interface, puis consultez directement la section correspondant à votre besoin. Chaque section est autonome.
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 3</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     02 — STRUCTURE
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#0099ff;">02</div>
+    <div class="sec-title">Structure du Dashboard</div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th style="width:175px;">Zone</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>HEADER</td>
+        <td>Bande fixe en haut. Contient : 🔗 Partager, 📤 Export CSV, 📊 Export Excel, 📄 Export JSON, ✉️ Créer email, 📘 Manuel, compteur de projets, badge Filtré, statut de session et bouton de déconnexion. Boutons admin masqués pour les profils inférieurs : Import CSV/Excel, Refresh SharePoint, Source SharePoint.</td>
+      </tr>
+      <tr>
+        <td>BARRE FILTRES STICKY</td>
+        <td>Double barre fixe sous le header. Ligne 1 : Année commerciale, Champ date, Mode CA, Énergie. Ligne 2 : Période, Mesure, Périmètre zone/client, Statut affiché, boutons Mode Volume · Diagnostics · Projection · Comparer.</td>
+      </tr>
+      <tr>
+        <td>OBJECTIF CA</td>
+        <td>Bloc barres de progression par année de facturation. Légende couleur : vert ≥ 100%, bleu ≥ 70%, rouge &lt; 70%. Clic sur une barre → tableau détail des projets de l'année.</td>
+      </tr>
+      <tr>
+        <td>ZONE KPIs</td>
+        <td>Grille de 10 cartes de métriques : Total, Obtenus, Perdus, Offres, CA Total, Taux conv., Puissance, Délai décision, CA Pipeline, Top société. Recalculées à chaque filtre. Clic sur une carte = filtre statut.</td>
+      </tr>
+      <tr>
+        <td>VÉLOCITÉ</td>
+        <td>5 indicateurs de rythme : projets décidés sur 30j / 60j / 90j, offres en retard, CA gagné sur 90j.</td>
+      </tr>
+      <tr>
+        <td>WIDGETS INTELLIGENTS</td>
+        <td>Score de Performance (/100), Projection Fin d'Année, Efficacité Commerciale, Concentration Client. Visibles via le bouton Diagnostics.</td>
+      </tr>
+      <tr>
+        <td>ANALYSE AUTO</td>
+        <td>Section narrative générée automatiquement. Régénérée à chaque filtre. Masquable via le bouton Masquer.</td>
+      </tr>
+      <tr>
+        <td>PILOTAGE MÉTIER</td>
+        <td>Section dédiée Prise d'affaires / Performance et Pipe commercial, avec graphiques par mois, zone, client, type et couple zone/client.</td>
+      </tr>
+      <tr>
+        <td>ZONE GRAPHIQUES</td>
+        <td>Zone centrale avec 35+ graphiques interactifs. Chaque carte dispose d'un bouton ⓘ Info, Export PNG, et pour certains un bouton de configuration 🎛.</td>
+      </tr>
+      <tr>
+        <td>HEATMAP</td>
+        <td>Grille croisant zones géographiques × statuts. Clic sur une cellule = filtre simultané zone + statut.</td>
+      </tr>
+      <tr>
+        <td>TABLEAU DRILL-DOWN</td>
+        <td>S'ouvre après un clic sur un graphique. Liste les projets individuels correspondants. Export Excel intégré. Colonnes : Projet, Société, Statut, Zone, CA, Échéance, MW.</td>
+      </tr>
+      <tr>
+        <td>BARRE FLOTTANTE</td>
+        <td>Barre fixe en bas affichant les filtres actifs (pills). Suppression individuelle (✕) ou globale (✕ Réinitialiser).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="box-info">
+    <strong>Principe clé — Réactivité totale :</strong> toute action (clic graphique, filtre, sélection période) met instantanément à jour l'ensemble des éléments. KPIs, graphiques, widgets et tableau de détail reflètent toujours exactement les mêmes données filtrées.
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 4</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     03 — KPIs
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#f5b740;color:#1a2332;">03</div>
+    <div class="sec-title">Les 10 Indicateurs KPI</div>
+  </div>
+
+  <p>Les KPIs se recalculent automatiquement à chaque changement de filtre. Leur interprétation combinée est plus fiable qu'une lecture isolée (voir Section 10).</p>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">📊 Total projets</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Nombre total de projets dans le périmètre filtré, tous statuts confondus.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Donne le volume du portefeuille actif. Cliquer sur la carte pour ne voir que le sous-ensemble correspondant.</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">✅ Obtenus</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Nombre de projets au statut <strong>Obtenu</strong> dans le périmètre filtré, avec pourcentage sur le total.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">› Valeur élevée = bonne performance commerciale<br>› Croisez avec le CA Total pour évaluer le panier moyen</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">❌ Perdus</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Nombre de projets au statut <strong>Perdu</strong>, avec pourcentage sur le total.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Complément naturel des Obtenus. Filtrez par zone ou type pour localiser les sources de perte.</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">📋 Offres en cours</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Projets au statut <strong>Remis</strong> ou <strong>En Étude</strong> — c'est-à-dire le pipe non décidé.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Pipeline actif. Un pipeline faible = manque d'opportunités futures. Croisez avec CA Pipeline.</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">💰 CA Total</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Somme des montants selon le <strong>Mode CA</strong> actif : CA Total (Bud) = toutes offres déposées ; CA Gagné = obtenus uniquement.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">› Valeur élevée en mode CA Gagné = bonne performance en valeur<br>› La ligne sous la carte affiche le CA moyen par projet</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Exemple</div><div class="kpi-block-val"><span class="kpi-example">2,4M€ sur 15 projets obtenus = panier moyen 160 k€. Croisez avec le CA Pipeline pour estimer la croissance attendue.</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">📈 Taux de conversion</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val"><strong>Obtenus ÷ (Obtenus + Perdus) × 100</strong>. Les offres en attente sont exclues du calcul.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">› &gt; 60% : excellente performance<br>› 40–60% : normale, marge de progression<br>› &lt; 40% : analyser prix, concurrents, délais</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">⚡ Puissance totale (MW)</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Somme des puissances en MWc/MW des projets filtrés.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Indicateur spécifique éolien/PV. Comparez par zone pour identifier les secteurs à fort potentiel énergétique.</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">⏱ Délai décision (jours)</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Moyenne des écarts en jours entre la date de création et l'échéance, sur tous les projets renseignés.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">› Délai court = cycles de décision réactifs<br>› Délai long = cycles complexes, surveiller les offres en retard (vélocité)</div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">💼 CA Pipeline</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val"><strong>CA des offres en cours × taux de conversion global</strong>. Estimation du CA prévisionnel si les offres actives se convertissent au taux historique.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Pipeline / CA Gagné &gt; 2 = pipeline sain. Représente votre CA futur probable à moyen terme.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Exemple</div><div class="kpi-block-val"><span class="kpi-example">3,1M€ de Pipeline avec 58% de conv. globale → environ 1,8M€ additionnels attendus prochainement.</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">🏆 Top société</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Calcul</div><div class="kpi-block-val">Client générant le plus de CA obtenu dans le périmètre filtré, avec son montant.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Comment lire</div><div class="kpi-block-val">Signal de concentration. Si une société dépasse 40% du CA total, consulter le widget Concentration Client.</div></div>
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 5</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     04 — FILTRES
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#8b78f8;">04</div>
+    <div class="sec-title">Le Système de Filtres</div>
+  </div>
+
+  <p>Le système de filtres est le cœur interactif du dashboard. Tous les KPIs, graphiques et widgets se mettent à jour instantanément à chaque application ou suppression de filtre.</p>
+
+  <h3>Filtres disponibles dans la barre sticky</h3>
+  <table class="tbl">
+    <thead><tr><th style="width:175px;">Filtre</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Année commerciale</td><td>Restreint la vue à une année précise selon le champ date actif. En mode <strong>Toutes les années</strong>, tout le périmètre visible est conservé.</td></tr>
+      <tr><td>Champ date</td><td>Définit la date de référence pour le calcul de l'année : Date réception, Date retour demandée, Décidé le, Démarrage VRD prévis., Démarrage GE prévis., MSI prévisionnelle. <strong>Impacte tous les graphiques et KPIs.</strong></td></tr>
+      <tr><td>Mode CA</td><td><strong>CA Total (Bud)</strong> : somme de toutes les offres déposées. <strong>CA Gagné uniquement</strong> : obtenus seulement.</td></tr>
+      <tr><td>⚡ Énergie</td><td>Filtre tout le dashboard par énergie détectée sur le nom du projet : <strong>🌬️ Éolien</strong> ou <strong>☀️ Photovoltaïque</strong>.</td></tr>
+      <tr><td>🕒 Période</td><td>Fenêtre temporelle glissante : YTD, 12 derniers mois, 6 derniers mois, T1/T2/T3/T4 en cours, ou plage personnalisée (Du … Au …).</td></tr>
+      <tr><td>Mesure</td><td>Pilote la section Prise d'affaires : Montant (€ Bud), Nombre de dossiers, Taux de transfo (€), Taux de transfo (dossiers).</td></tr>
+      <tr><td>Périmètre zone/client</td><td>Pilote le graphique couple zone/client : <strong>Même périmètre que le bloc</strong> ou <strong>Depuis le fichier</strong> (tout le dataset visible).</td></tr>
+      <tr><td>Statut affiché</td><td>Filtre les séries visibles dans la performance : Tout, Gagné, Perdu, Gagné + Perdu, Offre.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Appliquer un filtre — 3 méthodes</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num green">1</div>
+      <div><div class="step-title">Clic sur un graphique</div><div class="step-body">Cliquez sur une barre, un secteur ou tout élément. Le filtre s'applique immédiatement sur l'ensemble du dashboard.</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num blue">2</div>
+      <div><div class="step-title">Sélecteurs de la barre sticky</div><div class="step-body">Utilisez les menus déroulants (année, champ date, mode CA, énergie, période, mesure, statut).</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num purple">3</div>
+      <div><div class="step-title">Clic sur une carte KPI</div><div class="step-body">Cliquer sur les cartes Obtenus, Perdus ou Offres en cours filtre automatiquement sur ce statut.</div></div>
+    </div>
+  </div>
+
+  <h3>Supprimer un filtre — 3 méthodes</h3>
+  <ul style="font-size:.84rem;padding-left:1.3rem;line-height:1.9;">
+    <li>Cliquer sur le <strong>✕</strong> d'un pill dans la barre flottante (suppression unitaire).</li>
+    <li>Cliquer sur <strong>✕ Réinitialiser</strong> dans la barre flottante (suppression totale).</li>
+    <li>Re-cliquer sur l'élément graphique déjà sélectionné (bascule on/off).</li>
+  </ul>
+
+  <div class="box-conseil">
+    <strong>Conseil</strong> — Les filtres s'appliquent simultanément : seuls les projets correspondant à TOUS les critères sont affichés. Commencez toujours par le filtre le plus large (année ou énergie), puis affinez progressivement (zone, client) pour maintenir un échantillon statistiquement significatif.
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 6</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     05 — GRAPHIQUES
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#009070;">05</div>
+    <div class="sec-title">35+ Graphiques Interactifs</div>
+  </div>
+
+  <p>Chaque carte graphique dispose d'un bouton <strong>ⓘ</strong> (info/formule), d'un bouton <strong>Export PNG</strong> et pour certains d'un bouton <strong>🎛 configuration</strong>. Tous sont cliquables pour déclencher un filtre + drill-down.</p>
+
+  <div class="chart-section-h">Pilotage métier — Prise d'affaires / Performance</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres</span><div class="chart-card-title">Performance par mois</div><div class="chart-card-body">CA ou volume mensuel selon la mesure active. Vue temporelle de l'activité commerciale.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres</span><div class="chart-card-title">Performance par zone géographique</div><div class="chart-card-body">Comparatif des résultats entre zones selon la mesure et le statut choisis.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Barres</span><div class="chart-card-title">Performance par client</div><div class="chart-card-body">Classement des sociétés selon la mesure active. Identifie les clients les plus performants.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Barres</span><div class="chart-card-title">Performance par type de projet</div><div class="chart-card-body">Résultats ventilés par nature d'offre (Éolien, PV, etc.).</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Barres</span><div class="chart-card-title">Performance zone / client</div><div class="chart-card-body">Couple zone géographique × société. Révèle les combinaisons les plus performantes.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres</span><div class="chart-card-title">Performance client / type de projet</div><div class="chart-card-body">Couple société × type d'offre. Analyse le mix produit par client.</div></div>
+  </div>
+
+  <div class="chart-section-h">Pipe commercial — Remis + En études</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres</span><div class="chart-card-title">Pipe par zone</div><div class="chart-card-body">Volume du pipeline en cours par zone géographique. Identifie les zones à fort potentiel.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Barres</span><div class="chart-card-title">Pipe par client</div><div class="chart-card-body">Pipeline en cours par société. Révèle les clients avec le plus d'opportunités actives.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Barres</span><div class="chart-card-title">Pipe par type de chantier</div><div class="chart-card-body">Répartition du pipeline par nature d'offre.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Barres</span><div class="chart-card-title">Pipe zone / client</div><div class="chart-card-body">Couple zone × société pour le pipeline actif.</div></div>
+  </div>
+
+  <div class="chart-section-h">Volume &amp; Statuts</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Camembert</span><div class="chart-card-title">Répartition Statuts Métier</div><div class="chart-card-body">Distribution complète : Non Chiffré, Avant Projet, En Étude, Remis, Obtenu, Perdu, Abandonné.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Entonnoir</span><div class="chart-card-title">Funnel Commercial Complet</div><div class="chart-card-body">Total → Offres → Décidés → Obtenus. Chaque étape montre le taux de transformation.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Funnel visuel</span><div class="chart-card-title">Entonnoir de Conversion</div><div class="chart-card-body">4 étapes du pipeline avec taux de passage inter-étapes. Cliquez une étape pour filtrer.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Grille colorée</span><div class="chart-card-title">Heatmap Zones × Statuts</div><div class="chart-card-body">Intensité = nombre de projets. Clic = filtre simultané zone + statut.</div></div>
+  </div>
+
+  <div class="chart-section-h">CA &amp; Temporels</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres+Courbe</span><div class="chart-card-title">Tendance Mensuelle — CA &amp; Volume</div><div class="chart-card-body">CA mensuel (barres) et nombre de projets (courbe). Identifie pics d'activité et corrélations.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres config.</span><div class="chart-card-title">CA par Année — Switch Mode</div><div class="chart-card-body">CA cumulé par année selon le mode CA actif. Bouton 🎛 pour changer le mode. Clic = filtre.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Courbe</span><div class="chart-card-title">Évolution du CA Mensuel</div><div class="chart-card-body">Progression mensuelle du CA sur la période filtrée.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Courbe</span><div class="chart-card-title">Taux de Conversion Mensuel</div><div class="chart-card-body">Évolution du taux de conversion mois par mois. Révèle la saisonnalité commerciale.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Courbe cumul.</span><div class="chart-card-title">CA Gagné Cumulé — Année en cours</div><div class="chart-card-body">Progression cumulée du CA obtenu sur l'année active. Compare la trajectoire réelle vs objectif.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Heatmap</span><div class="chart-card-title">Activité Mensuelle — Heatmap Temporelle</div><div class="chart-card-body">Grille mois × intensité d'activité. Identifie les pics et creux saisonniers.</div></div>
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 7</span>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="chart-section-h">Par Client</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres H.</span><div class="chart-card-title">Projets Obtenus par Société</div><div class="chart-card-body">Classement des clients par nombre de projets remportés.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Barres V.</span><div class="chart-card-title">CA par Société — Top 8</div><div class="chart-card-body">Les 8 sociétés générant le plus de CA. Identifie les grands comptes en valeur.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres H.</span><div class="chart-card-title">CA par Société — Vue horizontale</div><div class="chart-card-body">Vue complète de tous les clients avec leur CA selon le mode actif.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Barres groupées</span><div class="chart-card-title">CA Étudié vs Gagné</div><div class="chart-card-body">Compare par société le CA total proposé vs effectivement gagné. Révèle l'efficacité de transformation.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Barres+ligne</span><div class="chart-card-title">Taux de Réussite par Société</div><div class="chart-card-body">Obtenus ÷ (Obtenus + Perdus) avec ligne pointillée = moyenne globale. Min 3 projets décidés.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Scatter</span><div class="chart-card-title">Win Rate vs CA — Matrice Clients</div><div class="chart-card-body">Taux de conversion × CA par client. Identifie les clients à fort potentiel et faible conversion.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres</span><div class="chart-card-title">Analyse des Pertes par Client</div><div class="chart-card-body">Volume et CA des projets perdus par société. Identifie les clients à enjeux prioritaires.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Barres</span><div class="chart-card-title">Projets Perdus par Société</div><div class="chart-card-body">Nombre de projets perdus par client. Croisez avec le taux de conversion.</div></div>
+  </div>
+
+  <div class="chart-section-h">Par Zone Géographique</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Donut</span><div class="chart-card-title">Projets Obtenus par Zone</div><div class="chart-card-body">Répartit les projets remportés par zone. Identifie vos zones de force commerciale.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres/Donut</span><div class="chart-card-title">CA par Zone Géographique</div><div class="chart-card-body">Répartit le CA selon les zones. Révèle les régions les plus lucratives.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">CA pondéré</span><div class="chart-card-title">CA par Zone Géographique (pondéré)</div><div class="chart-card-body">Variante pondérée du CA par zone pour comparaisons normalisées.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Barres empl.</span><div class="chart-card-title">Statut par Zone Géographique</div><div class="chart-card-body">Pour chaque zone, répartition Obtenus / Perdus / Offres. Compare la santé commerciale entre régions.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Barres</span><div class="chart-card-title">Taux de Conversion par Zone</div><div class="chart-card-body">Obtenus ÷ (Obtenus + Perdus) par zone. Min 2 projets décidés.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres</span><div class="chart-card-title">Puissance par Zone (MW)</div><div class="chart-card-body">MW cumulés par zone géographique. Indicateur spécifique éolien/PV.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres</span><div class="chart-card-title">Durée Décision par Zone</div><div class="chart-card-body">Délai moyen de décision par région. Identifie les zones à cycles longs.</div></div>
+  </div>
+
+  <div class="chart-section-h">Performance &amp; Pipeline avancé</div>
+  <div class="chart-grid">
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Donut</span><div class="chart-card-title">Pipeline par Température</div><div class="chart-card-body">Offres en cours par probabilité : Chaud (&gt; 70%), Tiède (30–70%), Froid (&lt; 30%).</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Barres H.</span><div class="chart-card-title">Pipeline Pondéré — Top Opportunités</div><div class="chart-card-body">CA × Win proba individuelle par offre. Donne les opportunités les plus prioritaires.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Histogramme</span><div class="chart-card-title">Distribution des Montants</div><div class="chart-card-body">Projets par tranche de CA, coloré par statut. Révèle si on gagne davantage sur gros vs petits projets.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#8b78f8;">Barres color.</span><div class="chart-card-title">Taux de Conversion par Type</div><div class="chart-card-body">Vert ≥ 50%, orange ≥ 30%, rouge &lt; 30%. Identifie les familles d'offres les plus performantes.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#f5b740;color:#1a2332;">Scatter</span><div class="chart-card-title">Puissance MW vs CA</div><div class="chart-card-body">Corrélation entre puissance installée et CA. Identifie les projets à haute valeur par MW.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#ff4d6d;">Barres</span><div class="chart-card-title">Pipeline Mensuel Pondéré</div><div class="chart-card-body">Évolution mensuelle du pipeline pondéré par les probabilités. Tendance du CA prévisionnel.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#009070;">Camembert</span><div class="chart-card-title">CA par Statut</div><div class="chart-card-body">Répartit le CA total entre Obtenus, Perdus et Offres. Vision immédiate du CA sécurisé et potentiel.</div></div>
+    <div class="chart-card"><span class="chart-card-type" style="background:#0099ff;">Barres</span><div class="chart-card-title">Performance par Type de Projet</div><div class="chart-card-body">Taux de conversion et volume par famille d'offre.</div></div>
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 8</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     06 — INTERACTION
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#0099ff;">06</div>
+    <div class="sec-title">Interaction avec les Graphiques</div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th style="width:190px;">Action</th><th>Résultat</th></tr></thead>
+    <tbody>
+      <tr><td>Clic sur un élément</td><td>Déclenche simultanément : (1) application d'un filtre sur l'élément cliqué, (2) ouverture du tableau drill-down listant les projets concernés.</td></tr>
+      <tr><td>Re-clic (bascule)</td><td>Cliquer une deuxième fois sur un élément déjà sélectionné désactive ce filtre. Comportement toggle : on/off alterne à chaque clic.</td></tr>
+      <tr><td>Tooltip (infobulle)</td><td>Survoler un élément affiche une infobulle : nom, valeur exacte, proportion %. Disparaît dès que vous éloignez la souris.</td></tr>
+      <tr><td>Highlight visuel</td><td>Quand un filtre est actif, les éléments non filtrés s'estompent (opacité réduite). L'élément sélectionné reste en pleine opacité.</td></tr>
+      <tr><td>Bouton ⓘ Info</td><td>Survol de l'icône dans le titre de chaque graphique : affiche description détaillée, formule de calcul et cas d'usage.</td></tr>
+      <tr><td>Bouton Export PNG</td><td>Exporte le graphique en image PNG haute résolution, directement téléchargeable.</td></tr>
+      <tr><td>Bouton 🎛 Configuration</td><td>Sur les graphiques configurables : ouvre un panneau pour changer le type de visualisation, l'axe de mesure, ou d'autres paramètres d'affichage.</td></tr>
+      <tr><td>Filtrage global</td><td>Chaque clic met à jour TOUS les autres éléments : KPIs, graphiques, widgets, barre de filtres. Exploration multi-dimensionnelle en cascade.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box-conseil">
+    <strong>Technique zoom progressif</strong> — Cliquez d'abord sur l'année, puis sur l'énergie (éolien/PV), puis sur la zone, puis sur le client. Chaque clic affine l'analyse sans perdre le contexte des filtres précédents.
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 9</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     07 — BOUTONS
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#ff4d6d;">07</div>
+    <div class="sec-title">Boutons du Dashboard</div>
+  </div>
+
+  <p>Le header regroupe tous les boutons d'action. Certains sont visibles uniquement selon votre profil (admin ou user).</p>
+
+  <div style="border:1px solid #d0dde8;border-radius:6px;overflow:hidden;">
+    <div class="btn-row" style="background:#f0f7f4;border-bottom:1px solid #d0dde8;">
+      <div style="padding:.5rem .9rem;font-family:'DM Mono',monospace;font-size:.68rem;font-weight:700;color:#009070;text-transform:uppercase;">Bouton</div>
+      <div style="padding:.5rem .9rem;font-family:'DM Mono',monospace;font-size:.68rem;font-weight:700;color:#009070;text-transform:uppercase;">Fonction</div>
+    </div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#1a6b5a;">🔗 Partager</span></div><div class="btn-desc">Génère un lien URL unique incluant tous les filtres actifs. Partagez ce lien pour qu'un collègue voie exactement la même vue.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#0099ff;">📤 Export CSV</span></div><div class="btn-desc">Exporte les données filtrées en fichier CSV (valeurs séparées par virgules). Compatible Excel, LibreOffice, Python, R.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#009070;">📊 Export Excel</span></div><div class="btn-desc">Exporte les données filtrées en fichier XLSX avec mise en forme : colonnes auto-dimensionnées, en-tête bold, filtre actif documenté en en-tête.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#8b78f8;">📄 Export JSON</span></div><div class="btn-desc">Exporte les données brutes en format JSON structuré. Idéal pour intégration avec des outils externes ou scripts Power Automate.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#f5b740;color:#1a2332;">✉️ Créer email</span></div><div class="btn-desc">Génère un brouillon d'email avec synthèse des KPIs et captures des graphiques principaux, prêt à envoyer depuis votre client mail.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#1a6b5a;">📘 Manuel</span></div><div class="btn-desc">Ouvre ce manuel en modale intégrée. Lien "↗ Ouvrir dans un onglet" pour version pleine page. "⬇ Télécharger PDF" pour la version imprimable.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#ff4d6d;">🔬 Diagnostics</span></div><div class="btn-desc">Affiche / masque le panneau de diagnostics stratégiques : Score de Performance, alertes, forces, recommandations et widgets intelligents.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#8b78f8;">🔮 Projection</span></div><div class="btn-desc">Affiche / masque le panneau Projection Fin d'Année avec estimation du CA probable selon tendances et pipeline.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#0099ff;">⚖️ Comparer</span></div><div class="btn-desc">Active le mode comparaison de périodes : sélectionnez Année A et Année B, visualisez les deltas KPIs et le graphique comparatif par zone.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#4f46e5;">📈 Mode Volume</span></div><div class="btn-desc">Bascule tous les graphiques entre le nombre de projets (Volume) et les montants financiers (Valeur en €).</div></div>
+    <div class="btn-row" style="border-bottom:1px solid #d0dde8;"><div class="btn-tag"><span style="background:#888;">📥 Import CSV/Excel</span></div><div class="btn-desc"><strong>Admin uniquement.</strong> Charge un nouveau jeu de données CSV ou Excel dans le dashboard. Les KPIs et graphiques se recalculent instantanément.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#888;">🔄 Refresh SharePoint</span></div><div class="btn-desc"><strong>Admin uniquement.</strong> Rafraîchit le dataset depuis la source SharePoint configurée.</div></div>
+    <div class="btn-row"><div class="btn-tag"><span style="background:#888;">⚙️ Source SharePoint</span></div><div class="btn-desc"><strong>Admin uniquement.</strong> Accède à la page de configuration de la source SharePoint (URL, token Graph, planification).</div></div>
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 10</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     08 — WIDGETS
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#f5b740;color:#1a2332;">08</div>
+    <div class="sec-title">Widgets Intelligents</div>
+  </div>
+
+  <p>Le dashboard intègre plusieurs modules d'intelligence automatique qui analysent vos données et génèrent des insights contextuels. Tous se mettent à jour à chaque changement de filtre. Accessibles via le bouton <strong>🔬 Diagnostics</strong>.</p>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">🏆 Score de Performance (/100)</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Score global 0–100 basé sur 5 composantes : Taux de conversion, Délai de décision, Offres en retard (–3 pts chacune), Pipeline vide (–15 pts), Taux de réponse.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">≥ 80 : Excellent · ≥ 65 : Bon · ≥ 50 : Acceptable · ≥ 35 : À surveiller · &lt; 35 : Critique</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">🔮 Projection Fin d'Année</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Estime le CA total probable à fin d'année. Combine : CA Actuel (déjà gagné) + Pipeline (offres × Win proba) + Tendance (projection linéaire). La barre de progression est visible dans la section Objectif CA.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Vert (on track ≥ 100%) · Or (≥ 80%) · Rouge (&lt; 80%)</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">⚡ Efficacité Commerciale</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Score /100 mesurant l'efficacité globale de la transformation commerciale. Combine taux de conversion, valeur moyenne des projets et densité du pipeline.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Plus le score est élevé, plus votre activité commerciale est efficiente en valeur et volume.</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">🏦 Concentration Client</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Affiche le % du CA gagné détenu par le client principal, avec jauge de risque et top 4 clients classés. Alerte automatique si concentration &gt; 40%.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Faible &lt; 20% · Modéré 20–40% · Élevé &gt; 40% · Critique &gt; 60%</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">🔬 Diagnostics Stratégiques</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Panneau activé via le bouton Diagnostics. Analyse automatique sur 3 colonnes : Alertes &amp; Risques, Forces, Recommandations. Score global affiché en en-tête.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Pour chaque dimension : badge de score, alertes actionnables et recommandations priorisées.</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">📊 Analyse Automatique (Bilan)</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Section narrative générée automatiquement. Produit un texte structuré : résumé du périmètre actif, lecture du graphique affiché (top catégorie, série dominante), points forts, points de vigilance et recommandation stratégique.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Se régénère automatiquement à chaque changement de filtre ou d'année. Masquable via le bouton Masquer.</span></div></div>
+  </div>
+
+  <div class="kpi-block">
+    <div class="kpi-block-title">⚖️ Comparaison Années (N vs N-1)</div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Fonctionnement</div><div class="kpi-block-val">Activé via le bouton ⚖️ Comparer. Sélectionner Année A (bleu) et Année B (violet) dans la barre de contrôle. Affiche : phrase narrative, deltas KPIs, graphique comparatif par zone et tableau par région. Bouton <strong>N vs N-1</strong> pour sélection automatique.</div></div>
+    <div class="kpi-block-row"><div class="kpi-block-label">Interprétation</div><div class="kpi-block-val"><span class="kpi-example">Badge verdict vert/rouge en en-tête. Permet d'identifier les zones en progression ou en recul d'une année sur l'autre.</span></div></div>
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 11</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     09 — DRILL-DOWN
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#8b78f8;">09</div>
+    <div class="sec-title">Tableau Détaillé — Drill-Down</div>
+  </div>
+
+  <p>Le Drill-Down permet de passer d'une vue synthétique (graphique) à une liste détaillée de projets individuels. Il s'ouvre automatiquement après un clic sur un graphique.</p>
+
+  <h3>Déclenchement en 5 étapes</h3>
+  <div class="steps">
+    <div class="step"><div class="step-num green">1</div><div><div class="step-title">Cliquer sur un élément graphique</div><div class="step-body">Ex : barre Zone Nord dans le graphique par zone géographique.</div></div></div>
+    <div class="step"><div class="step-num blue">2</div><div><div class="step-title">Filtre appliqué automatiquement</div><div class="step-body">Tous les KPIs et graphiques se mettent à jour instantanément.</div></div></div>
+    <div class="step"><div class="step-num purple">3</div><div><div class="step-title">Tableau qui s'ouvre</div><div class="step-body">Liste paginée des projets correspondant à l'élément cliqué.</div></div></div>
+    <div class="step"><div class="step-num orange">4</div><div><div class="step-title">Explorer les projets</div><div class="step-body">Consultez, triez, filtrez par statut, recherchez parmi les projets affichés. Bouton ⚙️ Colonnes pour personnaliser les colonnes visibles.</div></div></div>
+    <div class="step"><div class="step-num red">5</div><div><div class="step-title">Fermer le tableau</div><div class="step-body">Cliquez ✕ Fermer ou en dehors du tableau pour revenir à la vue graphique.</div></div></div>
+  </div>
+
+  <h3>Données disponibles dans le tableau</h3>
+  <table class="tbl">
+    <thead><tr><th>Colonne</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Projet ↕</td><td>Identifiant ou intitulé de l'affaire commerciale (triable).</td></tr>
+      <tr><td>Société ↕</td><td>Nom de l'entreprise cliente (triable).</td></tr>
+      <tr><td>Statut ↕</td><td>État actuel : Obtenu / Perdu / En cours (Offre) / etc. (triable). Filtrable via les boutons de statut.</td></tr>
+      <tr><td>Zone ↕</td><td>Zone géographique du projet (triable).</td></tr>
+      <tr><td>CA ↕</td><td>Montant de référence du projet en euros (triable).</td></tr>
+      <tr><td>Échéance ↕</td><td>Date d'échéance ou de retour demandée (triable).</td></tr>
+      <tr><td>MW ↕</td><td>Puissance en MWc ou MW — spécifique éolien/PV (triable).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Contrôles du tableau</h3>
+  <ul style="font-size:.84rem;padding-left:1.3rem;line-height:1.9;">
+    <li><strong>📋 Tout afficher</strong> : affiche tous les projets sans filtre actif.</li>
+    <li><strong>🔍 Filtrés seulement</strong> : restreint au périmètre filtré courant.</li>
+    <li><strong>⚙️ Colonnes</strong> : ouvre le panneau de configuration des colonnes visibles (Tout / Aucun).</li>
+    <li><strong>Boutons Statut</strong> : filtrer le tableau sur Obtenu, Perdu, Offre ou Tout.</li>
+    <li><strong>Export Excel</strong> : exporte les lignes visibles dans le tableau en .xlsx.</li>
+  </ul>
+
+  <div class="box-conseil">
+    <strong>Conseil</strong> — Le tableau drill-down et les filtres sont cumulatifs : si vous filtrez sur 2024 + Éolien, puis cliquez sur une zone, le tableau ne montre que les projets éoliens de 2024 dans cette zone.
+  </div>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 12</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     10 — ANALYSE AVANCÉE
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#009070;">10</div>
+    <div class="sec-title">Analyse Avancée</div>
+  </div>
+
+  <h3>Corrélations clés entre KPIs</h3>
+  <table class="tbl">
+    <thead><tr><th style="width:200px;">Corrélation</th><th>Interprétation</th></tr></thead>
+    <tbody>
+      <tr><td>CA Gagné + Taux Conversion</td><td>CA élevé + Taux faible = gains concentrés sur peu de gros projets. CA faible + Taux élevé = beaucoup de petits projets. L'idéal est CA élevé avec bon taux.</td></tr>
+      <tr><td>CA Pipeline + CA Moyen Gagné</td><td>Un pipeline plein de petits projets peut produire moins de CA qu'espéré. Comparez la taille des opportunités en cours avec votre panier moyen historique.</td></tr>
+      <tr><td>Taux de perte + Top société</td><td>Signal d'alarme critique : vous perdez des projets ET dépendez d'un seul client. Double risque à traiter en priorité.</td></tr>
+      <tr><td>Délai décision + Taux Conversion</td><td>Si les projets à long délai ont un taux de conversion plus faible, les décisions tardives favorisent la concurrence → relances rapides prioritaires.</td></tr>
+      <tr><td>Puissance MW + CA</td><td>Vérifier via le graphique Scatter MW vs CA si les projets à forte puissance génèrent proportionnellement plus de CA — sinon, réévaluer le pricing.</td></tr>
+      <tr><td>Score Performance + Analyse Auto</td><td>Le Score résume la santé quantitative, l'Analyse Auto fournit le contexte qualitatif. Utilisez-les conjointement pour une vision complète.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Signaux d'alerte à surveiller</h3>
+  <table class="tbl">
+    <thead><tr><th style="width:240px;">Signal</th><th>Action recommandée</th></tr></thead>
+    <tbody>
+      <tr><td style="color:#ff4d6d;">Chute du Taux de Conversion</td><td>Hausse de la concurrence, inadéquation de l'offre, ou problème de prix. Filtrez par zone et type d'énergie pour localiser.</td></tr>
+      <tr><td style="color:#f5b740;">Pipeline élevé mais CA stagnant</td><td>Les offres ne se convertissent pas. Analysez les délais d'échéance et relancez les projets bloqués.</td></tr>
+      <tr><td style="color:#ff4d6d;">Concentration Client &gt; 40%</td><td>Risque de dépendance critique. Initiez une stratégie de diversification active.</td></tr>
+      <tr><td style="color:#f5b740;">Offres en retard (vélocité)</td><td>Des offres ont dépassé leur échéance. Prioriser les relances sur ces dossiers avant leur fermeture.</td></tr>
+      <tr><td style="color:#ff4d6d;">Score Performance &lt; 50</td><td>Performance insuffisante sur plusieurs dimensions. Consultez les Diagnostics pour les actions prioritaires.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Analyses croisées recommandées</h3>
+  <table class="tbl">
+    <thead><tr><th style="width:200px;">Analyse</th><th>Comment faire</th></tr></thead>
+    <tbody>
+      <tr><td style="color:#009070;">Client × Statut × Année</td><td>Filtrez sur un client → observez l'évolution du Taux de Conversion sur plusieurs années. <em>1. Clic client dans graphique → 2. Observer KPIs → 3. Changer l'année.</em></td></tr>
+      <tr><td style="color:#0099ff;">Zone × Énergie × Type</td><td>Certaines zones performent différemment en éolien vs PV. <em>1. Filtrer sur énergie → 2. Clic zone → 3. Observer répartition par type.</em></td></tr>
+      <tr><td style="color:#8b78f8;">Pipeline × Délai × Échéance</td><td>Identifiez les offres anciennes en retard pour prioriser les relances. <em>1. Graphique Pipeline Pondéré → 2. Clic sur offre en cours → 3. Drill-down date + échéance.</em></td></tr>
+      <tr><td style="color:#f5b740;">Comparaison N vs N-1</td><td>Comparez deux années et visualisez les zones en progression. <em>1. Bouton ⚖️ Comparer → 2. Sélectionnez Année A et Année B → 3. Bouton N vs N-1 pour auto-sélection.</em></td></tr>
+      <tr><td style="color:#ff4d6d;">MW vs CA par Zone</td><td>Vérifiez la rentabilité en puissance par région. <em>1. Graphique Puissance par Zone → 2. Comparer avec CA par Zone → 3. Identifier les zones sous-exploitées.</em></td></tr>
+    </tbody>
+  </table>
+
+  <a class="back-link" href="#">↑ Retour au sommaire</a>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 13</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     11 — RÉFÉRENCE & GLOSSAIRE
+═══════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span>Analytics Dashboard — Manuel Utilisateur v3.0</span>
+    <span class="version">v3.0 · Mars 2026</span>
+  </div>
+
+  <div class="sec-header">
+    <div class="sec-num" style="background:#0099ff;">11</div>
+    <div class="sec-title">Référence Rapide &amp; Glossaire</div>
+  </div>
+
+  <h3>Tableau des raccourcis</h3>
+  <div style="border:1px solid #d0dde8;border-radius:6px;overflow:hidden;">
+    <div class="sc-row" style="background:#f0f7f4;border-bottom:1px solid #d0dde8;">
+      <div style="padding:.4rem .9rem;font-family:'DM Mono',monospace;font-size:.67rem;font-weight:700;color:#009070;text-transform:uppercase;">Action</div>
+      <div style="padding:.4rem .9rem;font-family:'DM Mono',monospace;font-size:.67rem;font-weight:700;color:#009070;text-transform:uppercase;">Résultat</div>
+    </div>
+    <div class="sc-row"><div class="sc-action">Clic sur un élément graphique</div><div class="sc-result">Appliquer un filtre + ouvrir le drill-down</div></div>
+    <div class="sc-row"><div class="sc-action">Re-clic sur élément actif</div><div class="sc-result">Désactiver ce filtre (bascule)</div></div>
+    <div class="sc-row"><div class="sc-action">Clic sur ✕ d'un pill</div><div class="sc-result">Supprimer ce filtre précis</div></div>
+    <div class="sc-row"><div class="sc-action">Clic ✕ Réinitialiser</div><div class="sc-result">Supprimer tous les filtres actifs</div></div>
+    <div class="sc-row"><div class="sc-action">Survol élément graphique</div><div class="sc-result">Afficher le tooltip avec données exactes</div></div>
+    <div class="sc-row"><div class="sc-action">Survol icône ⓘ Info</div><div class="sc-result">Afficher la description et formule du graphique</div></div>
+    <div class="sc-row"><div class="sc-action">Clic bouton 🎛 Config</div><div class="sc-result">Ouvrir la configuration du graphique</div></div>
+    <div class="sc-row"><div class="sc-action">Clic bouton PNG</div><div class="sc-result">Télécharger le graphique en PNG</div></div>
+    <div class="sc-row"><div class="sc-action">Bouton 📈 Mode Volume</div><div class="sc-result">Basculer entre nb projets et montants EUR</div></div>
+    <div class="sc-row"><div class="sc-action">Sélecteur ⚡ Énergie</div><div class="sc-result">Filtrer tout le dashboard sur Éolien ou PV</div></div>
+    <div class="sc-row"><div class="sc-action">Bouton 🔬 Diagnostics</div><div class="sc-result">Afficher/masquer le panneau de diagnostics</div></div>
+    <div class="sc-row"><div class="sc-action">Bouton 🔮 Projection</div><div class="sc-result">Afficher/masquer la projection fin d'année</div></div>
+    <div class="sc-row"><div class="sc-action">Bouton ⚖️ Comparer</div><div class="sc-result">Activer le mode comparaison de périodes</div></div>
+    <div class="sc-row"><div class="sc-action">Bouton N vs N-1</div><div class="sc-result">Sélection automatique année courante vs précédente</div></div>
+    <div class="sc-row"><div class="sc-action">Clic carte KPI (Obtenus/Perdus)</div><div class="sc-result">Filtrer sur ce statut dans toute la vue</div></div>
+  </div>
+
+  <h3>Glossaire</h3>
+  <div style="border:1px solid #d0dde8;border-radius:6px;overflow:hidden;margin-top:.5rem;">
+    <div class="gloss-row"><div class="gloss-term">Bud / Budget</div><div class="gloss-def">Montant de référence du projet. Source principale de tous les calculs CA.</div></div>
+    <div class="gloss-row"><div class="gloss-term">CA Étudié</div><div class="gloss-def">Somme des budgets de TOUS les projets (obtenus, perdus, en cours).</div></div>
+    <div class="gloss-row"><div class="gloss-term">CA Gagné</div><div class="gloss-def">Somme des budgets des projets au statut Obtenu uniquement.</div></div>
+    <div class="gloss-row"><div class="gloss-term">CA Pipeline</div><div class="gloss-def">CA des offres en cours × taux de conversion global. Estimation du CA futur probable.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Taux de Conversion</div><div class="gloss-def">Obtenus ÷ (Obtenus + Perdus) × 100. Mesure l'efficacité commerciale sur projets décidés.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Drill-Down</div><div class="gloss-def">Vue détaillée des projets individuels accessible par clic sur un graphique.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Pill (filtre)</div><div class="gloss-def">Badge affiché dans la barre flottante représentant un filtre actif.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Heatmap</div><div class="gloss-def">Visualisation en grille colorée selon l'intensité d'une valeur (ex : zones × statuts).</div></div>
+    <div class="gloss-row"><div class="gloss-term">Score Performance</div><div class="gloss-def">Note globale /100 calculée sur 5 dimensions : conversion, délai, retard, pipeline, réponse.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Projection EOY</div><div class="gloss-def">End Of Year — estimation du CA total à fin d'année selon tendances et pipeline actif.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Vélocité</div><div class="gloss-def">Indicateurs de rythme sur 30j / 60j / 90j : projets décidés et CA gagné récent.</div></div>
+    <div class="gloss-row"><div class="gloss-term">MWc / MW</div><div class="gloss-def">Mégawatt-crête (PV) ou Mégawatt (éolien). Unité de puissance des projets énergétiques.</div></div>
+    <div class="gloss-row"><div class="gloss-term">_annee</div><div class="gloss-def">Champ calculé = année de référence du projet, dépend du champ date sélectionné.</div></div>
+    <div class="gloss-row"><div class="gloss-term">Mode CA</div><div class="gloss-def">Bascule entre CA Total (Bud) et CA Gagné uniquement, pilote tous les calculs financiers.</div></div>
+  </div>
+
+  <div class="final-box" style="margin-top:1.5rem;">
+    <p style="font-weight:700;font-size:1rem;margin-bottom:.5rem;">Vous maîtrisez maintenant votre Dashboard Analytics.</p>
+    <p>Explorez, filtrez, cliquez, analysez. Chaque interaction enrichit votre compréhension du portefeuille éolien et photovoltaïque.</p>
+    <p>En cas de doute, référez-vous aux sections correspondantes de ce manuel.</p>
+    <p>Analytics Dashboard v3.0 — Mars 2026 · Solutions30 EOLIEN</p>
+  </div>
+
+  <div class="page-footer">
+    <span>Usage interne — Confidentiel</span>
+    <span>Analytics Dashboard</span>
+    <span class="pnum">Page 14</span>
+  </div>
+</div>
+
 </body>
 </html>
