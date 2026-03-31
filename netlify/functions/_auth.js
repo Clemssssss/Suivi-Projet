@@ -130,6 +130,36 @@ function verifyPasswordForUser(username, password) {
   };
 }
 
+async function getDbAuthUser(username) {
+  const user = String(username || '').trim();
+  if (!user) return null;
+  await ensureSchema();
+  const result = await query(
+    `SELECT username, password_hash AS "passwordHash", role, is_active AS "isActive"
+       FROM dashboard_auth_users
+      WHERE username = $1
+      LIMIT 1`,
+    [user]
+  );
+  const row = result.rows[0];
+  if (!row || !row.isActive) return null;
+  return row;
+}
+
+async function verifyPasswordForUserAsync(username, password) {
+  const dbUser = await getDbAuthUser(username);
+  if (dbUser && dbUser.passwordHash) {
+    const config = parsePasswordConfig(dbUser.passwordHash, 'dashboard_auth_users.password_hash');
+    const candidate = hashPassword(password, config.salt, config.iterations);
+    return {
+      ok: constantTimeEqual(candidate, config.hash),
+      role: String(dbUser.role || 'user'),
+      user: String(dbUser.username || username)
+    };
+  }
+  return verifyPasswordForUser(username, password);
+}
+
 function getAdminUser() {
   const explicit = String(process.env.DASHBOARD_ADMIN_USER || '').trim();
   if (explicit) return explicit;
@@ -166,6 +196,7 @@ function sha256(input) {
 function createSessionToken(username) {
   const payload = {
     user: String(username),
+    role: isAdminUser(username) ? 'admin' : 'user',
     nonce: toBase64Url(crypto.randomBytes(16)),
     exp: Date.now() + (SESSION_TTL_SECONDS * 1000)
   };
@@ -726,6 +757,7 @@ module.exports = {
   markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
+  verifyPasswordForUserAsync,
   verifyPasswordForUser,
   verifyPassword,
   clearPersistentLoginFailures

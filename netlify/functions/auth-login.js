@@ -14,6 +14,7 @@ const {
   markPersistentLoginFailure,
   readRequestBody,
   verifyLoginChallengeToken,
+  verifyPasswordForUserAsync,
   verifyPasswordForUser
 } = require('./_auth');
 
@@ -112,7 +113,7 @@ exports.handler = async function(event) {
 
   let passwordResult = { ok: false, role: '', user: '' };
   try {
-    passwordResult = verifyPasswordForUser(username, password);
+    passwordResult = await verifyPasswordForUserAsync(username, password);
   } catch (err) {
     console.error('[auth-login] Password config error', err);
     await logAccess(event, 'auth_login_password_config_error', 'error', {

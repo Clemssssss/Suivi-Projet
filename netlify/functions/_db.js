@@ -111,6 +111,19 @@ async function ensureSchema() {
   `);
 
   await query(`
+    CREATE TABLE IF NOT EXISTS dashboard_auth_users (
+      username TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_by TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await query(`
     CREATE TABLE IF NOT EXISTS dashboard_ip_whitelist (
       ip_rule TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT '',
@@ -261,6 +274,7 @@ async function ensureSchema() {
   `);
 
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_login_attempts_blocked_until ON dashboard_login_attempts (blocked_until DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_auth_users_role_active ON dashboard_auth_users (role, is_active);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_access_request_attempts_blocked_until ON dashboard_access_request_attempts (blocked_until DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_ip_whitelist_active ON dashboard_ip_whitelist (is_active, updated_at DESC);`);
   await query(`CREATE INDEX IF NOT EXISTS idx_dashboard_ip_access_requests_status_created ON dashboard_ip_access_requests (status, created_at DESC);`);

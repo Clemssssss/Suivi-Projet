@@ -25,7 +25,7 @@ exports.handler = async function(event) {
     ok: true,
     authenticated: authenticated,
     user: authenticated && session ? session.user : '',
-    isAdmin: authenticated && session ? isAdminUser(session.user) : false,
+    isAdmin: authenticated && session ? ((session.role === 'admin') || isAdminUser(session.user)) : false,
     networkAllowed: !!access.allowed,
     loginChallenge: authenticated ? '' : createLoginChallengeToken(event.headers || {})
   };
