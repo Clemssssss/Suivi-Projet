@@ -1745,12 +1745,6 @@ function update() {
         }
       }
     }
-    if ((!serverRecord || serverRecord.ok === false) && typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.hydrateDashboard === 'function') {
-      const localRecord = await DashboardLocalData.hydrateDashboard();
-      if (localRecord && Array.isArray(localRecord.data) && localRecord.data.length && typeof notify === 'function') {
-        notify('Données locales restaurées', localRecord.data.length + ' projets rechargés pour votre session', 'info', 3200);
-      }
-    }
     AE.loadFromURL();
     setTimeout(sanitizeDashboardSelectionState, 40);
 

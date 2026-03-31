@@ -14,7 +14,14 @@ window.DashboardAuthGuard = (function() {
     );
   }
 
-  function redirectToLogin() {
+  async function redirectToLogin() {
+    try {
+      if (window.DashboardLocalData && typeof window.DashboardLocalData.purgeAllLocalData === 'function') {
+        await window.DashboardLocalData.purgeAllLocalData();
+      }
+    } catch (err) {
+      console.warn('[AuthGuard] Purge locale impossible avant redirection', err);
+    }
     var next = encodeURIComponent(getNextURL());
     window.location.replace('/chart/login.html?next=' + next);
   }
@@ -33,6 +40,9 @@ window.DashboardAuthGuard = (function() {
     button.addEventListener('click', async function() {
       button.disabled = true;
       try {
+        if (window.DashboardLocalData && typeof window.DashboardLocalData.purgeAllLocalData === 'function') {
+          await window.DashboardLocalData.purgeAllLocalData();
+        }
         await window.AuthClient.logout();
       } catch (err) {
         console.warn('[AuthGuard] Logout impossible', err);
@@ -52,7 +62,7 @@ window.DashboardAuthGuard = (function() {
         : '';
 
       if (!state.authenticated) {
-        redirectToLogin();
+        await redirectToLogin();
         return false;
       }
 
@@ -65,7 +75,7 @@ window.DashboardAuthGuard = (function() {
       return true;
     } catch (err) {
       console.error('[AuthGuard] Vérification session impossible', err);
-      redirectToLogin();
+      await redirectToLogin();
       return false;
     }
   }
