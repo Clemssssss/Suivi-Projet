@@ -199,6 +199,61 @@ if (!window.AE) {
 
 if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
   (function registerDashboardValueLabelsPlugin() {
+    const VALUE_LABELS_STORAGE_KEY = 'dashboard.chart.valueLabels.visible';
+
+    function _readVisibleState() {
+      try {
+        const raw = window.localStorage ? localStorage.getItem(VALUE_LABELS_STORAGE_KEY) : null;
+        return raw === '1';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function _writeVisibleState(value) {
+      try {
+        if (window.localStorage) localStorage.setItem(VALUE_LABELS_STORAGE_KEY, value ? '1' : '0');
+      } catch (e) {}
+    }
+
+    function _getVisibleState() {
+      if (typeof window.__dashboardValueLabelsVisible === 'boolean') return window.__dashboardValueLabelsVisible;
+      window.__dashboardValueLabelsVisible = _readVisibleState();
+      return window.__dashboardValueLabelsVisible;
+    }
+
+    function _updateToggleButton() {
+      const btn = document.getElementById('btn-toggle-values');
+      if (!btn) return;
+      const visible = _getVisibleState();
+      btn.textContent = visible ? '🔢 Valeurs : on' : '🔢 Valeurs : off';
+      btn.style.borderColor = visible ? 'rgba(0,212,170,.45)' : '';
+      btn.style.color = visible ? '#9ff3e1' : '';
+      btn.style.background = visible ? 'rgba(0,212,170,.12)' : '';
+    }
+
+    function _refreshAllCharts() {
+      if (typeof Chart === 'undefined') return;
+      try {
+        if (typeof Chart.instances !== 'undefined') {
+          Object.values(Chart.instances).forEach(function(instance) {
+            if (instance && typeof instance.update === 'function') instance.update('none');
+          });
+        }
+      } catch (e) {}
+    }
+
+    window.setDashboardValueLabelsVisible = function(value) {
+      window.__dashboardValueLabelsVisible = !!value;
+      _writeVisibleState(window.__dashboardValueLabelsVisible);
+      _updateToggleButton();
+      _refreshAllCharts();
+    };
+
+    window.toggleDashboardValueLabels = function() {
+      window.setDashboardValueLabelsVisible(!_getVisibleState());
+    };
+
     function _labelFont(opts) {
       const font = opts && opts.font ? opts.font : {};
       return [
@@ -240,7 +295,7 @@ if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
       id: 'dashboardValueLabels',
       afterDatasetsDraw(chart, args, pluginOptions) {
         const opts = Object.assign({}, Chart.defaults.plugins.dashboardValueLabels || {}, pluginOptions || {});
-        if (opts.display === false) return;
+        if (opts.display === false || !_getVisibleState()) return;
         const datasets = (chart.data && chart.data.datasets) ? chart.data.datasets : [];
         const visibleMetas = datasets.map(function(_, index) { return chart.getDatasetMeta(index); })
           .filter(function(meta) { return meta && !meta.hidden && Array.isArray(meta.data); });
@@ -299,6 +354,14 @@ if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
     };
     Chart.register(plugin);
     window.__dashboardValueLabelsRegistered = true;
+    _updateToggleButton();
+    const toggleBtn = document.getElementById('btn-toggle-values');
+    if (toggleBtn && !toggleBtn._valueLabelsBound) {
+      toggleBtn._valueLabelsBound = true;
+      toggleBtn.addEventListener('click', function() {
+        window.toggleDashboardValueLabels();
+      });
+    }
   })();
 }
 
