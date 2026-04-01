@@ -734,6 +734,20 @@
     return document.querySelector('.chart-card[data-chart-id="' + chartId + '"]');
   }
 
+  function openInlinePanelInFullPage(chartId) {
+    var state = INLINE_DRILL_STATE[chartId];
+    if (!state || !state.allProjects || !state.allProjects.length) return;
+
+    var panel = getInlinePanel(chartId);
+    if (!panel || !panel.classList.contains('is-open') || !panel._businessDrillState) {
+      renderInlineDetails(chartId, state.allProjects, state.title);
+      panel = getInlinePanel(chartId);
+    }
+
+    var payload = buildInlineTablePayload(panel, state.title);
+    if (payload) openTablePage(payload);
+  }
+
   function getInlineActions(chartId) {
     var card = getInlineCard(chartId);
     if (!card) return null;
@@ -757,9 +771,7 @@
       closeInlineDetails(chartId);
     });
     actions.querySelector('[data-role="open-page"]').addEventListener('click', function() {
-      var state = INLINE_DRILL_STATE[chartId];
-      if (!state || !state.allProjects || !state.allProjects.length) return;
-      openDetails(state.allProjects, state.title, { chartId: chartId, useInline: true, openInPage: true });
+      openInlinePanelInFullPage(chartId);
     });
     return actions;
   }
@@ -920,6 +932,16 @@
         renderBusinessDrillTable(panel);
         return;
       }
+      var openPageBtn = event.target.closest('[data-role="open-page-inline"]');
+      if (openPageBtn) {
+        var currentState = panel._businessDrillState;
+        if (!currentState) return;
+        var chartCard = panel.closest('.chart-card');
+        var chartId = chartCard ? chartCard.getAttribute('data-chart-id') : '';
+        if (!chartId) return;
+        openInlinePanelInFullPage(chartId);
+        return;
+      }
       var th = event.target.closest('th[data-sort-key]');
       if (!th) return;
       var currentState = panel._businessDrillState;
@@ -958,7 +980,8 @@
   function buildInlineTablePayload(panel, title) {
     var state = panel && panel._businessDrillState;
     if (!state) return null;
-    var rows = (state.filteredRows && state.filteredRows.length ? state.filteredRows : state.rows || []).map(function(row) {
+    var rowSource = Array.isArray(state.filteredRows) ? state.filteredRows : (state.rows || []);
+    var rows = rowSource.map(function(row) {
       return BUSINESS_DRILL_COLUMNS.map(function(col) {
         return row[col.key] ? String(row[col.key].display || '—') : '—';
       });
@@ -1004,6 +1027,7 @@
       '<div class="business-drill-toolbar">' +
         '<input class="business-drill-search" type="text" placeholder="Rechercher dans toutes les colonnes...">' +
         '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="reset-filters">Reinitialiser filtres</button>' +
+        '<button type="button" class="business-drill-btn business-drill-btn-tertiary" data-role="open-page-inline">↗ Ouvrir en pleine page</button>' +
       '</div>' +
       '<div class="business-drill-wrap">' +
         '<table class="business-drill-table">' +
