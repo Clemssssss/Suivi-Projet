@@ -346,6 +346,14 @@ window.ChartAnalysis = (() => {
     return label ? label.textContent.replace(/\s+/g, ' ').trim() : chartId;
   }
 
+  function _getChartCard(chartId) {
+    const byAttr = document.querySelector('.chart-card[data-chart-id="' + chartId + '"]')
+      || document.querySelector('[data-chart-id="' + chartId + '"]');
+    if (byAttr) return byAttr;
+    const canvas = document.getElementById(chartId);
+    return canvas ? canvas.closest('.chart-card, [data-chart-id]') : null;
+  }
+
   function _buildAnalysisMetaPayload(chartId) {
     const block = document.getElementById(`ca-block-${chartId}`);
     if (!block) return [];
@@ -1725,15 +1733,18 @@ window.ChartAnalysis = (() => {
   function _getOrCreateBlock(chartId) {
     const blockId = `ca-block-${chartId}`;
     let block = document.getElementById(blockId);
-    if (!block) {
-      const canvas = document.getElementById(chartId);
-      if (!canvas) return null;
+    const card = _getChartCard(chartId);
+    const canvas = document.getElementById(chartId);
+    if (!card || !canvas) return null;
 
+    const container = card.querySelector('.chart-container') || canvas.closest('.chart-container') || canvas.parentElement;
+    const host = container && container.parentElement ? container.parentElement : card;
+
+    if (!block) {
       block = document.createElement('div');
-      block.id    = blockId;
+      block.id = blockId;
       block.className = 'chart-analysis-block';
 
-      // Structure interne
       block.innerHTML = `
         <div class="ca-block-header">
           <span class="ca-block-kicker" style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(0,212,170,.7);">Analyse</span>
@@ -1748,11 +1759,11 @@ window.ChartAnalysis = (() => {
         <div class="ca-block-meta"></div>
         <div class="ca-table-view"></div>
       `;
+    }
 
-      const container = canvas.closest('.chart-container') || canvas.parentElement;
-      if (container && container.parentElement) {
-        container.parentElement.insertBefore(block, container.nextSibling);
-      }
+    if (host && block.parentElement !== host) {
+      host.insertBefore(block, container ? container.nextSibling : host.firstChild);
+    }
 
       // Toggle logique
       const btn       = block.querySelector('.ca-toggle-btn');
@@ -1761,6 +1772,7 @@ window.ChartAnalysis = (() => {
       const styleBtn  = block.querySelector('.ca-style-btn');
       const modeBtn   = block.querySelector('.ca-mode-btn');
 
+      if (!block.dataset.bound) {
       btn.addEventListener('click', () => {
         const isTableNow = tableView.classList.toggle('is-visible');
         btn.textContent = isTableNow ? '📕 Masquer le tableau' : '📊 Afficher le tableau';
@@ -1808,6 +1820,7 @@ window.ChartAnalysis = (() => {
       }
       if (styleBtn) styleBtn.addEventListener('click', () => _openStyleEditor(chartId));
       if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode());
+      block.dataset.bound = '1';
     }
     return block;
   }
@@ -1882,10 +1895,16 @@ window.ChartAnalysis = (() => {
         ? DataFilterEngine.getFilteredData()
         : (window.DATA || []);
     }
-    const chartIds = new Set([
-      ...Object.keys(_ANALYZERS),
-      ...Array.from(document.querySelectorAll('canvas[id]')).map(c => c.id),
-    ]);
+    const chartIds = new Set();
+    Array.from(document.querySelectorAll('.chart-card[data-chart-id], [data-chart-id]')).forEach(function(card) {
+      const chartId = card.getAttribute('data-chart-id');
+      if (!chartId) return;
+      if (card.classList && card.classList.contains('hidden-chart')) return;
+      chartIds.add(chartId);
+    });
+    Object.keys(_ANALYZERS).forEach(function(chartId) {
+      if (document.getElementById(chartId) || _getChartCard(chartId)) chartIds.add(chartId);
+    });
     chartIds.forEach(id => renderForChart(id, data));
   }
 
