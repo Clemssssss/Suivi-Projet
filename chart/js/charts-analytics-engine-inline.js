@@ -8,7 +8,8 @@ if (!window.AE) {
   const st = {
     raw: [], filters: {}, year: '', search: '',
     caMode: 'Bud', subs: [],  // [CORRIGÉ v2] 'Bud' = source unique de vérité (data.js)
-    energyType: ''  // '' = tous | 'eolien' | 'photovoltaique'
+    energyType: '',  // '' = tous | 'eolien' | 'photovoltaique'
+    selection: null
   };
 
   const EMPTY = new Set([
@@ -22,6 +23,18 @@ if (!window.AE) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
     return EMPTY.has(s.toLowerCase()) ? null : s;
+  }
+
+  function projectKey(p) {
+    if (!p || typeof p !== 'object') return '';
+    return [
+      p['N°- AO'] || '',
+      p['Date réception'] || '',
+      p['Client'] || '',
+      p['Dénomination'] || '',
+      p['Type de projet (Activité)'] || '',
+      p['Zone Géographique'] || ''
+    ].join('||');
   }
 
   function init(d) {
@@ -93,6 +106,9 @@ if (!window.AE) {
         return pv !== null && pv === v;
       });
     }
+    if (st.selection && st.selection.keys && st.selection.keys.size) {
+      d = d.filter(p => st.selection.keys.has(projectKey(p)));
+    }
     return d;
   }
 
@@ -108,8 +124,38 @@ if (!window.AE) {
   }
 
   function removeFilter(k) { if (k in st.filters) { delete st.filters[k]; push(); } }
-  function clearAll()      { st.filters = {}; push(); notify('Filtres effacés', 'Tous les projets', 'info', 1800); }
+  function clearSelection(silent = false) {
+    if (!st.selection) return;
+    st.selection = null;
+    push();
+    if (!silent) notify('Sélection effacée', 'Retour au périmètre complet', 'info', 1800);
+  }
+  function setSelection(projects, label = '') {
+    const items = Array.isArray(projects) ? projects : [];
+    const keys = new Set(items.map(projectKey).filter(Boolean));
+    if (!keys.size) {
+      clearSelection(true);
+      notify('Sélection impossible', 'Aucune donnée exploitable sur ce graphique', 'warning', 2200);
+      return;
+    }
+    const token = Array.from(keys).sort().join('##');
+    if (st.selection && st.selection.token === token) {
+      clearSelection(true);
+      notify('Sélection effacée', label || 'Retour au périmètre complet', 'info', 1800);
+      return;
+    }
+    st.selection = {
+      token,
+      keys,
+      label: label || 'Sélection graphique',
+      count: items.length
+    };
+    push();
+    notify('Filtre graphique appliqué', (label || 'Sélection graphique') + ' • ' + items.length + ' projet(s)', 'success', 2200);
+  }
+  function clearAll()      { st.filters = {}; st.selection = null; push(); notify('Filtres effacés', 'Tous les projets', 'info', 1800); }
   function setYear(y)      { st.year = y; st.filters = {}; push(); }
+  function getSelection()  { return st.selection ? { label: st.selection.label, count: st.selection.count } : null; }
   function setSearch(q)    { st.search = q.trim(); push(); }
   function setCAMode(m)    { st.caMode = m; push(); }
   function getCAMode()     { return st.caMode; }
@@ -145,7 +191,7 @@ if (!window.AE) {
   }
 
   return { init, getFiltered, getRaw: () => st.raw, toggleFilter, removeFilter, clearAll,
-           setYear, setSearch, setCAMode, getCAMode, getFilters,
+           setYear, setSearch, setCAMode, getCAMode, getFilters, setSelection, clearSelection, getSelection,
            setEnergyType, getEnergyType,
            subscribe, nv, loadFromURL, getURL, EMPTY_LBL };
 })();
@@ -469,6 +515,7 @@ const CFM = {
 
 function updateBadges() {
   const f = AE.getFilters();
+  const selection = (typeof AE !== 'undefined' && AE.getSelection) ? AE.getSelection() : null;
   for (const [id, fk] of Object.entries(CFM)) {
     const b    = document.getElementById(`badge-${id}`);
     const card = document.querySelector(`[data-chart-id="${id}"]`);
@@ -478,7 +525,7 @@ function updateBadges() {
   }
   const pill = document.getElementById('project-count');
   const hasEnergyFilter = !!(typeof AE !== 'undefined' && AE.getEnergyType && AE.getEnergyType());
-  if (pill) pill.classList.toggle('filtered', Object.keys(f).length > 0 || hasEnergyFilter);
+  if (pill) pill.classList.toggle('filtered', Object.keys(f).length > 0 || hasEnergyFilter || !!selection);
   // Refléter l'état du filtre énergie sur le select
   const energySel = document.getElementById('energy-type-filter');
   if (energySel && typeof AE !== 'undefined' && AE.getEnergyType) {
@@ -502,7 +549,8 @@ function renderFilterPanel() {
   const tags  = document.getElementById('filter-tags');
   const e     = Object.entries(f);
   const energyType = (typeof AE !== 'undefined' && AE.getEnergyType) ? AE.getEnergyType() : '';
-  const hasFilters = e.length > 0 || !!energyType;
+  const selection = (typeof AE !== 'undefined' && AE.getSelection) ? AE.getSelection() : null;
+  const hasFilters = e.length > 0 || !!energyType || !!selection;
 
   if (!hasFilters) { panel.classList.remove('active'); return; }
   panel.classList.add('active');
@@ -515,6 +563,15 @@ function renderFilterPanel() {
     t.addEventListener('click', () => AE.removeFilter(k));
     tags.appendChild(t);
   });
+
+  if (selection) {
+    const t = document.createElement('span');
+    t.className = 'ftag';
+    t.style.cssText = 'border-color:rgba(0,212,170,.4);background:rgba(0,212,170,.08);color:#9af3e0;';
+    t.innerHTML = `<span class="ftag-key" style="color:#9af3e0;">Graphique</span> ${selection.label} (${selection.count}) ✕`;
+    t.addEventListener('click', () => AE.clearSelection());
+    tags.appendChild(t);
+  }
 
   // Badge filtre énergie
   if (energyType) {

@@ -1143,6 +1143,15 @@
     console.warn('[BusinessDashboard] showDetailTable indisponible pour', title);
   }
 
+  function applyDashboardSelection(projects, title, fallbackOptions) {
+    if (typeof AE !== 'undefined' && typeof AE.setSelection === 'function') {
+      AE.setSelection(projects, title);
+      return true;
+    }
+    openDetails(projects, title, fallbackOptions || {});
+    return false;
+  }
+
   function renderKpi(id, label, value, sub, projects, title, mode) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -1236,7 +1245,7 @@
           var idx = elements[0].index;
           var entry = entries[idx];
           if (!entry) return;
-          openDetails(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
         }
       }
     });
@@ -1324,7 +1333,7 @@
             if (serie.key === 'pipe_bud' || serie.key === 'offer_count') return isOffer(project);
             return true;
           });
-          openDetails(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          applyDashboardSelection(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
         }
       }
     });
