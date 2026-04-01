@@ -389,6 +389,9 @@ window.ChartAnalysis = (() => {
   function _applyChartStyle(chartId, styleCfg) {
     const chart = _resolveChart(chartId);
     if (!chart) return;
+    if (chart.__caApplyingStyle) return;
+
+    chart.__caApplyingStyle = true;
 
     const palettes = {
       emerald: ['#00d4aa', '#0099ff', '#8b78f8', '#f5b740', '#ff4d6d', '#10b981'],
@@ -397,50 +400,53 @@ window.ChartAnalysis = (() => {
       graphite: ['#e2e8f0', '#94a3b8', '#64748b', '#cbd5e1', '#14b8a6', '#f59e0b']
     };
     const colors = palettes[styleCfg.palette] || palettes.emerald;
+    try {
+      (chart.data.datasets || []).forEach(function(ds, index) {
+        const color = colors[index % colors.length];
+        ds.borderColor = color;
+        ds.backgroundColor = Array.isArray(ds.data)
+          ? ds.data.map(function(_, idx) { return colors[idx % colors.length]; })
+          : color;
+        ds.pointBackgroundColor = color;
+        ds.pointBorderColor = color;
+      });
 
-    (chart.data.datasets || []).forEach(function(ds, index) {
-      const color = colors[index % colors.length];
-      ds.borderColor = color;
-      ds.backgroundColor = Array.isArray(ds.backgroundColor)
-        ? ds.backgroundColor.map(function(_, idx) { return colors[idx % colors.length]; })
-        : color;
-      ds.pointBackgroundColor = color;
-      ds.pointBorderColor = color;
-    });
+      chart.options.plugins = chart.options.plugins || {};
+      chart.options.plugins.legend = chart.options.plugins.legend || {};
+      chart.options.plugins.legend.display = !!styleCfg.legend;
+      chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
+      chart.options.plugins.legend.labels.color = '#dce8f5';
 
-    chart.options.plugins = chart.options.plugins || {};
-    chart.options.plugins.legend = chart.options.plugins.legend || {};
-    chart.options.plugins.legend.display = !!styleCfg.legend;
-    chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
-    chart.options.plugins.legend.labels.color = '#dce8f5';
+      const scales = chart.options.scales || {};
+      Object.keys(scales).forEach(function(key) {
+        const scale = scales[key] || {};
+        scale.grid = scale.grid || {};
+        scale.ticks = scale.ticks || {};
+        scale.title = scale.title || {};
+        scale.grid.display = !!styleCfg.grid;
+        scale.grid.color = styleCfg.grid ? 'rgba(148,163,184,.14)' : 'rgba(0,0,0,0)';
+        scale.ticks.color = '#c0d0e0';
+        if (key === 'x' && styleCfg.xTitle != null) {
+          scale.title.display = !!String(styleCfg.xTitle).trim();
+          scale.title.text = String(styleCfg.xTitle || '').trim();
+          scale.title.color = '#94a3b8';
+        }
+        if (key === 'y' && styleCfg.yTitle != null) {
+          scale.title.display = !!String(styleCfg.yTitle).trim();
+          scale.title.text = String(styleCfg.yTitle || '').trim();
+          scale.title.color = '#94a3b8';
+        }
+      });
+      chart.update('none');
 
-    const scales = chart.options.scales || {};
-    Object.keys(scales).forEach(function(key) {
-      const scale = scales[key] || {};
-      scale.grid = scale.grid || {};
-      scale.ticks = scale.ticks || {};
-      scale.title = scale.title || {};
-      scale.grid.display = !!styleCfg.grid;
-      scale.grid.color = styleCfg.grid ? 'rgba(148,163,184,.14)' : 'rgba(0,0,0,0)';
-      scale.ticks.color = '#c0d0e0';
-      if (key === 'x' && styleCfg.xTitle != null) {
-        scale.title.display = !!String(styleCfg.xTitle).trim();
-        scale.title.text = String(styleCfg.xTitle || '').trim();
-        scale.title.color = '#94a3b8';
-      }
-      if (key === 'y' && styleCfg.yTitle != null) {
-        scale.title.display = !!String(styleCfg.yTitle).trim();
-        scale.title.text = String(styleCfg.yTitle || '').trim();
-        scale.title.color = '#94a3b8';
-      }
-      scales[key] = scale;
-    });
-    chart.options.scales = scales;
-    chart.update();
-
-    const styleMap = _storageGet(STYLE_STORAGE_KEY, {});
-    styleMap[chartId] = styleCfg;
-    _storageSet(STYLE_STORAGE_KEY, styleMap);
+      const styleMap = _storageGet(STYLE_STORAGE_KEY, {});
+      styleMap[chartId] = styleCfg;
+      _storageSet(STYLE_STORAGE_KEY, styleMap);
+    } catch (err) {
+      console.error('[ChartAnalysis] apply style failed for', chartId, err);
+    } finally {
+      chart.__caApplyingStyle = false;
+    }
   }
 
   function _getChartStyle(chartId) {
@@ -1876,7 +1882,14 @@ window.ChartAnalysis = (() => {
     block.classList.remove('ca-updating');
 
     const savedStyle = _getChartStyle(chartId);
-    if (savedStyle) _applyChartStyle(chartId, savedStyle);
+    if (savedStyle) {
+      const nextStyleSig = JSON.stringify(savedStyle);
+      const chart = _resolveChart(chartId);
+      if (chart && chart.__caStyleSig !== nextStyleSig) {
+        _applyChartStyle(chartId, savedStyle);
+        chart.__caStyleSig = nextStyleSig;
+      }
+    }
   }
 
   function renderAll(data) {
