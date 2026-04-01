@@ -742,9 +742,129 @@ function renderVelocity(data) {
    TABLEAU DÉTAILS
 ═══════════════════════════════════════════════════════════ */
 let tsort = { field: 'echeance', asc: true };
+var detailTableState = { query: '', filters: {} };
+
+function normalizeDetailFilterValue(value) {
+  if (value == null) return '';
+  var raw = String(value).trim();
+  if (!raw) return '';
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeDetailHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getDetailColumnValue(p, col, cm) {
+  switch (col.key) {
+    case 'projet':
+      return p['Dénomination'] || '';
+    case 'ao':
+      return p['N°- AO'] || '';
+    case 'client':
+      return p['Client'] || '';
+    case 'statut':
+      return (p['Statut'] || p['MG Statut Odoo MG'] || '') + ' ' + ProjectUtils.getStatus(p);
+    case 'zone':
+      return p['Zone Géographique'] || '';
+    case 'ca': {
+      var ca = getCAValue(p, cm);
+      return ca > 0 ? fmt(ca) : '—';
+    }
+    case 'echeance': {
+      var parsed = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      var isValid = parsed && !isNaN(parsed.getTime());
+      return isValid ? parsed.toLocaleDateString('fr-FR') : (p['Date de retour demandée'] || '');
+    }
+    case 'puissance':
+      return p['Puissance (MWc)'] ? parseFloat(p['Puissance (MWc)']).toFixed(1) + ' MW' : '';
+    case 'type':
+      return p['Type de projet (Activité)'] || '';
+    case 'emetteur':
+      return p['Emetteur'] || '';
+    case 'winproba':
+      return p['Win proba'] || '';
+    case 'annee':
+      return p._annee || '';
+    case 'gonogo':
+      return p['GoNogo'] || '';
+    case 'commentaires':
+      return p['Commentaires'] || '';
+    default:
+      return '';
+  }
+}
+
+function getDetailSearchText(p, cols, cm) {
+  return normalizeDetailFilterValue(cols.map(function(col) {
+    return getDetailColumnValue(p, col, cm);
+  }).join(' '));
+}
+
+function getDetailSortValue(p, field, cm) {
+  switch (field) {
+    case 'ca':
+      return pCA(p[cm]);
+    case 'statut':
+      return ProjectUtils.getStatus(p);
+    case 'echeance': {
+      var parsed = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      return parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+    }
+    case 'Puissance (MWc)':
+      return parseFloat(p['Puissance (MWc)']) || 0;
+    case 'projet':
+      return p['Dénomination'] || '';
+    case 'Client':
+      return p['Client'] || '';
+    case 'Zone Géographique':
+      return p['Zone Géographique'] || '';
+    case 'N°- AO':
+      return p['N°- AO'] || '';
+    case 'Type de projet (Activité)':
+      return p['Type de projet (Activité)'] || '';
+    case 'Emetteur':
+      return p['Emetteur'] || '';
+    case 'Win proba':
+      return p['Win proba'] || '';
+    case '_annee':
+      return p._annee || '';
+    case 'GoNogo':
+      return p['GoNogo'] || '';
+    case 'Commentaires':
+      return p['Commentaires'] || '';
+    default:
+      return p[field];
+  }
+}
+
+function resetDetailTableFilters() {
+  detailTableState.query = '';
+  detailTableState.filters = {};
+  var search = document.getElementById('detail-search');
+  if (search) search.value = '';
+  document.querySelectorAll('#dtable .dtable-filter').forEach(function(input) {
+    input.value = '';
+  });
+}
 
 function showDetailTable(data, title = 'Projets filtrés') {
   document.getElementById('detail-title').textContent = `📋 ${title}`;
+  resetDetailTableFilters();
   renderRows(data);
   const sec = document.getElementById('detail-section');
   sec.classList.add('active');
@@ -857,15 +977,41 @@ var TABLE_COLUMNS = [
 
 /* Mettre à jour le thead dynamiquement selon les colonnes visibles */
 function _updateThead() {
-  var thead = document.querySelector('#dtable thead tr');
-  if (!thead) return;
-  thead.innerHTML = TABLE_COLUMNS.filter(function(c) { return c.visible; }).map(function(c) {
+  var rows = document.querySelectorAll('#dtable thead tr');
+  if (!rows || rows.length < 2) return;
+  var headerRow = rows[0];
+  var filterRow = rows[1];
+  var visibleCols = TABLE_COLUMNS.filter(function(c) { return c.visible; });
+
+  headerRow.innerHTML = visibleCols.map(function(c) {
     var sorted = tsort.field === c.sort;
     var arrow  = sorted ? (tsort.asc ? '↑' : '↓') : '↕';
     return `<th data-sort="${c.sort}" ${sorted ? 'class="sorted"' : ''}>${c.label} ${arrow}</th>`;
   }).join('');
-  // Rebrancher les listeners de tri
-  thead.querySelectorAll('th[data-sort]').forEach(function(th) {
+
+  var currentData = Array.isArray(_currentTableData) ? _currentTableData : [];
+  filterRow.innerHTML = visibleCols.map(function(c) {
+    var values = currentData.map(function(p) {
+      return getDetailColumnValue(p, c, AE.getCAMode());
+    }).filter(function(v) { return String(v || '').trim(); });
+    var uniqueValues = Array.from(new Set(values)).sort(function(a, b) {
+      return String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' });
+    });
+    var currentValue = detailTableState.filters[c.key] || '';
+    var shouldSelect = uniqueValues.length > 0 && uniqueValues.length <= 12 &&
+      ['statut', 'zone', 'type', 'emetteur', 'gonogo', 'annee'].indexOf(c.key) !== -1;
+
+    if (shouldSelect) {
+      return `<th><select class="dtable-filter" data-filter-key="${c.key}"><option value="">Tous</option>${uniqueValues.map(function(option) {
+        var selected = currentValue === option ? ' selected' : '';
+        return `<option value="${escapeDetailHtml(option)}"${selected}>${escapeDetailHtml(option)}</option>`;
+      }).join('')}</select></th>`;
+    }
+
+    return `<th><input class="dtable-filter" data-filter-key="${c.key}" type="text" placeholder="Filtrer" value="${escapeDetailHtml(currentValue)}"></th>`;
+  }).join('');
+
+  headerRow.querySelectorAll('th[data-sort]').forEach(function(th) {
     th.addEventListener('click', function() {
       var f = this.dataset.sort;
       tsort.asc   = tsort.field === f ? !tsort.asc : true;
@@ -875,6 +1021,14 @@ function _updateThead() {
       renderRows(data);
     });
   });
+
+  filterRow.querySelectorAll('.dtable-filter').forEach(function(input) {
+    var eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+    input.addEventListener(eventName, function() {
+      detailTableState.filters[this.dataset.filterKey] = this.value || '';
+      renderRows(_currentTableData || []);
+    });
+  });
 }
 
 var _currentTableData = null;
@@ -882,16 +1036,31 @@ var _currentTableData = null;
 function renderRows(data) {
   _currentTableData = data;
   const cm = AE.getCAMode();
-  document.getElementById('detail-count').textContent =
-    `${data.length} projet${data.length !== 1 ? 's' : ''}`;
-
   const visibleCols = TABLE_COLUMNS.filter(function(c) { return c.visible; });
   _updateThead();
+  const search = normalizeDetailFilterValue(detailTableState.query || '');
+  const filtered = data.filter(function(p) {
+    if (search && getDetailSearchText(p, visibleCols, cm).indexOf(search) === -1) {
+      return false;
+    }
 
-  const sorted = [...data].sort((a, b) => {
-    let av = a[tsort.field], bv = b[tsort.field];
-    if (tsort.field === 'ca')     { av = pCA(a[cm]); bv = pCA(b[cm]); }
-    if (tsort.field === 'statut') { av = ProjectUtils.getStatus(a); bv = ProjectUtils.getStatus(b); }
+    return visibleCols.every(function(col) {
+      var filterValue = normalizeDetailFilterValue(detailTableState.filters[col.key] || '');
+      if (!filterValue) return true;
+      return normalizeDetailFilterValue(getDetailColumnValue(p, col, cm)).indexOf(filterValue) !== -1;
+    });
+  });
+
+  document.getElementById('detail-count').textContent =
+    `${filtered.length} / ${data.length} projet${data.length !== 1 ? 's' : ''}`;
+  var resultsCount = document.getElementById('detail-results-count');
+  if (resultsCount) {
+    resultsCount.textContent = `${filtered.length} ligne${filtered.length > 1 ? 's' : ''} affichée${filtered.length > 1 ? 's' : ''}`;
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    let av = getDetailSortValue(a, tsort.field, cm);
+    let bv = getDetailSortValue(b, tsort.field, cm);
     if (typeof av === 'string') av = av.toLowerCase();
     if (typeof bv === 'string') bv = bv.toLowerCase();
     if (av < bv) return tsort.asc ? -1 : 1;
@@ -899,9 +1068,11 @@ function renderRows(data) {
     return 0;
   });
 
-  document.getElementById('dtable-body').innerHTML = sorted.map(function(p) {
+  document.getElementById('dtable-body').innerHTML = sorted.length
+    ? sorted.map(function(p) {
     return `<tr>${visibleCols.map(function(col) { return col.render(p, cm); }).join('')}</tr>`;
-  }).join('');
+  }).join('')
+    : `<tr><td colspan="${visibleCols.length || 1}" class="dtable-empty">Aucune ligne ne correspond aux filtres en cours.</td></tr>`;
 }
 
 
@@ -2039,6 +2210,22 @@ function update() {
   document.getElementById('btn-close-table')
     .addEventListener('click', () =>
       document.getElementById('detail-section').classList.remove('active'));
+
+  var detailSearch = document.getElementById('detail-search');
+  if (detailSearch) {
+    detailSearch.addEventListener('input', function() {
+      detailTableState.query = this.value || '';
+      renderRows(_currentTableData || []);
+    });
+  }
+
+  var detailReset = document.getElementById('btn-detail-reset-filters');
+  if (detailReset) {
+    detailReset.addEventListener('click', function() {
+      resetDetailTableFilters();
+      renderRows(_currentTableData || []);
+    });
+  }
 
   // ── Bouton "Tout afficher" / "Filtrés seulement" ──────────────────────────
   (function() {
