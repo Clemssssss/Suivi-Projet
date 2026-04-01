@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau détaillé</title>
+  <style>
+    :root {
+      --bg: #08111d;
+      --card: #101b2b;
+      --card2: #162235;
+      --rim: rgba(255,255,255,.08);
+      --rim2: rgba(255,255,255,.12);
+      --snow: #e8f1fb;
+      --pale: #c5d3e1;
+      --dust: #88a0b8;
+      --brand: #00d4aa;
+      --brand2: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(0,212,170,.12), transparent 26%),
+        radial-gradient(circle at top right, rgba(56,189,248,.12), transparent 28%),
+        var(--bg);
+      color: var(--snow);
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 1.4rem;
+    }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .kicker {
+      color: var(--brand);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-weight: 700;
+      margin-bottom: .45rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.7rem;
+      line-height: 1.15;
+    }
+    .subtitle {
+      margin-top: .5rem;
+      color: var(--dust);
+      font-size: .95rem;
+    }
+    .actions {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      appearance: none;
+      border-radius: 10px;
+      padding: .72rem .95rem;
+      font-size: .82rem;
+      border: 1px solid var(--rim2);
+      cursor: pointer;
+      background: rgba(255,255,255,.04);
+      color: var(--snow);
+    }
+    .btn-primary {
+      background: rgba(0,212,170,.12);
+      border-color: rgba(0,212,170,.3);
+      color: #8ff2dc;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .38rem .72rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--pale);
+      font-size: .75rem;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: .8rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .search {
+      flex: 1 1 340px;
+      min-width: 280px;
+      padding: .8rem .95rem;
+      border-radius: 12px;
+      border: 1px solid var(--rim2);
+      background: rgba(255,255,255,.04);
+      color: var(--snow);
+      font-size: .9rem;
+    }
+    .search:focus { outline: none; border-color: rgba(0,212,170,.4); }
+    .count {
+      display: inline-flex;
+      align-items: center;
+      padding: .42rem .75rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--dust);
+      font-size: .78rem;
+      white-space: nowrap;
+    }
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--rim);
+      border-radius: 18px;
+      overflow: auto;
+      box-shadow: 0 18px 55px rgba(0,0,0,.28);
+      max-height: calc(100vh - 240px);
+    }
+    table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--card2);
+      color: var(--dust);
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      text-align: left;
+      padding: .85rem 1rem;
+      border-bottom: 1px solid var(--rim2);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    tbody td {
+      padding: .82rem 1rem;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      color: var(--pale);
+      vertical-align: top;
+    }
+    tbody tr:nth-child(odd) td { background: rgba(255,255,255,.018); }
+    tbody tr:hover td { background: rgba(0,212,170,.06); color: var(--snow); }
+    .empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--dust);
+    }
+    @media (max-width: 720px) {
+      .page { padding: 1rem; }
+      h1 { font-size: 1.3rem; }
+      .table-wrap { max-height: calc(100vh - 220px); }
+      .search { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <div>
+        <div class="kicker">Tableau détaillé</div>
+        <h1 id="title">Aucun tableau chargé</h1>
+        <div class="subtitle" id="subtitle">Ouvrez un tableau depuis le dashboard pour l’afficher ici.</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="export-csv">Exporter CSV</button>
+        <button class="btn" id="print-page">Imprimer</button>
+      </div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="toolbar">
+      <input id="search" class="search" type="text" placeholder="Rechercher dans le tableau...">
+      <div class="count" id="count">0 ligne</div>
+    </div>
+    <div class="table-wrap">
+      <table id="table">
+        <thead><tr id="thead-row"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = 'dashboard.chart.tableView';
+      const titleEl = document.getElementById('title');
+      const subtitleEl = document.getElementById('subtitle');
+      const metaEl = document.getElementById('meta');
+      const theadRow = document.getElementById('thead-row');
+      const tbody = document.getElementById('tbody');
+      const countEl = document.getElementById('count');
+      const search = document.getElementById('search');
+
+      function loadPayload() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      const payload = loadPayload();
+      if (!payload || !Array.isArray(payload.headers) || !Array.isArray(payload.rows)) {
+        tbody.innerHTML = '<tr><td class="empty">Aucune donnée disponible pour cet onglet.</td></tr>';
+        return;
+      }
+
+      titleEl.textContent = payload.title || 'Tableau détaillé';
+      subtitleEl.textContent = payload.subtitle || 'Vue détaillée ouverte depuis le dashboard';
+      document.title = (payload.title || 'Tableau détaillé') + ' — Dashboard';
+
+      (payload.meta || []).forEach(function (item) {
+        const pill = document.createElement('div');
+        pill.className = 'pill';
+        pill.textContent = item;
+        metaEl.appendChild(pill);
+      });
+
+      let sortState = { index: 0, asc: true };
+      payload.headers.forEach(function (header, index) {
+        const th = document.createElement('th');
+        th.textContent = header;
+        th.addEventListener('click', function () {
+          sortState.asc = sortState.index === index ? !sortState.asc : true;
+          sortState.index = index;
+          render();
+        });
+        theadRow.appendChild(th);
+      });
+
+      function currentRows() {
+        const query = (search.value || '').trim().toLowerCase();
+        let rows = payload.rows.slice();
+        if (query) {
+          rows = rows.filter(function (row) {
+            return row.some(function (cell) {
+              return String(cell || '').toLowerCase().includes(query);
+            });
+          });
+        }
+        rows.sort(function (a, b) {
+          const av = String(a[sortState.index] || '').trim();
+          const bv = String(b[sortState.index] || '').trim();
+          const an = parseFloat(av.replace(/[^\d.,-]/g, '').replace(',', '.'));
+          const bn = parseFloat(bv.replace(/[^\d.,-]/g, '').replace(',', '.'));
+          if (isFinite(an) && isFinite(bn)) return sortState.asc ? an - bn : bn - an;
+          return sortState.asc ? av.localeCompare(bv, 'fr') : bv.localeCompare(av, 'fr');
+        });
+        return rows;
+      }
+
+      function render() {
+        const rows = currentRows();
+        countEl.textContent = rows.length + ' ligne' + (rows.length > 1 ? 's' : '');
+        tbody.innerHTML = rows.length
+          ? rows.map(function (row) {
+              return '<tr>' + row.map(function (cell) {
+                return '<td>' + escapeHtml(cell) + '</td>';
+              }).join('') + '</tr>';
+            }).join('')
+          : '<tr><td class="empty" colspan="' + payload.headers.length + '">Aucune ligne ne correspond à la recherche.</td></tr>';
+      }
+
+      search.addEventListener('input', render);
+      document.getElementById('export-csv').addEventListener('click', function () {
+        const rows = [payload.headers].concat(currentRows());
+        const csv = rows.map(function (row) {
+          return row.map(function (cell) {
+            const value = String(cell == null ? '' : cell).replace(/"/g, '""');
+            return '"' + value + '"';
+          }).join(';');
+        }).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = (payload.title || 'tableau').replace(/[^\w\-]+/g, '_') + '.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById('print-page').addEventListener('click', function () { window.print(); });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

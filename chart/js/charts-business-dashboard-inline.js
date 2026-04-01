@@ -12,10 +12,22 @@
   ];
   var INLINE_DRILL_STATE = {};
   var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
+  var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
 
   function cleanLabel(value) {
     var raw = value == null ? '' : String(value).trim();
     return raw || 'Non renseigne';
+  }
+
+  function storeTablePayload(payload) {
+    try {
+      if (window.localStorage) localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function openTablePage(payload) {
+    storeTablePayload(Object.assign({ generatedAt: new Date().toISOString(), source: 'business-drill' }, payload));
+    window.open('table-view.html?ts=' + Date.now(), '_blank', 'noopener');
   }
 
   function bucketKey(value) {
@@ -732,7 +744,8 @@
     actions.className = 'business-drill-actions';
     actions.innerHTML =
       '<button type="button" class="business-drill-btn" data-role="show-all">Voir toutes les données du graphique</button>' +
-      '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="hide">Masquer les données</button>';
+      '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="hide">Masquer les données</button>' +
+      '<button type="button" class="business-drill-btn business-drill-btn-tertiary" data-role="open-page">↗ Ouvrir en pleine page</button>';
     card.appendChild(actions);
 
     actions.querySelector('[data-role="show-all"]').addEventListener('click', function() {
@@ -742,6 +755,11 @@
     });
     actions.querySelector('[data-role="hide"]').addEventListener('click', function() {
       closeInlineDetails(chartId);
+    });
+    actions.querySelector('[data-role="open-page"]').addEventListener('click', function() {
+      var state = INLINE_DRILL_STATE[chartId];
+      if (!state || !state.allProjects || !state.allProjects.length) return;
+      openDetails(state.allProjects, state.title, { chartId: chartId, useInline: true, openInPage: true });
     });
     return actions;
   }
@@ -937,6 +955,25 @@
     });
   }
 
+  function buildInlineTablePayload(panel, title) {
+    var state = panel && panel._businessDrillState;
+    if (!state) return null;
+    var rows = (state.filteredRows && state.filteredRows.length ? state.filteredRows : state.rows || []).map(function(row) {
+      return BUSINESS_DRILL_COLUMNS.map(function(col) {
+        return row[col.key] ? String(row[col.key].display || '—') : '—';
+      });
+    });
+    return {
+      title: title,
+      subtitle: 'Détail complet du graphique',
+      headers: BUSINESS_DRILL_COLUMNS.map(function(col) { return col.label; }),
+      rows: rows,
+      meta: Array.from(panel.querySelectorAll('.business-drill-pill')).map(function(pill) {
+        return pill.textContent.replace(/\s+/g, ' ').trim();
+      }).filter(Boolean)
+    };
+  }
+
   function renderInlineDetails(chartId, projects, title) {
     var panel = getInlinePanel(chartId);
     if (!panel) return;
@@ -981,6 +1018,19 @@
     panel.classList.add('is-open');
     var globalSection = document.getElementById('detail-section');
     if (globalSection) globalSection.classList.remove('active');
+
+    var actions = getInlineActions(chartId);
+    if (actions) {
+      var showAllBtn = actions.querySelector('[data-role="show-all"]');
+      var hideBtn = actions.querySelector('[data-role="hide"]');
+      var openPageBtn = actions.querySelector('[data-role="open-page"]');
+      if (showAllBtn) showAllBtn.classList.add('is-active');
+      if (hideBtn) {
+        hideBtn.disabled = false;
+        hideBtn.classList.add('is-active');
+      }
+      if (openPageBtn) openPageBtn.disabled = !rows.length;
+    }
   }
 
   function closeInlineDetails(chartId) {
@@ -990,8 +1040,11 @@
     panel.innerHTML = '';
     var actions = getInlineActions(chartId);
     if (actions) {
+      var showAllBtn = actions.querySelector('[data-role="show-all"]');
       var hideBtn = actions.querySelector('[data-role="hide"]');
+      if (showAllBtn) showAllBtn.classList.remove('is-active');
       if (hideBtn) hideBtn.disabled = true;
+      if (hideBtn) hideBtn.classList.remove('is-active');
     }
   }
 
@@ -1015,9 +1068,15 @@
       showAllBtn.textContent = allProjects.length
         ? 'Voir toutes les données du graphique'
         : 'Aucune donnée sur ce graphique';
+      showAllBtn.classList.remove('is-active');
     }
     if (hideBtn) {
       hideBtn.disabled = !panel.classList.contains('is-open');
+      hideBtn.classList.remove('is-active');
+    }
+    var openPageBtn = actions.querySelector('[data-role="open-page"]');
+    if (openPageBtn) {
+      openPageBtn.disabled = !allProjects.length;
     }
   }
 
@@ -1026,10 +1085,18 @@
     var rows = Array.isArray(projects) ? projects.slice() : [];
     if (options.useInline && options.chartId) {
       renderInlineDetails(options.chartId, rows, title);
+      if (options.openInPage) {
+        var inlinePanel = getInlinePanel(options.chartId);
+        var payload = buildInlineTablePayload(inlinePanel, title);
+        if (payload) openTablePage(payload);
+      }
       var actions = getInlineActions(options.chartId);
       if (actions) {
         var hideBtn = actions.querySelector('[data-role="hide"]');
-        if (hideBtn) hideBtn.disabled = false;
+        if (hideBtn) {
+          hideBtn.disabled = false;
+          hideBtn.classList.add('is-active');
+        }
       }
       return;
     }

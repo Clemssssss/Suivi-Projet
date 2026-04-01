@@ -21,6 +21,9 @@ if (!window.ChartAnalysis) {
 window.ChartAnalysis = (() => {
   'use strict';
 
+  const TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+  const STYLE_STORAGE_KEY = 'dashboard.chart.styles';
+
   /* ──────────────────────────────────────────────────────────────
      HELPERS
   ────────────────────────────────────────────────────────────── */
@@ -70,6 +73,21 @@ window.ChartAnalysis = (() => {
     if (Math.abs(num) <= 1 && num !== 0) return Math.round(num * 100) + '%';
     if (Math.abs(num) > 0 && Math.abs(num) <= 100) return num.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
     return _fmt(num);
+  }
+
+  function _storageGet(key, fallback) {
+    try {
+      const raw = window.localStorage ? localStorage.getItem(key) : null;
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function _storageSet(key, value) {
+    try {
+      if (window.localStorage) localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {}
   }
 
   /* Année d'un projet selon champ date courant */
@@ -160,6 +178,7 @@ window.ChartAnalysis = (() => {
       <div class="ca-table-controls">
         <input class="ca-search-input" type="text" placeholder="🔍 Rechercher dans le tableau…" autocomplete="off">
         <span class="ca-row-count"></span>
+        <button class="ca-open-table-btn" title="Ouvrir ce tableau dans un nouvel onglet">↗ Pleine page</button>
         <button class="ca-export-btn" title="Exporter vers Excel">⬇ Excel</button>
       </div>
       <div class="ca-scroll-wrap">
@@ -181,6 +200,7 @@ window.ChartAnalysis = (() => {
     const table      = tableView.querySelector('.ca-data-table');
     const searchInput= tableView.querySelector('.ca-search-input');
     const exportBtn  = tableView.querySelector('.ca-export-btn');
+    const openBtn    = tableView.querySelector('.ca-open-table-btn');
     const rowCount   = tableView.querySelector('.ca-row-count');
     const topScroll  = tableView.querySelector('.ca-top-scroll');
     const topInner   = tableView.querySelector('.ca-top-scroll-inner');
@@ -299,6 +319,222 @@ window.ChartAnalysis = (() => {
         URL.revokeObjectURL(url);
       });
     }
+
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        _openTableInNewTab({
+          source: 'chart-analysis',
+          title: _chartTitle(chartId),
+          subtitle: 'Vue synthétique du graphique',
+          meta: _buildAnalysisMetaPayload(chartId),
+          headers: ths.map(th => th.textContent.replace(/[↑↓▲▼↕]$/,'').trim()),
+          rows: allRows()
+            .filter(r => r.style.display !== 'none')
+            .map(row => Array.from(row.cells).map(cell => cell.textContent.trim()))
+        });
+      });
+    }
+  }
+
+  function _chartTitle(chartId) {
+    const card = document.querySelector('[data-chart-id="' + chartId + '"]');
+    const title = card && card.querySelector('.chart-title');
+    if (title) return title.textContent.replace(/\s+/g, ' ').trim();
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return chartId;
+    const label = canvas.closest('.chart-card')?.querySelector('.chart-title');
+    return label ? label.textContent.replace(/\s+/g, ' ').trim() : chartId;
+  }
+
+  function _buildAnalysisMetaPayload(chartId) {
+    const block = document.getElementById(`ca-block-${chartId}`);
+    if (!block) return [];
+    return Array.from(block.querySelectorAll('.ca-block-meta span')).map(function(item) {
+      return item.textContent.replace(/\s+/g, ' ').trim();
+    }).filter(Boolean);
+  }
+
+  function _openTableInNewTab(payload) {
+    _storageSet(TABLE_VIEW_STORAGE_KEY, Object.assign({ generatedAt: new Date().toISOString() }, payload));
+    window.open('table-view.html?ts=' + Date.now(), '_blank', 'noopener');
+  }
+
+  function _applyChartStyle(chartId, styleCfg) {
+    const chart = _resolveChart(chartId);
+    if (!chart) return;
+
+    const palettes = {
+      emerald: ['#00d4aa', '#0099ff', '#8b78f8', '#f5b740', '#ff4d6d', '#10b981'],
+      sunset: ['#fb7185', '#f97316', '#f59e0b', '#facc15', '#38bdf8', '#6366f1'],
+      ocean: ['#22d3ee', '#38bdf8', '#0ea5e9', '#0284c7', '#14b8a6', '#34d399'],
+      graphite: ['#e2e8f0', '#94a3b8', '#64748b', '#cbd5e1', '#14b8a6', '#f59e0b']
+    };
+    const colors = palettes[styleCfg.palette] || palettes.emerald;
+
+    (chart.data.datasets || []).forEach(function(ds, index) {
+      const color = colors[index % colors.length];
+      ds.borderColor = color;
+      ds.backgroundColor = Array.isArray(ds.backgroundColor)
+        ? ds.backgroundColor.map(function(_, idx) { return colors[idx % colors.length]; })
+        : color;
+      ds.pointBackgroundColor = color;
+      ds.pointBorderColor = color;
+    });
+
+    chart.options.plugins = chart.options.plugins || {};
+    chart.options.plugins.legend = chart.options.plugins.legend || {};
+    chart.options.plugins.legend.display = !!styleCfg.legend;
+    chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
+    chart.options.plugins.legend.labels.color = '#dce8f5';
+
+    const scales = chart.options.scales || {};
+    Object.keys(scales).forEach(function(key) {
+      const scale = scales[key] || {};
+      scale.grid = scale.grid || {};
+      scale.ticks = scale.ticks || {};
+      scale.title = scale.title || {};
+      scale.grid.display = !!styleCfg.grid;
+      scale.grid.color = styleCfg.grid ? 'rgba(148,163,184,.14)' : 'rgba(0,0,0,0)';
+      scale.ticks.color = '#c0d0e0';
+      if (key === 'x' && styleCfg.xTitle != null) {
+        scale.title.display = !!String(styleCfg.xTitle).trim();
+        scale.title.text = String(styleCfg.xTitle || '').trim();
+        scale.title.color = '#94a3b8';
+      }
+      if (key === 'y' && styleCfg.yTitle != null) {
+        scale.title.display = !!String(styleCfg.yTitle).trim();
+        scale.title.text = String(styleCfg.yTitle || '').trim();
+        scale.title.color = '#94a3b8';
+      }
+      scales[key] = scale;
+    });
+    chart.options.scales = scales;
+    chart.update();
+
+    const styleMap = _storageGet(STYLE_STORAGE_KEY, {});
+    styleMap[chartId] = styleCfg;
+    _storageSet(STYLE_STORAGE_KEY, styleMap);
+  }
+
+  function _getChartStyle(chartId) {
+    const map = _storageGet(STYLE_STORAGE_KEY, {});
+    return Object.assign({
+      palette: 'emerald',
+      legend: true,
+      grid: true,
+      xTitle: '',
+      yTitle: ''
+    }, map[chartId] || {});
+  }
+
+  function _openStyleEditor(chartId) {
+    const current = _getChartStyle(chartId);
+    const overlay = document.createElement('div');
+    overlay.className = 'ca-style-modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'ca-style-modal';
+    modal.innerHTML = `
+      <div class="ca-style-modal-head">
+        <div class="ca-style-modal-title">Style du graphique</div>
+        <button class="ca-style-secondary" data-role="close">Fermer</button>
+      </div>
+      <div class="ca-style-modal-body">
+        <div class="ca-style-row">
+          <label>Palette</label>
+          <select data-field="palette">
+            <option value="emerald"${current.palette === 'emerald' ? ' selected' : ''}>Emerald</option>
+            <option value="sunset"${current.palette === 'sunset' ? ' selected' : ''}>Sunset</option>
+            <option value="ocean"${current.palette === 'ocean' ? ' selected' : ''}>Ocean</option>
+            <option value="graphite"${current.palette === 'graphite' ? ' selected' : ''}>Graphite</option>
+          </select>
+        </div>
+        <div class="ca-style-row">
+          <label>Nom graduation X</label>
+          <input data-field="xTitle" type="text" value="${current.xTitle || ''}" placeholder="Ex. Mois / Client / Zone">
+        </div>
+        <div class="ca-style-row">
+          <label>Nom graduation Y</label>
+          <input data-field="yTitle" type="text" value="${current.yTitle || ''}" placeholder="Ex. CA (€) / Volume">
+        </div>
+        <div class="ca-style-row">
+          <label>Affichage</label>
+          <div class="ca-style-checks">
+            <label class="ca-style-check"><input data-field="legend" type="checkbox"${current.legend ? ' checked' : ''}> Légende</label>
+            <label class="ca-style-check"><input data-field="grid" type="checkbox"${current.grid ? ' checked' : ''}> Graduations / grille</label>
+          </div>
+        </div>
+      </div>
+      <div class="ca-style-modal-foot">
+        <button class="ca-style-secondary" data-role="reset">Réinitialiser</button>
+        <button class="ca-style-primary" data-role="apply">Appliquer</button>
+      </div>
+    `;
+
+    function close() {
+      overlay.remove();
+      modal.remove();
+    }
+
+    overlay.addEventListener('click', close);
+    modal.querySelector('[data-role="close"]').addEventListener('click', close);
+    modal.querySelector('[data-role="reset"]').addEventListener('click', function() {
+      _applyChartStyle(chartId, {
+        palette: 'emerald',
+        legend: true,
+        grid: true,
+        xTitle: '',
+        yTitle: ''
+      });
+      close();
+    });
+    modal.querySelector('[data-role="apply"]').addEventListener('click', function() {
+      _applyChartStyle(chartId, {
+        palette: modal.querySelector('[data-field="palette"]').value,
+        legend: !!modal.querySelector('[data-field="legend"]').checked,
+        grid: !!modal.querySelector('[data-field="grid"]').checked,
+        xTitle: modal.querySelector('[data-field="xTitle"]').value || '',
+        yTitle: modal.querySelector('[data-field="yTitle"]').value || ''
+      });
+      close();
+    });
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+  }
+
+  function _toggleGlobalMode() {
+    if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
+    const current = AE.getCAMode();
+    const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
+    AE.setCAMode(next);
+    if (typeof update === 'function') update();
+  }
+
+  function _formatAnalysisMarkup(text) {
+    if (!text) return '';
+    const normalized = text.replace(/&nbsp;·&nbsp;/g, ' · ');
+    const lines = normalized.split(/<br\s*\/?>/i).map(function(line) { return line.trim(); }).filter(Boolean);
+    if (!lines.length) return normalized;
+
+    let lead = '';
+    const points = [];
+    lines.forEach(function(line) {
+      const fragments = line.split(/\s*[·•]\s*/).map(function(part) { return part.trim(); }).filter(Boolean);
+      if (!lead && fragments.length) {
+        lead = fragments.shift();
+      }
+      points.push.apply(points, fragments.length ? fragments : (lead ? [] : [line]));
+    });
+
+    if (!lead && points.length) lead = points.shift();
+    if (!lead) return normalized;
+
+    return `
+      <div class="ca-analysis-lead">${lead}</div>
+      ${points.length ? `<div class="ca-analysis-grid">${points.map(function(point) {
+        return `<div class="ca-analysis-point">${point}</div>`;
+      }).join('')}</div>` : ''}
+    `;
   }
 
   /* ──────────────────────────────────────────────────────────────
@@ -1151,9 +1387,35 @@ window.ChartAnalysis = (() => {
         gap: .5rem;
         background: rgba(0,212,170,.035);
       }
+      .ca-block-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
       .ca-block-text {
         flex: 1;
-        padding: .45rem .75rem;
+        padding: .7rem .8rem .55rem;
+      }
+      .ca-analysis-lead {
+        color: #e6f1fb;
+        font-size: .72rem;
+        line-height: 1.65;
+      }
+      .ca-analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: .45rem;
+        margin-top: .55rem;
+      }
+      .ca-analysis-point {
+        padding: .52rem .6rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.06);
+        background: rgba(255,255,255,.025);
+        color: rgba(220,232,245,.88);
+        line-height: 1.55;
       }
       .ca-block-meta {
         display: flex;
@@ -1188,6 +1450,36 @@ window.ChartAnalysis = (() => {
       }
       .ca-toggle-btn:hover { background: rgba(0,153,255,.22); color: #93c5fd; }
       .ca-toggle-btn.is-table { background: rgba(0,212,170,.12); border-color: rgba(0,212,170,.3); color: #34d399; }
+      .ca-open-btn,
+      .ca-style-btn,
+      .ca-mode-btn {
+        flex-shrink: 0;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all .18s;
+        white-space: nowrap;
+        font-family: 'DM Mono', monospace;
+        font-size: .6rem;
+        padding: .2rem .55rem;
+      }
+      .ca-open-btn {
+        background: rgba(16,185,129,.1);
+        border: 1px solid rgba(16,185,129,.24);
+        color: #6ee7b7;
+      }
+      .ca-open-btn:hover { background: rgba(16,185,129,.18); color: #a7f3d0; }
+      .ca-style-btn {
+        background: rgba(245,183,64,.1);
+        border: 1px solid rgba(245,183,64,.25);
+        color: #f5d77f;
+      }
+      .ca-style-btn:hover { background: rgba(245,183,64,.18); color: #fde68a; }
+      .ca-mode-btn {
+        background: rgba(139,120,248,.1);
+        border: 1px solid rgba(139,120,248,.25);
+        color: #c4b5fd;
+      }
+      .ca-mode-btn:hover { background: rgba(139,120,248,.18); color: #ddd6fe; }
 
       /* ── TABLE WRAPPER ── */
       .ca-table-view { display: none; }
@@ -1238,6 +1530,121 @@ window.ChartAnalysis = (() => {
         transition: all .15s;
       }
       .ca-export-btn:hover { background: rgba(16,185,129,.22); color: #6ee7b7; }
+      .ca-open-table-btn {
+        flex-shrink: 0;
+        background: rgba(0,153,255,.12);
+        border: 1px solid rgba(0,153,255,.28);
+        color: #7dd3fc;
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        padding: .22rem .6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .ca-open-table-btn:hover { background: rgba(0,153,255,.22); color: #bae6fd; }
+
+      .ca-style-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2,6,12,.72);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+      }
+      .ca-style-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10001;
+        width: min(520px, calc(100vw - 2rem));
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: linear-gradient(180deg, rgba(12,22,38,.98), rgba(8,15,28,.98));
+        box-shadow: 0 22px 65px rgba(0,0,0,.52);
+        overflow: hidden;
+        color: #dce8f5;
+      }
+      .ca-style-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .95rem 1rem;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+      }
+      .ca-style-modal-title {
+        font-family: 'DM Mono', monospace;
+        font-size: .72rem;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: #e6f1fb;
+      }
+      .ca-style-modal-body {
+        padding: 1rem;
+        display: grid;
+        gap: .85rem;
+      }
+      .ca-style-row {
+        display: grid;
+        gap: .38rem;
+      }
+      .ca-style-row label {
+        font-family: 'DM Mono', monospace;
+        font-size: .6rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: rgba(159,179,200,.82);
+      }
+      .ca-style-row input,
+      .ca-style-row select {
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 10px;
+        color: #dce8f5;
+        padding: .62rem .75rem;
+        font-family: 'DM Mono', monospace;
+        font-size: .67rem;
+      }
+      .ca-style-checks {
+        display: flex;
+        gap: .8rem;
+        flex-wrap: wrap;
+      }
+      .ca-style-check {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        font-size: .67rem;
+        color: #c0d0e0;
+      }
+      .ca-style-check input { accent-color: #00d4aa; }
+      .ca-style-modal-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: .55rem;
+        padding: 0 1rem 1rem;
+      }
+      .ca-style-primary,
+      .ca-style-secondary {
+        border-radius: 10px;
+        padding: .55rem .8rem;
+        font-family: 'DM Mono', monospace;
+        font-size: .64rem;
+        cursor: pointer;
+        transition: all .15s;
+      }
+      .ca-style-primary {
+        background: rgba(0,212,170,.15);
+        border: 1px solid rgba(0,212,170,.36);
+        color: #6ee7b7;
+      }
+      .ca-style-secondary {
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.08);
+        color: #c0d0e0;
+      }
 
       /* ── DUAL SCROLLBAR ── */
       .ca-scroll-wrap { position: relative; }
@@ -1330,7 +1737,12 @@ window.ChartAnalysis = (() => {
       block.innerHTML = `
         <div class="ca-block-header">
           <span class="ca-block-kicker" style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(0,212,170,.7);">Analyse</span>
-          <button class="ca-toggle-btn" title="Basculer entre graphique et tableau synthétique">📊 Tableau</button>
+          <div class="ca-block-actions">
+            <button class="ca-mode-btn" title="Basculer entre volume et valeur">📈 / 💰 Mode</button>
+            <button class="ca-style-btn" title="Personnaliser les couleurs, axes et graduations">🎨 Style</button>
+            <button class="ca-open-btn" title="Ouvrir le tableau sur une page entière">↗ Pleine page</button>
+            <button class="ca-toggle-btn" title="Afficher ou masquer le tableau synthétique">📊 Afficher le tableau</button>
+          </div>
         </div>
         <div class="ca-block-text"></div>
         <div class="ca-block-meta"></div>
@@ -1345,10 +1757,13 @@ window.ChartAnalysis = (() => {
       // Toggle logique
       const btn       = block.querySelector('.ca-toggle-btn');
       const tableView = block.querySelector('.ca-table-view');
+      const openBtn   = block.querySelector('.ca-open-btn');
+      const styleBtn  = block.querySelector('.ca-style-btn');
+      const modeBtn   = block.querySelector('.ca-mode-btn');
 
       btn.addEventListener('click', () => {
         const isTableNow = tableView.classList.toggle('is-visible');
-        btn.textContent = isTableNow ? '📈 Graphique' : '📊 Tableau';
+        btn.textContent = isTableNow ? '📕 Masquer le tableau' : '📊 Afficher le tableau';
         btn.classList.toggle('is-table', isTableNow);
 
         if (isTableNow && !tableView.dataset.built) {
@@ -1361,11 +1776,38 @@ window.ChartAnalysis = (() => {
           }
           tableView.dataset.built = '1';
         }
-
-        // Montrer/cacher le canvas
-        const c = document.getElementById(chartId);
-        if (c) c.style.display = isTableNow ? 'none' : '';
       });
+
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          if (!tableView.dataset.built) {
+            const tbl = _buildTableFromChart(chartId);
+            if (tbl) {
+              tableView.innerHTML = tbl;
+              _initTableFeatures(tableView, chartId);
+              tableView.dataset.built = '1';
+            }
+          }
+          const table = tableView.querySelector('.ca-data-table');
+          if (!table) return;
+          const headers = Array.from(table.querySelectorAll('thead th')).map(function(th) {
+            return th.textContent.replace(/[↑↓▲▼↕]$/,'').trim();
+          });
+          const rows = Array.from(table.querySelectorAll('tbody tr')).map(function(row) {
+            return Array.from(row.cells).map(function(cell) { return cell.textContent.trim(); });
+          });
+          _openTableInNewTab({
+            source: 'chart-analysis',
+            title: _chartTitle(chartId),
+            subtitle: 'Vue synthétique du graphique',
+            meta: _buildAnalysisMetaPayload(chartId),
+            headers: headers,
+            rows: rows
+          });
+        });
+      }
+      if (styleBtn) styleBtn.addEventListener('click', () => _openStyleEditor(chartId));
+      if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode());
     }
     return block;
   }
@@ -1395,7 +1837,7 @@ window.ChartAnalysis = (() => {
       if (!text) {
         block.style.display = 'none';
       } else {
-        textEl.innerHTML = text;
+        textEl.innerHTML = _formatAnalysisMarkup(text);
         block.style.display = '';
       }
     }
@@ -1406,6 +1848,10 @@ window.ChartAnalysis = (() => {
       } else {
         metaEl.innerHTML = '';
       }
+    }
+    var modeBtn = block.querySelector('.ca-mode-btn');
+    if (modeBtn && typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
+      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '💰 Passer en valeur' : '📈 Passer en volume';
     }
 
     // Invalider le tableau en cache si les données ont changé
@@ -1425,6 +1871,9 @@ window.ChartAnalysis = (() => {
     }
 
     block.classList.remove('ca-updating');
+
+    const savedStyle = _getChartStyle(chartId);
+    if (savedStyle) _applyChartStyle(chartId, savedStyle);
   }
 
   function renderAll(data) {
