@@ -647,6 +647,115 @@ window.ChartAnalysis = (() => {
     return lines.filter(Boolean).join('<br>');
   }
 
+  function _toChartNumber(raw) {
+    const value = typeof raw === 'object' && raw !== null ? Number(raw.y != null ? raw.y : raw.x) : Number(raw);
+    return isFinite(value) ? value : null;
+  }
+
+  function _summarizeChartData(chartId) {
+    const chart = _resolveChart(chartId);
+    if (!chart || !chart.data) return null;
+
+    const labels = Array.isArray(chart.data.labels) ? chart.data.labels.map(function(label) {
+      return String(label == null ? '' : label).trim();
+    }).filter(Boolean) : [];
+    const datasets = (chart.data.datasets || []).filter(function(ds) {
+      return ds && Array.isArray(ds.data);
+    }).map(function(ds, datasetIndex) {
+      const points = ds.data.map(function(raw, index) {
+        return {
+          index: index,
+          label: labels[index] || ('#' + (index + 1)),
+          value: _toChartNumber(raw)
+        };
+      }).filter(function(point) { return point.value !== null; });
+      const total = points.reduce(function(sum, point) { return sum + point.value; }, 0);
+      const top = points.slice().sort(function(a, b) { return b.value - a.value; })[0] || null;
+      return {
+        index: datasetIndex,
+        label: ds.label || 'Valeur',
+        total: total,
+        points: points,
+        top: top
+      };
+    });
+
+    if (!datasets.length) return null;
+
+    const aggregate = {};
+    datasets.forEach(function(ds) {
+      ds.points.forEach(function(point) {
+        aggregate[point.label] = (aggregate[point.label] || 0) + point.value;
+      });
+    });
+
+    const categories = Object.keys(aggregate).map(function(label) {
+      return { label: label, value: aggregate[label] };
+    }).sort(function(a, b) { return b.value - a.value; });
+
+    return {
+      chart: chart,
+      labels: labels,
+      datasets: datasets,
+      categories: categories,
+      total: categories.reduce(function(sum, item) { return sum + item.value; }, 0),
+      topCategory: categories[0] || null,
+      secondCategory: categories[1] || null,
+      topDataset: datasets.slice().sort(function(a, b) { return b.total - a.total; })[0] || null
+    };
+  }
+
+  function _chartDrivenBusinessAnalysis(chartId, data, options) {
+    options = options || {};
+    const summary = _summarizeChartData(chartId);
+    if (!summary || !summary.categories.length) return null;
+
+    const top = summary.topCategory;
+    const second = summary.secondCategory;
+    const topShare = summary.total > 0 ? Math.round(top.value / summary.total * 100) : null;
+    const lines = [];
+
+    if (options.emphasis === 'time') {
+      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
+      if (second) {
+        const delta = second.value !== 0 ? _pct(top.value, second.value) : null;
+        lines.push(delta !== null
+          ? `📈 Écart avec le 2e point : <strong>${delta >= 0 ? '+' : ''}${delta}%</strong> face à <strong>${second.label}</strong>.`
+          : `📊 2e point : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}).`);
+      }
+    } else {
+      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
+      if (second) {
+        const gap = top.value - second.value;
+        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}) — écart ${_formatVal(gap) || _fmt(gap)}.`);
+      }
+    }
+
+    if (summary.datasets.length > 1 && summary.topDataset) {
+      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
+    }
+
+    if (topShare !== null) {
+      lines.push(
+        topShare >= 45
+          ? `⚠️ Concentration marquée : <strong>${top.label}</strong> pèse ${topShare}% du total affiché.`
+          : `🧭 Répartition sur <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} avec un leader à ${topShare}%.`
+      );
+    }
+
+    if (data && data.length) {
+      const offers = data.filter(function(p) { return _status(p) === 'offre'; }).length;
+      const won = data.filter(function(p) { return _status(p) === 'obtenu'; }).length;
+      if (options.family === 'pipeline') {
+        lines.push(`💡 Lecture pipe : <strong>${offers}</strong> offre${_s(offers)} active${_s(offers)} dans le périmètre visible.`);
+      } else if (options.family === 'performance') {
+        lines.push(`💡 Lecture performance : <strong>${won}</strong> projet${_s(won)} gagné${_s(won)} pour comparer les écarts entre catégories.`);
+      }
+    }
+
+    return lines.filter(Boolean).join(' &nbsp;·&nbsp; ');
+  }
+
   /* ──────────────────────────────────────────────────────────────
      RATIO CLIENT — analyse enrichie avec CA/dossier
   ────────────────────────────────────────────────────────────── */
@@ -1318,13 +1427,17 @@ window.ChartAnalysis = (() => {
     },
 
     /* ── BIZ CHARTS (Pilotage métier) ── */
-    'biz-chart-perf-month':       (data) => _ANALYZERS['chart-monthly'](data),
-    'biz-chart-perf-zone':        (data) => _ANALYZERS['chart-status-zone'](data),
-    'biz-chart-perf-client':      (data) => _ANALYZERS['chart-obtenu'](data),
-    'biz-chart-perf-type':        (data) => _ANALYZERS['chart-conv-par-type'](data),
-    'biz-chart-pipe-zone':        (data) => _ANALYZERS['chart-ca-zone'](data),
-    'biz-chart-pipe-client':      (data) => _ANALYZERS['chart-ca-company'](data),
-    'biz-chart-pipe-type':        (data) => _ANALYZERS['chart-offer-type'](data),
+    'biz-chart-perf-month':       (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-month', data, { family: 'performance', emphasis: 'time' }) || _ANALYZERS['chart-monthly'](data),
+    'biz-chart-perf-zone':        (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-zone', data, { family: 'performance' }) || _ANALYZERS['chart-status-zone'](data),
+    'biz-chart-perf-client':      (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-client', data, { family: 'performance' }) || _ANALYZERS['chart-obtenu'](data),
+    'biz-chart-perf-type':        (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-type', data, { family: 'performance' }) || _ANALYZERS['chart-conv-par-type'](data),
+    'biz-chart-perf-zone-client': (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-zone-client', data, { family: 'performance' }),
+    'biz-chart-perf-client-type': (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-client-type', data, { family: 'performance' }),
+    'biz-chart-pipe-zone':        (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-zone', data, { family: 'pipeline' }) || _ANALYZERS['chart-ca-zone'](data),
+    'biz-chart-pipe-client':      (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-client', data, { family: 'pipeline' }) || _ANALYZERS['chart-ca-company'](data),
+    'biz-chart-pipe-type':        (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-type', data, { family: 'pipeline' }) || _ANALYZERS['chart-offer-type'](data),
+    'biz-chart-pipe-zone-client': (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-zone-client', data, { family: 'pipeline' }),
+    'biz-chart-pipe-client-type': (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-client-type', data, { family: 'pipeline' }),
   };
 
   /* ──────────────────────────────────────────────────────────────
@@ -1338,6 +1451,7 @@ window.ChartAnalysis = (() => {
     const decided = obtenus + perdus;
     const conv    = decided > 0 ? Math.round(obtenus/decided*100) : null;
     const caTotal = data.reduce((s,p)=>s+_getCA(p,'ca_etudie'),0);
+    const summary = _summarizeChartData(chartId);
 
     // Texte de base
     const parts = [
@@ -1346,37 +1460,21 @@ window.ChartAnalysis = (() => {
       caTotal > 0   ? `📊 CA total étudié : <strong>${_fmt(caTotal)}</strong>.` : '',
     ];
 
-    // Enrichissement depuis le graphique Chart.js
-    const chart = _resolveChart(chartId);
-    if (chart && chart.data) {
-      const labels   = Array.isArray(chart.data.labels) ? chart.data.labels.filter(v=>v!=null&&String(v).trim()!=='') : [];
-      const datasets = (chart.data.datasets||[]).filter(ds=>ds&&Array.isArray(ds.data));
-      if (labels.length) {
-        parts.push(`🧭 <strong>${labels.length}</strong> catégorie${_s(labels.length)} visible${_s(labels.length)}.`);
+    if (summary) {
+      if (summary.categories.length) {
+        parts.push(`🧭 <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} visible${_s(summary.categories.length)}.`);
       }
-      if (datasets.length === 1) {
-        const ds = datasets[0];
-        let best = null;
-        ds.data.forEach((raw, i) => {
-          const v = typeof raw==='object'&&raw!==null ? Number(raw.y??raw.x) : Number(raw);
-          if (isFinite(v) && (!best||v>best.value)) best = { label: String(labels[i]??`#${i+1}`), value: v };
-        });
-        if (best) {
-          const fv = _formatVal(best.value);
-          if (fv) parts.push(`🏆 Point fort : <strong>${best.label}</strong> (${fv}).`);
-        }
-      } else if (datasets.length > 1) {
-        const totals = datasets.map(ds => ({
-          label: ds.label||'Série',
-          total: ds.data.reduce((s,raw)=>{
-            const v = typeof raw==='object'&&raw!==null?Number(raw.y??raw.x):Number(raw);
-            return s+(isFinite(v)?v:0);
-          },0)
-        })).sort((a,b)=>b.total-a.total);
-        if (totals[0]) {
-          const fv = _formatVal(totals[0].total);
-          if (fv) parts.push(`📚 Série dominante : <strong>${totals[0].label}</strong> (${fv}).`);
-        }
+      if (summary.topCategory) {
+        parts.push(`🏆 Point fort : <strong>${summary.topCategory.label}</strong> (${_formatVal(summary.topCategory.value) || _fmt(summary.topCategory.value)}).`);
+      }
+      if (summary.datasets.length > 1 && summary.topDataset) {
+        parts.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
+      }
+      if (summary.topCategory && summary.secondCategory && summary.total > 0) {
+        const share = Math.round(summary.topCategory.value / summary.total * 100);
+        parts.push(share >= 45
+          ? `⚠️ La catégorie leader concentre <strong>${share}%</strong> du total visible.`
+          : `📊 Répartition équilibrée : leader à <strong>${share}%</strong> du total.`);
       }
     }
 
