@@ -58,7 +58,7 @@ window.ChartAnalysis = (() => {
 
   function _resolveChart(chartId) {
     if (typeof Chart === 'undefined') return null;
-    const canvas = document.getElementById(chartId);
+    const canvas = _getChartCanvas(chartId);
     if (!canvas) return null;
     try {
       if (typeof Chart.getChart === 'function') return Chart.getChart(canvas) || null;
@@ -351,7 +351,7 @@ window.ChartAnalysis = (() => {
     const card = document.querySelector('[data-chart-id="' + chartId + '"]');
     const title = card && card.querySelector('.chart-title');
     if (title) return title.textContent.replace(/\s+/g, ' ').trim();
-    const canvas = document.getElementById(chartId);
+    const canvas = _getChartCanvas(chartId);
     if (!canvas) return chartId;
     const label = canvas.closest('.chart-card')?.querySelector('.chart-title');
     return label ? label.textContent.replace(/\s+/g, ' ').trim() : chartId;
@@ -363,6 +363,13 @@ window.ChartAnalysis = (() => {
     if (byAttr) return byAttr;
     const canvas = document.getElementById(chartId);
     return canvas ? canvas.closest('.chart-card, [data-chart-id]') : null;
+  }
+
+  function _getChartCanvas(chartId) {
+    const direct = document.getElementById(chartId);
+    if (direct) return direct;
+    const card = _getChartCard(chartId);
+    return card ? card.querySelector('canvas[id]') : null;
   }
 
   function _buildAnalysisMetaPayload(chartId) {
@@ -1746,7 +1753,7 @@ window.ChartAnalysis = (() => {
     const blockId = `ca-block-${chartId}`;
     let block = document.getElementById(blockId);
     const card = _getChartCard(chartId);
-    const canvas = document.getElementById(chartId);
+    const canvas = _getChartCanvas(chartId);
     if (!card || !canvas) return null;
 
     const container = card.querySelector('.chart-container') || canvas.closest('.chart-container') || canvas.parentElement;
@@ -1886,7 +1893,7 @@ window.ChartAnalysis = (() => {
       chartIds.add(chartId);
     });
     Object.keys(_ANALYZERS).forEach(function(chartId) {
-      if (document.getElementById(chartId) || _getChartCard(chartId)) chartIds.add(chartId);
+      if (_getChartCanvas(chartId) || _getChartCard(chartId)) chartIds.add(chartId);
     });
     chartIds.forEach(id => renderForChart(id, data));
   }
