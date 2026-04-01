@@ -27,6 +27,18 @@
       .trim();
   }
 
+  function filterKey(value) {
+    if (value == null) return '';
+    var raw = String(value).trim();
+    if (!raw) return '';
+    return raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function getRawStatus(project) {
     return cleanLabel(project && (project['Statut'] || project['MG Statut Odoo MG']));
   }
@@ -797,14 +809,14 @@
     var state = panel && panel._businessDrillState;
     if (!panel || !state) return;
 
-    var search = bucketKey(state.query || '');
+    var search = filterKey(state.query || '');
     var filtered = state.rows.filter(function(row) {
       var searchMatch = !search || BUSINESS_DRILL_COLUMNS.some(function(col) {
         return bucketKey(row[col.key].display || '').indexOf(search) !== -1;
       });
       if (!searchMatch) return false;
       return BUSINESS_DRILL_COLUMNS.every(function(col) {
-        var filterValue = bucketKey(state.filters[col.key] || '');
+        var filterValue = filterKey(state.filters[col.key] || '');
         if (!filterValue) return true;
         return String(row[col.key].filter || '').indexOf(filterValue) !== -1;
       });
