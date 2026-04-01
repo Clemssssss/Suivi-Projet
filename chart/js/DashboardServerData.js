@@ -74,6 +74,18 @@ window.DashboardServerData = (function() {
         } else {
           window.DATA = cached.data.map(function(item) { return Object.assign({}, item); });
         }
+        if (typeof window.DashboardDataTransparency !== 'undefined'
+            && typeof window.DashboardDataTransparency.setDatasetMeta === 'function') {
+          window.DashboardDataTransparency.setDatasetMeta({
+            datasetKey: DATASET_KEY,
+            sourceName: cached.sourceName || 'Cache session',
+            rowCount: cached.rowCount || cached.data.length,
+            updatedAt: cached.updatedAt || '',
+            payloadHash: cached.payloadHash || '',
+            storageMode: 'session-cache',
+            sourceType: 'server-cache'
+          });
+        }
         return {
           ok: true,
           sourceName: cached.sourceName || 'Cache session',
@@ -98,6 +110,18 @@ window.DashboardServerData = (function() {
     }
 
     writeSessionCache(result.data);
+    if (typeof window.DashboardDataTransparency !== 'undefined'
+        && typeof window.DashboardDataTransparency.setDatasetMeta === 'function') {
+      window.DashboardDataTransparency.setDatasetMeta({
+        datasetKey: DATASET_KEY,
+        sourceName: result.data.sourceName || '',
+        rowCount: result.data.rowCount || result.data.data.length,
+        updatedAt: result.data.updatedAt || '',
+        payloadHash: result.data.payloadHash || '',
+        storageMode: result.data.storageMode || 'plain',
+        sourceType: 'server'
+      });
+    }
 
     return {
       ok: true,

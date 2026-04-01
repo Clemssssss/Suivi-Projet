@@ -1155,6 +1155,24 @@ window.ChartAnalysis = (() => {
         flex: 1;
         padding: .45rem .75rem;
       }
+      .ca-block-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .35rem .7rem;
+        padding: 0 .75rem .55rem;
+        color: rgba(159,179,200,.82);
+        font-size: .58rem;
+        border-bottom: 1px solid rgba(0,212,170,.08);
+      }
+      .ca-block-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: .2rem;
+      }
+      .ca-block-meta strong {
+        color: #dce8f5;
+        font-weight: 600;
+      }
       .ca-toggle-btn {
         flex-shrink: 0;
         background: rgba(0,153,255,.12);
@@ -1315,6 +1333,7 @@ window.ChartAnalysis = (() => {
           <button class="ca-toggle-btn" title="Basculer entre graphique et tableau synthétique">📊 Tableau</button>
         </div>
         <div class="ca-block-text"></div>
+        <div class="ca-block-meta"></div>
         <div class="ca-table-view"></div>
       `;
 
@@ -1371,12 +1390,21 @@ window.ChartAnalysis = (() => {
     }
 
     const textEl = block.querySelector('.ca-block-text');
+    const metaEl = block.querySelector('.ca-block-meta');
     if (textEl) {
       if (!text) {
         block.style.display = 'none';
       } else {
         textEl.innerHTML = text;
         block.style.display = '';
+      }
+    }
+    if (metaEl) {
+      if (typeof DashboardDataTransparency !== 'undefined'
+          && typeof DashboardDataTransparency.describeChartContext === 'function') {
+        metaEl.innerHTML = DashboardDataTransparency.describeChartContext(chartId, data);
+      } else {
+        metaEl.innerHTML = '';
       }
     }
 

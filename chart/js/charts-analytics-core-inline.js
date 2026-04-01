@@ -483,7 +483,7 @@
        ✅ Filtres actifs conservés (pas de AE.clearAll())
        ✅ Charts réutilisés via chart.update() (ChartsEnrichis)
   ════════════════════════════════════════════════════════════════ */
-  function applyNewData(newData) {
+  function applyNewData(newData, sourceLabel) {
     // ─ 1. Validation schéma ────────────────────────────────────────
     var schema = validateSchema(newData);
     if (schema.missing.length > 0) {
@@ -530,6 +530,18 @@
 
       if (typeof DashboardLocalData !== 'undefined' && typeof DashboardLocalData.saveImportedDataset === 'function') {
         DashboardLocalData.saveImportedDataset(newData, { source: 'file-import' });
+      }
+      if (typeof window.DashboardDataTransparency !== 'undefined'
+          && typeof window.DashboardDataTransparency.setDatasetMeta === 'function') {
+        window.DashboardDataTransparency.setDatasetMeta({
+          datasetKey: 'saip-main',
+          sourceName: sourceLabel || 'Import manuel',
+          rowCount: newData.length,
+          updatedAt: new Date().toISOString(),
+          payloadHash: '',
+          storageMode: 'browser-import',
+          sourceType: 'file-import'
+        });
       }
 
       // ─ 6. Composants supplémentaires ──────────────────────────────
@@ -599,7 +611,7 @@
         showLoader('Application des données (' + data.length + ' projets)…');
         setTimeout(function() {
           try {
-            applyNewData(data);
+            applyNewData(data, file && file.name ? file.name : label);
           } catch(applyErr) {
             console.error('[ImportCSV] applyNewData error:', applyErr);
             if (typeof notify === 'function')

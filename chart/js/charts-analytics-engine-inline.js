@@ -1761,6 +1761,11 @@ function update() {
     try { FloatingFilterBar.render(); }
     catch(e) {}
   }
+  if (typeof DashboardDataTransparency !== 'undefined'
+      && typeof DashboardDataTransparency.renderGlobalBanner === 'function') {
+    try { DashboardDataTransparency.renderGlobalBanner(data); }
+    catch(e) {}
+  }
 
   const sec = document.getElementById('detail-section');
   if (sec && sec.classList.contains('active')) renderRows(data);
@@ -1772,6 +1777,18 @@ function update() {
 ═══════════════════════════════════════════════════════════ */
   window.addEventListener('load', async () => {
     window.DATA = Array.isArray(window.DATA) ? window.DATA : [];
+    if (typeof DashboardDataTransparency !== 'undefined'
+        && typeof DashboardDataTransparency.setDatasetMeta === 'function') {
+      DashboardDataTransparency.setDatasetMeta({
+        datasetKey: 'saip-main',
+        sourceName: window.DATA.length ? 'Jeu embarque / session courante' : 'Aucune donnee chargee',
+        rowCount: window.DATA.length,
+        updatedAt: '',
+        payloadHash: '',
+        storageMode: 'bootstrap',
+        sourceType: 'bootstrap'
+      });
+    }
     setDashboardData(window.DATA, { initializeDataFilterEngine: true, skipUpdate: true });
     var serverRecord = null;
     if (typeof DashboardServerData !== 'undefined' && typeof DashboardServerData.hydrateDashboard === 'function') {
@@ -2239,4 +2256,3 @@ function update() {
     bindChartInfoBtns();
   }
 })();
-

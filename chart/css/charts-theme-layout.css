@@ -78,6 +78,93 @@ body::after {
   z-index: 0;
 }
 
+/* ─────────────────────────────────────────────
+   DATA TRANSPARENCY BANNER
+───────────────────────────────────────────── */
+#dashboard-data-banner {
+  position: relative;
+  z-index: 1;
+  margin: 1.1rem 2.5rem 0;
+  padding: 1rem 1.15rem 1.05rem;
+  border: 1px solid rgba(0,153,255,.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(0,153,255,.09), rgba(0,212,170,.06)),
+    rgba(9,16,28,.92);
+  box-shadow: 0 10px 36px rgba(0,0,0,.24);
+}
+.data-banner-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .85rem;
+}
+.data-banner-kicker {
+  font-family: var(--mono);
+  font-size: .63rem;
+  text-transform: uppercase;
+  letter-spacing: .11em;
+  color: rgba(159,217,255,.82);
+  margin-bottom: .3rem;
+}
+.data-banner-title {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  line-height: 1.05;
+  color: var(--snow);
+}
+.data-banner-status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .72rem;
+  border: 1px solid rgba(0,212,170,.2);
+  border-radius: 999px;
+  background: rgba(0,212,170,.08);
+  color: var(--brand);
+  font-family: var(--mono);
+  font-size: .66rem;
+}
+.data-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .7rem;
+}
+.data-banner-card {
+  display: flex;
+  flex-direction: column;
+  gap: .22rem;
+  min-height: 96px;
+  padding: .85rem .9rem;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  background: rgba(6,12,20,.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+.data-banner-label,
+.data-banner-card span {
+  font-family: var(--mono);
+  font-size: .63rem;
+  color: var(--dust);
+  line-height: 1.45;
+}
+.data-banner-card strong {
+  color: var(--snow);
+  font-size: .86rem;
+  line-height: 1.35;
+}
+.data-banner-foot {
+  margin-top: .8rem;
+  padding-top: .8rem;
+  border-top: 1px solid rgba(255,255,255,.06);
+  font-family: var(--mono);
+  font-size: .66rem;
+  color: var(--pale);
+  line-height: 1.55;
+}
+
 /* ═══════════════════════════════════════════════════════════
    CHART CONFIG — Écrou de configuration dynamique par graphique
 ═══════════════════════════════════════════════════════════ */
@@ -241,6 +328,29 @@ body::after {
   transition: all .18s; white-space: nowrap;
 }
 #clear-all-floating:hover { background: rgba(255,77,109,.25); }
+
+@media (max-width: 1080px) {
+  .data-banner-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  #dashboard-data-banner {
+    margin: .85rem 1rem 0;
+    padding: .9rem;
+  }
+  .data-banner-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .data-banner-grid {
+    grid-template-columns: 1fr;
+  }
+  .data-banner-card {
+    min-height: 0;
+  }
+}
 
 /* ─────────────────────────────────────────────
    FILTERED INDICATOR
@@ -2484,4 +2594,3 @@ canvas { max-width: 100%; cursor: pointer !important; }
   html { scroll-behavior: auto; }
   .kpi:hover, .chart-card:hover { transform: none !important; }
 }
-
