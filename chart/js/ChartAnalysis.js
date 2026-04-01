@@ -1820,7 +1820,8 @@ window.ChartAnalysis = (() => {
     const analyzer = _ANALYZERS[chartId];
     let text;
     try {
-      text = analyzer ? analyzer(data) : _defaultAnalysis(chartId, data);
+      text = analyzer ? analyzer(data) : '';
+      if (!text) text = _defaultAnalysis(chartId, data);
     } catch (e) {
       console.warn('[ChartAnalysis] Erreur pour', chartId, e);
       text = _defaultAnalysis(chartId, data);
@@ -1894,7 +1895,8 @@ window.ChartAnalysis = (() => {
     const analyzer = _ANALYZERS[chartId];
     let text;
     try {
-      text = analyzer ? analyzer(data) : _defaultAnalysis(chartId, data);
+      text = analyzer ? analyzer(data) : '';
+      if (!text) text = _defaultAnalysis(chartId, data);
     } catch (e) { text = _defaultAnalysis(chartId, data); }
     if (!text) return '';
     return text
