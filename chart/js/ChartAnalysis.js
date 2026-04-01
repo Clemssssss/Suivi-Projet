@@ -23,6 +23,8 @@ window.ChartAnalysis = (() => {
 
   const TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   const STYLE_STORAGE_KEY = 'dashboard.chart.styles';
+  const _STYLE_APPLYING = new WeakSet();
+  const _STYLE_SIGNATURES = new WeakMap();
 
   /* ──────────────────────────────────────────────────────────────
      HELPERS
@@ -389,9 +391,9 @@ window.ChartAnalysis = (() => {
   function _applyChartStyle(chartId, styleCfg) {
     const chart = _resolveChart(chartId);
     if (!chart) return;
-    if (chart.__caApplyingStyle) return;
+    if (_STYLE_APPLYING.has(chart)) return;
 
-    chart.__caApplyingStyle = true;
+    _STYLE_APPLYING.add(chart);
 
     const palettes = {
       emerald: ['#00d4aa', '#0099ff', '#8b78f8', '#f5b740', '#ff4d6d', '#10b981'],
@@ -445,7 +447,7 @@ window.ChartAnalysis = (() => {
     } catch (err) {
       console.error('[ChartAnalysis] apply style failed for', chartId, err);
     } finally {
-      chart.__caApplyingStyle = false;
+      _STYLE_APPLYING.delete(chart);
     }
   }
 
@@ -1983,9 +1985,9 @@ window.ChartAnalysis = (() => {
     if (savedStyle) {
       const nextStyleSig = JSON.stringify(savedStyle);
       const chart = _resolveChart(chartId);
-      if (chart && chart.__caStyleSig !== nextStyleSig) {
+      if (chart && _STYLE_SIGNATURES.get(chart) !== nextStyleSig) {
         _applyChartStyle(chartId, savedStyle);
-        chart.__caStyleSig = nextStyleSig;
+        _STYLE_SIGNATURES.set(chart, nextStyleSig);
       }
     }
   }
