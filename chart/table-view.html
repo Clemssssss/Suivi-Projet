@@ -103,6 +103,12 @@
       flex-wrap: wrap;
       margin-bottom: 1rem;
     }
+    .toolbar-actions {
+      display: flex;
+      gap: .6rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .search {
       flex: 1 1 340px;
       min-width: 280px;
@@ -154,6 +160,32 @@
       cursor: pointer;
       white-space: nowrap;
     }
+    thead tr.filter-row th {
+      top: 47px;
+      padding: .55rem .7rem;
+      background: rgba(22,34,53,.98);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      cursor: default;
+    }
+    .sort-indicator {
+      margin-left: .35rem;
+      color: var(--brand);
+      font-size: .74rem;
+    }
+    .column-filter {
+      width: 100%;
+      min-width: 120px;
+      padding: .55rem .65rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: var(--snow);
+      font-size: .78rem;
+    }
+    .column-filter:focus {
+      outline: none;
+      border-color: rgba(0,212,170,.4);
+    }
     tbody td {
       padding: .82rem 1rem;
       border-bottom: 1px solid rgba(255,255,255,.05);
@@ -191,11 +223,17 @@
     <div class="meta" id="meta"></div>
     <div class="toolbar">
       <input id="search" class="search" type="text" placeholder="Rechercher dans le tableau...">
-      <div class="count" id="count">0 ligne</div>
+      <div class="toolbar-actions">
+        <button class="btn" id="reset-filters">Réinitialiser filtres</button>
+        <div class="count" id="count">0 ligne</div>
+      </div>
     </div>
     <div class="table-wrap">
       <table id="table">
-        <thead><tr id="thead-row"></tr></thead>
+        <thead>
+          <tr id="thead-row"></tr>
+          <tr id="filter-row" class="filter-row"></tr>
+        </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
