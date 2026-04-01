@@ -90,6 +90,17 @@ window.ChartAnalysis = (() => {
     } catch (e) {}
   }
 
+  function _storeTablePayload(payload) {
+    const token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    try {
+      if (window.localStorage) {
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+      }
+    } catch (e) {}
+    return token;
+  }
+
   /* Année d'un projet selon champ date courant */
   function _year(p) {
     const fields = ['Date réception','Date de retour demandée','Décidé le '];
@@ -363,8 +374,9 @@ window.ChartAnalysis = (() => {
   }
 
   function _openTableInNewTab(payload) {
-    _storageSet(TABLE_VIEW_STORAGE_KEY, Object.assign({ generatedAt: new Date().toISOString() }, payload));
-    window.open('table-view.html?ts=' + Date.now(), '_blank', 'noopener');
+    const finalPayload = Object.assign({ generatedAt: new Date().toISOString() }, payload);
+    const token = _storeTablePayload(finalPayload);
+    window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
   }
 
   function _applyChartStyle(chartId, styleCfg) {
@@ -1751,7 +1763,6 @@ window.ChartAnalysis = (() => {
           <div class="ca-block-actions">
             <button class="ca-mode-btn" title="Basculer entre volume et valeur">📈 / 💰 Mode</button>
             <button class="ca-style-btn" title="Personnaliser les couleurs, axes et graduations">🎨 Style</button>
-            <button class="ca-open-btn" title="Ouvrir le tableau sur une page entière">↗ Pleine page</button>
             <button class="ca-toggle-btn" title="Afficher ou masquer le tableau synthétique">📊 Afficher le tableau</button>
           </div>
         </div>
@@ -1768,7 +1779,6 @@ window.ChartAnalysis = (() => {
       // Toggle logique
       const btn       = block.querySelector('.ca-toggle-btn');
       const tableView = block.querySelector('.ca-table-view');
-      const openBtn   = block.querySelector('.ca-open-btn');
       const styleBtn  = block.querySelector('.ca-style-btn');
       const modeBtn   = block.querySelector('.ca-mode-btn');
 
@@ -1790,34 +1800,6 @@ window.ChartAnalysis = (() => {
         }
       });
 
-      if (openBtn) {
-        openBtn.addEventListener('click', () => {
-          if (!tableView.dataset.built) {
-            const tbl = _buildTableFromChart(chartId);
-            if (tbl) {
-              tableView.innerHTML = tbl;
-              _initTableFeatures(tableView, chartId);
-              tableView.dataset.built = '1';
-            }
-          }
-          const table = tableView.querySelector('.ca-data-table');
-          if (!table) return;
-          const headers = Array.from(table.querySelectorAll('thead th')).map(function(th) {
-            return th.textContent.replace(/[↑↓▲▼↕]$/,'').trim();
-          });
-          const rows = Array.from(table.querySelectorAll('tbody tr')).map(function(row) {
-            return Array.from(row.cells).map(function(cell) { return cell.textContent.trim(); });
-          });
-          _openTableInNewTab({
-            source: 'chart-analysis',
-            title: _chartTitle(chartId),
-            subtitle: 'Vue synthétique du graphique',
-            meta: _buildAnalysisMetaPayload(chartId),
-            headers: headers,
-            rows: rows
-          });
-        });
-      }
       if (styleBtn) styleBtn.addEventListener('click', () => _openStyleEditor(chartId));
       if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode());
       block.dataset.bound = '1';

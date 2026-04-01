@@ -25,9 +25,21 @@
     } catch (e) {}
   }
 
+  function storeTablePayloadWithToken(payload) {
+    var token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    try {
+      if (window.localStorage) {
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+      }
+    } catch (e) {}
+    return token;
+  }
+
   function openTablePage(payload) {
-    storeTablePayload(Object.assign({ generatedAt: new Date().toISOString(), source: 'business-drill' }, payload));
-    window.open('table-view.html?ts=' + Date.now(), '_blank', 'noopener');
+    var finalPayload = Object.assign({ generatedAt: new Date().toISOString(), source: 'business-drill' }, payload);
+    var token = storeTablePayloadWithToken(finalPayload);
+    window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
   }
 
   function bucketKey(value) {

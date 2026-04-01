@@ -214,7 +214,11 @@
 
       function loadPayload() {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
+          const params = new URLSearchParams(window.location.search);
+          const token = params.get('key');
+          const raw = token
+            ? (localStorage.getItem(STORAGE_KEY + '.' + token) || localStorage.getItem(STORAGE_KEY))
+            : localStorage.getItem(STORAGE_KEY);
           return raw ? JSON.parse(raw) : null;
         } catch (e) {
           return null;
