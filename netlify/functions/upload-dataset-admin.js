@@ -7,7 +7,7 @@ const {
   logAccess
 } = require('./_auth');
 const { ensureSchema } = require('./_db');
-const { upsertPlainDataset } = require('./_plain_dataset');
+const { getPlainDataset, upsertPlainDataset } = require('./_plain_dataset');
 const { loadRowsFromRemoteBuffer } = require('./_dataset_import');
 
 const MAX_BODY_LENGTH = 16 * 1024 * 1024;
@@ -78,6 +78,141 @@ function buildSummary(loaded, fileName) {
   };
 }
 
+function normalizeCell(value) {
+  if (value == null) return '';
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value instanceof Date) return value.toISOString();
+  return String(value).trim().replace(/\s+/g, ' ');
+}
+
+function stableRowObject(row) {
+  const source = row && typeof row === 'object' ? row : {};
+  const output = {};
+  Object.keys(source).sort().forEach((key) => {
+    output[key] = normalizeCell(source[key]);
+  });
+  return output;
+}
+
+function buildRowBaseKey(row) {
+  const candidates = [
+    'N°- AO',
+    'N° AO',
+    'id',
+    'ID',
+    'Id',
+    'Project ID',
+    'Code projet',
+    'projectId'
+  ];
+  for (const key of candidates) {
+    const value = normalizeCell(row && row[key]);
+    if (value) return `id:${value}`;
+  }
+
+  const composite = [
+    normalizeCell(row && row['Date réception']),
+    normalizeCell(row && row['Client']),
+    normalizeCell(row && row['Dénomination']),
+    normalizeCell(row && row['Type de projet (Activité)']),
+    normalizeCell(row && row['Zone Géographique']),
+    normalizeCell(row && row['Statut'])
+  ].filter(Boolean);
+
+  if (composite.length) return `cmp:${composite.join('|')}`;
+  return `raw:${JSON.stringify(stableRowObject(row))}`;
+}
+
+function summarizeRow(row) {
+  if (!row || typeof row !== 'object') return '(ligne vide)';
+  const bits = [
+    normalizeCell(row['N°- AO']) || normalizeCell(row['N° AO']),
+    normalizeCell(row['Client']),
+    normalizeCell(row['Dénomination']),
+    normalizeCell(row['Date réception'])
+  ].filter(Boolean);
+  return bits.join(' · ') || JSON.stringify(stableRowObject(row)).slice(0, 180);
+}
+
+function buildRowIndex(rows) {
+  const counters = new Map();
+  const indexed = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const baseKey = buildRowBaseKey(row);
+    const ordinal = (counters.get(baseKey) || 0) + 1;
+    counters.set(baseKey, ordinal);
+    const finalKey = `${baseKey}#${ordinal}`;
+    indexed.set(finalKey, {
+      key: finalKey,
+      baseKey,
+      row,
+      stable: stableRowObject(row),
+      stableJson: JSON.stringify(stableRowObject(row)),
+      label: summarizeRow(row)
+    });
+  });
+  return indexed;
+}
+
+function computeDiff(existingRows, importedRows) {
+  const existing = buildRowIndex(existingRows);
+  const incoming = buildRowIndex(importedRows);
+  const added = [];
+  const removed = [];
+  const changed = [];
+  const unchanged = [];
+  const fieldCounts = {};
+
+  incoming.forEach((entry, key) => {
+    const previous = existing.get(key);
+    if (!previous) {
+      added.push({ label: entry.label, row: entry.row });
+      return;
+    }
+    if (previous.stableJson === entry.stableJson) {
+      unchanged.push({ label: entry.label, row: entry.row });
+      return;
+    }
+    const changedFields = [];
+    const keys = Array.from(new Set(Object.keys(previous.stable).concat(Object.keys(entry.stable))));
+    keys.forEach((field) => {
+      if ((previous.stable[field] || '') !== (entry.stable[field] || '')) {
+        changedFields.push(field);
+        fieldCounts[field] = (fieldCounts[field] || 0) + 1;
+      }
+    });
+    changed.push({
+      label: entry.label,
+      row: entry.row,
+      changedFields
+    });
+  });
+
+  existing.forEach((entry, key) => {
+    if (!incoming.has(key)) removed.push({ label: entry.label, row: entry.row });
+  });
+
+  return {
+    existingRowCount: existing.size,
+    incomingRowCount: incoming.size,
+    addedCount: added.length,
+    removedCount: removed.length,
+    changedCount: changed.length,
+    unchangedCount: unchanged.length,
+    changedFieldLeaders: Object.entries(fieldCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([field, count]) => ({ field, count })),
+    sampleAdded: added.slice(0, 3).map((item) => item.label),
+    sampleRemoved: removed.slice(0, 3).map((item) => item.label),
+    sampleChanged: changed.slice(0, 3).map((item) => ({
+      label: item.label,
+      changedFields: item.changedFields.slice(0, 6)
+    }))
+  };
+}
+
 exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { ok: false, error: 'Method not allowed' });
@@ -134,6 +269,14 @@ exports.handler = async function(event) {
     return jsonResponse(400, { ok: false, error: 'Aucune ligne importable détectée dans le fichier' });
   }
 
+  let existingRecord = null;
+  try {
+    existingRecord = await getPlainDataset(datasetKey);
+  } catch (_) {
+    existingRecord = null;
+  }
+  const diff = computeDiff(existingRecord && existingRecord.data, loaded.rows);
+
   if (action === 'analyze') {
     await logAccess(event, 'upload_dataset_admin_analyze', 'info', {
       datasetKey: datasetKey,
@@ -145,7 +288,8 @@ exports.handler = async function(event) {
       ok: true,
       action: 'analyze',
       datasetKey: datasetKey,
-      summary: buildSummary(loaded, fileName)
+      summary: buildSummary(loaded, fileName),
+      diff
     });
   }
 
@@ -169,7 +313,8 @@ exports.handler = async function(event) {
       sourceName: saved.sourceName,
       rowCount: saved.rowCount,
       updatedAt: saved.updatedAt,
-      summary: buildSummary(loaded, fileName)
+      summary: buildSummary(loaded, fileName),
+      diff
     });
   } catch (err) {
     await logAccess(event, 'upload_dataset_admin_import_error', 'error', {

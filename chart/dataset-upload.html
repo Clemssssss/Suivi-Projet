@@ -34,13 +34,26 @@
     .notice-danger{background:rgba(255,77,109,.08);border-color:rgba(255,77,109,.18);color:#ffd2dc;}
     .kv{display:grid;grid-template-columns:180px 1fr;gap:.55rem .9rem;font-size:.84rem;}
     .kv div:nth-child(odd){color:#8ea6bc;font-family:'DM Mono',monospace;}
+    .diff-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-top:.95rem;}
+    .diff-card{background:#0c1523;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.85rem .9rem;}
+    .diff-card strong{display:block;font-size:1.25rem;color:#fff;margin-top:.2rem;}
+    .diff-card span{font-family:'DM Mono',monospace;font-size:.72rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.05em;}
+    .diff-card.is-add strong{color:#9ff3e1;}
+    .diff-card.is-change strong{color:#b9e7ff;}
+    .diff-card.is-remove strong{color:#ffc3d0;}
+    .diff-card.is-same strong{color:#ffd98b;}
+    .diff-section{margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08);}
+    .diff-title{font-family:'DM Mono',monospace;color:#9ff3e1;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.45rem;}
+    .micro-list{margin:.25rem 0 0;padding-left:1.1rem;line-height:1.55;color:#cbe0f3;font-size:.82rem;}
+    .micro-list code{color:#b9e7ff;}
     .list{margin:.8rem 0 0;padding-left:1.2rem;color:#cbe0f3;line-height:1.6;}
     .sample{margin-top:1rem;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:auto;background:#0c1523;}
     table{width:100%;border-collapse:collapse;font-size:.82rem;}
     th,td{padding:.65rem .7rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:top;}
     th{font-family:'DM Mono',monospace;color:#9ff3e1;background:rgba(0,212,170,.06);}
     .empty{color:#8ea6bc;font-style:italic;}
-    @media (max-width:980px){.layout{grid-template-columns:1fr;}.title{font-size:1.6rem;}.kv{grid-template-columns:1fr;}}
+    @media (max-width:980px){.layout{grid-template-columns:1fr;}.title{font-size:1.6rem;}.kv{grid-template-columns:1fr;}.diff-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:640px){.diff-grid{grid-template-columns:1fr;}}
   </style>
 </head>
 <body>
@@ -50,6 +63,7 @@
       <div class="nav-actions">
         <span class="pill" id="auth-user-label">🔒 Session</span>
         <button class="btn" id="btn-logout" type="button">Se déconnecter</button>
+        <a href="/chart/data-admin.html">🗄️ Admin données</a>
         <a href="/chart/source-sync.html">⚙️ Source SharePoint</a>
         <a href="/chart/chart.html">← Retour dashboard</a>
       </div>
@@ -58,7 +72,7 @@
     <div class="layout">
       <div class="card">
         <h2>Fichier d’import</h2>
-        <div class="meta">Charge un fichier Excel local, analyse-le, puis remplace le dataset existant en base pour la clé choisie.</div>
+        <div class="meta">Charge un fichier Excel local, analyse-le, visualise les écarts avec la DB actuelle, puis mets à jour le dataset existant pour la clé choisie.</div>
         <div class="field">
           <label for="dataset-file">Fichier Excel</label>
           <input id="dataset-file" type="file" accept=".xlsx,.csv">
@@ -77,23 +91,33 @@
         </div>
         <div class="status" id="upload-status">Choisissez un fichier puis lancez une analyse.</div>
         <div class="notice">
-          Flux conseillé : <strong>Analyser le fichier</strong> pour vérifier la feuille et le nombre de lignes, puis <strong>Mettre à jour la DB</strong> pour remplacer le dataset en base.
+          Flux conseillé : <strong>Analyser le fichier</strong> pour vérifier la feuille, le volume et les écarts avec la base, puis <strong>Mettre à jour la DB</strong>.
         </div>
         <div class="notice notice-danger">
-          L’import remplace le dataset existant pour la <strong>dataset key</strong> choisie. Il ne fusionne pas ligne par ligne avec l’ancien contenu.
+          L’import remplace toujours le dataset existant pour la <strong>dataset key</strong> choisie. En revanche, l’analyse te montre maintenant précisément ce qui sera ajouté, modifié ou supprimé.
         </div>
       </div>
 
       <div class="card">
         <h2>Résumé</h2>
-        <div class="meta">Prévisualisation du fichier détecté avant écriture en base.</div>
+        <div class="meta">Prévisualisation du fichier détecté et aperçu des écarts avant écriture en base.</div>
         <div class="kv" id="upload-summary">
           <div>Fichier</div><div>—</div>
           <div>Dataset</div><div>—</div>
           <div>Feuille détectée</div><div>—</div>
+          <div>Lignes actuelles DB</div><div>—</div>
           <div>Nb lignes</div><div>—</div>
           <div>Colonnes</div><div>—</div>
           <div>Dernière action</div><div>—</div>
+        </div>
+        <div class="diff-grid" id="diff-grid">
+          <div class="diff-card is-add"><span>Ajouts</span><strong>—</strong></div>
+          <div class="diff-card is-change"><span>Modifications</span><strong>—</strong></div>
+          <div class="diff-card is-remove"><span>Suppressions</span><strong>—</strong></div>
+          <div class="diff-card is-same"><span>Inchangés</span><strong>—</strong></div>
+        </div>
+        <div class="diff-section" id="diff-details">
+          <div class="empty">Aucun écart analysé pour le moment.</div>
         </div>
         <div class="sample" id="sample-wrap">
           <div class="empty" style="padding:1rem;">Aucun aperçu pour le moment.</div>

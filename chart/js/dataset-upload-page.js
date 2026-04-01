@@ -4,7 +4,8 @@
   var state = {
     currentUser: '',
     role: '',
-    lastSummary: null
+    lastSummary: null,
+    lastDiff: null
   };
 
   function qs(id) { return document.getElementById(id); }
@@ -30,12 +31,74 @@
       .replace(/'/g, '&#39;');
   }
 
-  function updateSummary(summary, actionLabel) {
+  function renderDiff(diff) {
+    state.lastDiff = diff || null;
+    var grid = qs('diff-grid');
+    var details = qs('diff-details');
+    if (!grid || !details) return;
+
+    var cards = [
+      ['Ajouts', diff && typeof diff.addedCount === 'number' ? diff.addedCount : '—', 'is-add'],
+      ['Modifications', diff && typeof diff.changedCount === 'number' ? diff.changedCount : '—', 'is-change'],
+      ['Suppressions', diff && typeof diff.removedCount === 'number' ? diff.removedCount : '—', 'is-remove'],
+      ['Inchangés', diff && typeof diff.unchangedCount === 'number' ? diff.unchangedCount : '—', 'is-same']
+    ];
+    grid.innerHTML = cards.map(function(card) {
+      return '<div class="diff-card ' + card[2] + '"><span>' + escapeHtml(card[0]) + '</span><strong>' + escapeHtml(card[1]) + '</strong></div>';
+    }).join('');
+
+    if (!diff) {
+      details.innerHTML = '<div class="empty">Aucun écart analysé pour le moment.</div>';
+      return;
+    }
+
+    var blocks = [];
+    if (Array.isArray(diff.changedFieldLeaders) && diff.changedFieldLeaders.length) {
+      blocks.push(
+        '<div class="diff-title">Champs les plus touchés</div><ul class="micro-list">' +
+        diff.changedFieldLeaders.map(function(item) {
+          return '<li><code>' + escapeHtml(item.field) + '</code> modifié sur ' + escapeHtml(item.count) + ' ligne(s)</li>';
+        }).join('') +
+        '</ul>'
+      );
+    }
+    if (Array.isArray(diff.sampleAdded) && diff.sampleAdded.length) {
+      blocks.push(
+        '<div class="diff-title">Exemples d\'ajouts</div><ul class="micro-list">' +
+        diff.sampleAdded.map(function(label) { return '<li>' + escapeHtml(label) + '</li>'; }).join('') +
+        '</ul>'
+      );
+    }
+    if (Array.isArray(diff.sampleChanged) && diff.sampleChanged.length) {
+      blocks.push(
+        '<div class="diff-title">Exemples de modifications</div><ul class="micro-list">' +
+        diff.sampleChanged.map(function(item) {
+          var suffix = Array.isArray(item.changedFields) && item.changedFields.length
+            ? ' — champs : ' + item.changedFields.map(function(field) { return escapeHtml(field); }).join(', ')
+            : '';
+          return '<li>' + escapeHtml(item.label) + suffix + '</li>';
+        }).join('') +
+        '</ul>'
+      );
+    }
+    if (Array.isArray(diff.sampleRemoved) && diff.sampleRemoved.length) {
+      blocks.push(
+        '<div class="diff-title">Exemples de suppressions</div><ul class="micro-list">' +
+        diff.sampleRemoved.map(function(label) { return '<li>' + escapeHtml(label) + '</li>'; }).join('') +
+        '</ul>'
+      );
+    }
+
+    details.innerHTML = blocks.length ? blocks.join('') : '<div class="empty">Aucune différence détectée entre le fichier et la DB actuelle.</div>';
+  }
+
+  function updateSummary(summary, actionLabel, diff) {
     state.lastSummary = summary || null;
     var rows = [
       ['Fichier', summary && summary.fileName ? summary.fileName : '—'],
       ['Dataset', qs('dataset-key').value.trim() || 'saip-main'],
       ['Feuille détectée', summary && summary.sheetName ? summary.sheetName : '—'],
+      ['Lignes actuelles DB', diff && typeof diff.existingRowCount === 'number' ? String(diff.existingRowCount) : '—'],
       ['Nb lignes', summary && typeof summary.rowCount === 'number' ? String(summary.rowCount) : '—'],
       ['Colonnes', summary && Array.isArray(summary.columns) && summary.columns.length ? summary.columns.join(', ') : '—'],
       ['Dernière action', actionLabel || '—']
@@ -48,6 +111,7 @@
     var sample = summary && Array.isArray(summary.sample) ? summary.sample : [];
     if (!sample.length) {
       wrap.innerHTML = '<div class="empty" style="padding:1rem;">Aucun aperçu pour le moment.</div>';
+      renderDiff(diff || null);
       return;
     }
 
@@ -63,6 +127,8 @@
         }).join('') + '</tr>';
       }).join('') +
       '</tbody></table>';
+
+    renderDiff(diff || null);
   }
 
   async function fetchJson(url, options) {
@@ -116,9 +182,13 @@
       },
       body: JSON.stringify(payload)
     });
-    updateSummary(data.summary || null, action === 'analyze' ? 'Analyse terminée' : 'DB mise à jour');
+    updateSummary(data.summary || null, action === 'analyze' ? 'Analyse terminée' : 'DB mise à jour', data.diff || null);
     if (action === 'analyze') {
-      setStatus('Analyse OK : ' + (data.summary && data.summary.rowCount ? data.summary.rowCount : 0) + ' ligne(s) détectée(s).', 'ok');
+      var analyzeMessage = 'Analyse OK : ' + (data.summary && data.summary.rowCount ? data.summary.rowCount : 0) + ' ligne(s) détectée(s).';
+      if (data.diff) {
+        analyzeMessage += ' Ajouts ' + (data.diff.addedCount || 0) + ' · modifs ' + (data.diff.changedCount || 0) + ' · suppressions ' + (data.diff.removedCount || 0) + '.';
+      }
+      setStatus(analyzeMessage, 'ok');
     } else {
       setStatus('DB mise à jour : ' + (data.rowCount || 0) + ' ligne(s) importée(s).', 'ok');
     }
@@ -174,7 +244,16 @@
     if (importBtn && !importBtn._bound) {
       importBtn._bound = true;
       importBtn.addEventListener('click', function() {
-        if (!window.confirm('Cette action va remplacer le dataset existant en base pour cette dataset key. Continuer ?')) {
+        var diff = state.lastDiff;
+        var confirmMessage = 'Cette action va remplacer le dataset existant en base pour cette dataset key.';
+        if (diff) {
+          confirmMessage += '\n\nAperçu détecté :'
+            + '\n- Ajouts : ' + String(diff.addedCount || 0)
+            + '\n- Modifications : ' + String(diff.changedCount || 0)
+            + '\n- Suppressions : ' + String(diff.removedCount || 0);
+        }
+        confirmMessage += '\n\nContinuer ?';
+        if (!window.confirm(confirmMessage)) {
           return;
         }
         importBtn.disabled = true;
@@ -190,7 +269,7 @@
   async function init() {
     bindLogout();
     bindActions();
-    updateSummary(null, '—');
+    updateSummary(null, '—', null);
     var ok = await initAuth();
     if (!ok) return;
     setStatus('Choisissez un fichier puis lancez une analyse.', '');

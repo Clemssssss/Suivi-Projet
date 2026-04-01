@@ -755,6 +755,35 @@ window.ChartAnalysis = (() => {
       }
     }
 
+    if (options.emphasis === 'time' && summary.categories.length >= 3) {
+      const last = summary.categories[summary.categories.length - 1] || null;
+      const prev = summary.categories[summary.categories.length - 2] || null;
+      if (last && prev && prev.value > 0) {
+        const trend = _pct(last.value, prev.value);
+        if (trend !== null) {
+          lines.push(
+            trend <= -20
+              ? `🎯 Action : investiguer la baisse récente sur <strong>${last.label}</strong> (${trend}%) avant qu’elle ne s’installe.`
+              : trend >= 20
+              ? `🚀 Action : capitaliser sur la dynamique de <strong>${last.label}</strong> (+${trend}%) et répliquer les leviers du mois.`
+              : `🧩 Action : tendance courte stable, utile pour consolider avant de changer les priorités.`
+          );
+        }
+      }
+    } else if (options.family === 'pipeline') {
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `🎯 Action : sécuriser rapidement <strong>${top.label}</strong> puis ouvrir 1 à 2 relais secondaires pour réduire la dépendance.`
+          : `🎯 Action : cibler d’abord <strong>${top.label}</strong> puis le 2e niveau pour convertir plus vite le pipe visible.`
+      );
+    } else if (options.family === 'performance') {
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `🎯 Action : protéger la catégorie forte <strong>${top.label}</strong> tout en lançant un plan de rattrapage sur les catégories de queue.`
+          : `🎯 Action : dupliquer les pratiques de <strong>${top.label}</strong> sur les catégories sous le 2e niveau pour lisser la performance.`
+      );
+    }
+
     return lines.filter(Boolean).join(' &nbsp;·&nbsp; ');
   }
 
