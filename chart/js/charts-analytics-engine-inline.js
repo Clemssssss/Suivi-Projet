@@ -197,6 +197,111 @@ if (!window.AE) {
 })();
 }
 
+if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
+  (function registerDashboardValueLabelsPlugin() {
+    function _labelFont(opts) {
+      const font = opts && opts.font ? opts.font : {};
+      return [
+        font.weight || '600',
+        (font.size || 11) + 'px',
+        font.family || "'DM Mono', monospace"
+      ].join(' ');
+    }
+
+    function _formatValue(raw) {
+      const value = typeof raw === 'object' && raw !== null
+        ? Number(raw.y != null ? raw.y : (raw.x != null ? raw.x : raw.r))
+        : Number(raw);
+      if (!isFinite(value)) return '';
+      const abs = Math.abs(value);
+      if (abs >= 1000000) return (value / 1000000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + 'M€';
+      if (abs >= 1000) return (value / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + 'k';
+      if (Math.round(value) === value) return value.toLocaleString('fr-FR');
+      return value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    }
+
+    function _drawLabel(ctx, text, x, y, opts) {
+      if (!text) return;
+      ctx.save();
+      ctx.font = _labelFont(opts);
+      ctx.textAlign = opts.align || 'center';
+      ctx.textBaseline = opts.baseline || 'middle';
+      if (opts.textStrokeWidth > 0) {
+        ctx.lineWidth = opts.textStrokeWidth;
+        ctx.strokeStyle = opts.textStrokeColor || 'rgba(6,12,20,.92)';
+        ctx.strokeText(text, x, y);
+      }
+      ctx.fillStyle = opts.color || '#dce8f5';
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    const plugin = {
+      id: 'dashboardValueLabels',
+      afterDatasetsDraw(chart, args, pluginOptions) {
+        const opts = Object.assign({}, Chart.defaults.plugins.dashboardValueLabels || {}, pluginOptions || {});
+        if (opts.display === false) return;
+        const datasets = (chart.data && chart.data.datasets) ? chart.data.datasets : [];
+        const visibleMetas = datasets.map(function(_, index) { return chart.getDatasetMeta(index); })
+          .filter(function(meta) { return meta && !meta.hidden && Array.isArray(meta.data); });
+        const labelCount = visibleMetas.reduce(function(sum, meta) { return sum + meta.data.length; }, 0);
+        if (!labelCount || labelCount > (opts.maxLabels || 60)) return;
+
+        const ctx = chart.ctx;
+        const isHorizontal = chart.options && chart.options.indexAxis === 'y';
+
+        visibleMetas.forEach(function(meta) {
+          const dataset = datasets[meta.index] || {};
+          meta.data.forEach(function(element, dataIndex) {
+            const raw = Array.isArray(dataset.data) ? dataset.data[dataIndex] : null;
+            const numeric = typeof raw === 'object' && raw !== null
+              ? Number(raw.y != null ? raw.y : (raw.x != null ? raw.x : raw.r))
+              : Number(raw);
+            if (!isFinite(numeric)) return;
+            if (opts.hideZero !== false && numeric === 0) return;
+
+            const text = (typeof opts.formatter === 'function' ? opts.formatter(raw, chart, meta.index, dataIndex) : '') || _formatValue(raw);
+            if (!text) return;
+
+            const elType = element && element.constructor && element.constructor.id ? element.constructor.id : '';
+            if (elType === 'arc' && isFinite(element.x) && isFinite(element.y)) {
+              const angle = ((element.startAngle || 0) + (element.endAngle || 0)) / 2;
+              const radius = ((element.innerRadius || 0) + (element.outerRadius || 0)) / 2;
+              const x = element.x + Math.cos(angle) * radius;
+              const y = element.y + Math.sin(angle) * radius;
+              _drawLabel(ctx, text, x, y, opts);
+              return;
+            }
+
+            const pos = typeof element.tooltipPosition === 'function' ? element.tooltipPosition() : element.getProps(['x', 'y'], true);
+            if (!pos || !isFinite(pos.x) || !isFinite(pos.y)) return;
+
+            if (isHorizontal) {
+              _drawLabel(ctx, text, pos.x + (opts.offsetX || 8), pos.y, Object.assign({}, opts, { align: 'left' }));
+            } else {
+              _drawLabel(ctx, text, pos.x, pos.y - (opts.offsetY || 8), Object.assign({}, opts, { align: 'center', baseline: 'bottom' }));
+            }
+          });
+        });
+      }
+    };
+
+    Chart.defaults.plugins.dashboardValueLabels = {
+      display: true,
+      color: '#dce8f5',
+      font: { size: 11, weight: '600', family: "'DM Mono', monospace" },
+      textStrokeColor: 'rgba(6,12,20,.94)',
+      textStrokeWidth: 3,
+      maxLabels: 60,
+      hideZero: true,
+      offsetX: 8,
+      offsetY: 8
+    };
+    Chart.register(plugin);
+    window.__dashboardValueLabelsRegistered = true;
+  })();
+}
+
 /* ─── Labels & couleurs ─── */
 const FL = {
   'Client': 'Client', 'Zone Géographique': 'Zone', 'Statut': 'Statut',
