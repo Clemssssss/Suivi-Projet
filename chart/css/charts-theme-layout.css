@@ -1870,20 +1870,68 @@ button, a, select, input, canvas,
   font-size: .64rem;
   font-weight: 700;
 }
+.business-drill-pill-muted {
+  color: var(--pale);
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+}
+.business-drill-toolbar {
+  display: flex;
+  gap: .6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+}
+.business-drill-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  padding: .62rem .72rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04);
+  color: var(--snow);
+  font-family: var(--mono);
+  font-size: .7rem;
+}
+.business-drill-search:focus,
+.business-drill-filter:focus {
+  outline: none;
+  border-color: rgba(0,212,170,.45);
+  box-shadow: 0 0 0 3px rgba(0,212,170,.08);
+}
 .business-drill-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(62vh, 780px);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  background: rgba(5,10,18,.35);
+  scrollbar-color: rgba(0,212,170,.45) rgba(255,255,255,.04);
+}
+.business-drill-wrap::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.business-drill-wrap::-webkit-scrollbar-track {
+  background: rgba(255,255,255,.04);
+  border-radius: 999px;
+}
+.business-drill-wrap::-webkit-scrollbar-thumb {
+  background: rgba(0,212,170,.45);
+  border-radius: 999px;
 }
 .business-drill-table {
-  width: 100%;
-  min-width: 760px;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: .78rem;
+  table-layout: fixed;
 }
 .business-drill-table th,
 .business-drill-table td {
   padding: .55rem .6rem;
   border-bottom: 1px solid rgba(255,255,255,.06);
   text-align: left;
+  vertical-align: top;
 }
 .business-drill-table th {
   color: var(--pale);
@@ -1891,9 +1939,59 @@ button, a, select, input, canvas,
   font-size: .67rem;
   text-transform: uppercase;
   letter-spacing: .04em;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(11,19,34,.98);
+  cursor: pointer;
+}
+.business-drill-table th.is-sorted {
+  color: var(--brand);
+}
+.business-drill-sort {
+  font-size: .6rem;
+}
+.business-drill-filter-row th {
+  top: 37px;
+  padding: .42rem .5rem;
+  background: rgba(9,16,28,.98);
+  z-index: 3;
+}
+.business-drill-filter {
+  width: 100%;
+  padding: .46rem .5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+  color: var(--snow);
+  font-family: var(--mono);
+  font-size: .67rem;
+}
+.business-drill-filter option {
+  background: #0d1829;
+  color: var(--snow);
 }
 .business-drill-table td {
   color: #dce8f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.business-drill-table td.is-numeric {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.business-drill-table tbody tr:nth-child(odd) td {
+  background: rgba(255,255,255,.015);
+}
+.business-drill-table tbody tr:hover td {
+  background: rgba(0,212,170,.07);
+}
+.business-drill-empty {
+  text-align: center !important;
+  padding: 1rem !important;
+  color: var(--dust) !important;
+  font-family: var(--mono);
 }
 body.business-dashboard-simplified #compare-panel,
 body.business-dashboard-simplified .legacy-business-hidden {

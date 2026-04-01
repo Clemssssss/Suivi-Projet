@@ -746,23 +746,183 @@
     return panel;
   }
 
-  function projectRowsHtml(projects) {
-    return (Array.isArray(projects) ? projects : []).map(function(project) {
-      var status = getStatus(project);
-      return (
-        '<tr>' +
-          '<td>' + escapeHtml(formatDateLabel(project)) + '</td>' +
-          '<td>' + escapeHtml(project['Client']) + '</td>' +
-          '<td>' + escapeHtml(project['Dénomination'] || project['Denomination']) + '</td>' +
-          '<td>' + escapeHtml(project['Zone Géographique']) + '</td>' +
-          '<td>' + escapeHtml(project['Type de projet (Activité)']) + '</td>' +
-          '<td>' + escapeHtml(getRawStatus(project)) + '</td>' +
-          '<td>' + escapeHtml(status) + '</td>' +
-          '<td>' + escapeHtml(formatValue(getBud(project), 'won_amount')) + '</td>' +
-          '<td>' + escapeHtml(formatValue(getWeighted(project), 'pipe_weighted')) + '</td>' +
-        '</tr>'
-      );
-    }).join('');
+  var BUSINESS_DRILL_COLUMNS = [
+    { key: 'date', label: 'Date', width: '110px', align: 'left', filterType: 'text' },
+    { key: 'client', label: 'Client', width: '170px', align: 'left', filterType: 'text' },
+    { key: 'project', label: 'Projet', width: '320px', align: 'left', filterType: 'text' },
+    { key: 'zone', label: 'Zone', width: '140px', align: 'left', filterType: 'select' },
+    { key: 'type', label: 'Type', width: '160px', align: 'left', filterType: 'select' },
+    { key: 'rawStatus', label: 'Statut source', width: '150px', align: 'left', filterType: 'select' },
+    { key: 'status', label: 'Statut normalise', width: '145px', align: 'left', filterType: 'select' },
+    { key: 'bud', label: 'Bud', width: '120px', align: 'right', filterType: 'text' },
+    { key: 'weighted', label: 'CA win proba', width: '140px', align: 'right', filterType: 'text' }
+  ];
+
+  function normalizeInlineDrillRows(projects) {
+    return (Array.isArray(projects) ? projects : []).map(function(project, index) {
+      var rawDate = getDate(project);
+      var dateLabel = formatDateLabel(project);
+      var client = cleanLabel(project['Client']);
+      var projectName = cleanLabel(project['Dénomination'] || project['Denomination'] || '?');
+      var zone = cleanLabel(project['Zone Géographique']);
+      var type = cleanLabel(project['Type de projet (Activité)']);
+      var rawStatus = cleanLabel(getRawStatus(project));
+      var status = cleanLabel(getStatus(project));
+      var budValue = getBud(project);
+      var weightedValue = getWeighted(project);
+      return {
+        id: index + '-' + client + '-' + projectName,
+        date: { display: dateLabel, sort: rawDate && isFinite(rawDate.getTime()) ? rawDate.getTime() : dateLabel, filter: bucketKey(dateLabel) },
+        client: { display: client, sort: bucketKey(client), filter: bucketKey(client) },
+        project: { display: projectName, sort: bucketKey(projectName), filter: bucketKey(projectName) },
+        zone: { display: zone, sort: bucketKey(zone), filter: bucketKey(zone) },
+        type: { display: type, sort: bucketKey(type), filter: bucketKey(type) },
+        rawStatus: { display: rawStatus, sort: bucketKey(rawStatus), filter: bucketKey(rawStatus) },
+        status: { display: status, sort: bucketKey(status), filter: bucketKey(status) },
+        bud: { display: formatValue(budValue, 'won_amount'), sort: budValue, filter: bucketKey(formatValue(budValue, 'won_amount')) },
+        weighted: { display: formatValue(weightedValue, 'pipe_weighted'), sort: weightedValue, filter: bucketKey(formatValue(weightedValue, 'pipe_weighted')) }
+      };
+    });
+  }
+
+  function getBusinessDrillFilterOptions(rows, key) {
+    return rows
+      .map(function(row) { return row && row[key] ? row[key].display : ''; })
+      .filter(Boolean)
+      .filter(function(value, index, arr) { return arr.indexOf(value) === index; })
+      .sort(function(a, b) { return String(a).localeCompare(String(b), 'fr'); });
+  }
+
+  function renderBusinessDrillTable(panel) {
+    var state = panel && panel._businessDrillState;
+    if (!panel || !state) return;
+
+    var search = bucketKey(state.query || '');
+    var filtered = state.rows.filter(function(row) {
+      var searchMatch = !search || BUSINESS_DRILL_COLUMNS.some(function(col) {
+        return bucketKey(row[col.key].display || '').indexOf(search) !== -1;
+      });
+      if (!searchMatch) return false;
+      return BUSINESS_DRILL_COLUMNS.every(function(col) {
+        var filterValue = bucketKey(state.filters[col.key] || '');
+        if (!filterValue) return true;
+        return String(row[col.key].filter || '').indexOf(filterValue) !== -1;
+      });
+    });
+
+    filtered.sort(function(a, b) {
+      var key = state.sortKey || 'date';
+      var av = a[key] ? a[key].sort : '';
+      var bv = b[key] ? b[key].sort : '';
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      if (av < bv) return state.sortAsc ? -1 : 1;
+      if (av > bv) return state.sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    state.filteredRows = filtered;
+
+    var resultsMeta = panel.querySelector('[data-role="results-count"]');
+    if (resultsMeta) {
+      resultsMeta.textContent = filtered.length + ' ligne' + (filtered.length > 1 ? 's' : '') + ' affichee' + (filtered.length > 1 ? 's' : '');
+    }
+    var titleMeta = panel.querySelector('[data-role="project-total"]');
+    if (titleMeta) {
+      titleMeta.textContent = filtered.length + ' / ' + state.rows.length + ' projet' + (state.rows.length > 1 ? 's' : '');
+    }
+
+    var thead = panel.querySelector('.business-drill-table thead');
+    var tbody = panel.querySelector('.business-drill-table tbody');
+    if (!thead || !tbody) return;
+
+    thead.innerHTML =
+      '<tr>' +
+      BUSINESS_DRILL_COLUMNS.map(function(col) {
+        var sorted = state.sortKey === col.key;
+        var arrow = sorted ? (state.sortAsc ? '▲' : '▼') : '↕';
+        return '<th data-sort-key="' + col.key + '" class="' + (sorted ? 'is-sorted' : '') + '" style="width:' + col.width + ';min-width:' + col.width + ';text-align:' + col.align + ';">' +
+          escapeHtml(col.label) + ' <span class="business-drill-sort">' + arrow + '</span></th>';
+      }).join('') +
+      '</tr>' +
+      '<tr class="business-drill-filter-row">' +
+      BUSINESS_DRILL_COLUMNS.map(function(col) {
+        var current = state.filters[col.key] || '';
+        if (col.filterType === 'select') {
+          var opts = ['<option value="">Tous</option>'].concat(
+            getBusinessDrillFilterOptions(state.rows, col.key).map(function(option) {
+              var selected = option === current ? ' selected' : '';
+              return '<option value="' + escapeHtml(option) + '"' + selected + '>' + escapeHtml(option) + '</option>';
+            })
+          ).join('');
+          return '<th style="width:' + col.width + ';min-width:' + col.width + ';"><select class="business-drill-filter" data-filter-key="' + col.key + '">' + opts + '</select></th>';
+        }
+        return '<th style="width:' + col.width + ';min-width:' + col.width + ';"><input class="business-drill-filter" data-filter-key="' + col.key + '" type="text" placeholder="Filtrer" value="' + escapeHtml(current) + '"></th>';
+      }).join('') +
+      '</tr>';
+
+    tbody.innerHTML = filtered.length
+      ? filtered.map(function(row) {
+          return '<tr>' +
+            BUSINESS_DRILL_COLUMNS.map(function(col) {
+              var value = row[col.key].display || '—';
+              var cls = col.align === 'right' ? ' class="is-numeric"' : '';
+              return '<td' + cls + ' title="' + escapeHtml(String(value)) + '" style="width:' + col.width + ';min-width:' + col.width + ';text-align:' + col.align + ';">' + escapeHtml(String(value)) + '</td>';
+            }).join('') +
+          '</tr>';
+        }).join('')
+      : '<tr><td colspan="' + BUSINESS_DRILL_COLUMNS.length + '" class="business-drill-empty">Aucune ligne ne correspond aux filtres en cours.</td></tr>';
+  }
+
+  function bindBusinessDrillTable(panel) {
+    if (!panel || panel._businessDrillBound) return;
+    panel._businessDrillBound = true;
+
+    panel.addEventListener('click', function(event) {
+      var resetBtn = event.target.closest('[data-role="reset-filters"]');
+      if (resetBtn) {
+        var state = panel._businessDrillState;
+        if (!state) return;
+        state.query = '';
+        state.filters = {};
+        var searchInput = panel.querySelector('.business-drill-search');
+        if (searchInput) searchInput.value = '';
+        renderBusinessDrillTable(panel);
+        return;
+      }
+      var th = event.target.closest('th[data-sort-key]');
+      if (!th) return;
+      var currentState = panel._businessDrillState;
+      if (!currentState) return;
+      var nextKey = th.getAttribute('data-sort-key');
+      currentState.sortAsc = currentState.sortKey === nextKey ? !currentState.sortAsc : true;
+      currentState.sortKey = nextKey;
+      renderBusinessDrillTable(panel);
+    });
+
+    panel.addEventListener('input', function(event) {
+      var state = panel._businessDrillState;
+      if (!state) return;
+      var searchInput = event.target.closest('.business-drill-search');
+      if (searchInput) {
+        state.query = searchInput.value || '';
+        renderBusinessDrillTable(panel);
+        return;
+      }
+      var filterInput = event.target.closest('.business-drill-filter');
+      if (filterInput && filterInput.tagName === 'INPUT') {
+        state.filters[filterInput.getAttribute('data-filter-key')] = filterInput.value || '';
+        renderBusinessDrillTable(panel);
+      }
+    });
+
+    panel.addEventListener('change', function(event) {
+      var filterInput = event.target.closest('.business-drill-filter');
+      var state = panel._businessDrillState;
+      if (!state || !filterInput) return;
+      state.filters[filterInput.getAttribute('data-filter-key')] = filterInput.value || '';
+      renderBusinessDrillTable(panel);
+    });
   }
 
   function renderInlineDetails(chartId, projects, title) {
@@ -773,21 +933,38 @@
     var totalBud = rows.reduce(function(sum, project) { return sum + getBud(project); }, 0);
     var totalWeighted = rows.reduce(function(sum, project) { return sum + getWeighted(project); }, 0);
 
+    panel._businessDrillState = {
+      rows: normalizeInlineDrillRows(rows),
+      filteredRows: [],
+      sortKey: 'date',
+      sortAsc: false,
+      query: '',
+      filters: {}
+    };
+
     panel.innerHTML =
       '<div class="business-drill-head">' +
         '<div class="business-drill-title">' + escapeHtml(title) + '</div>' +
         '<div class="business-drill-meta">' +
-          '<span class="business-drill-pill">' + escapeHtml(String(rows.length)) + ' projet' + (rows.length > 1 ? 's' : '') + '</span>' +
+          '<span class="business-drill-pill" data-role="project-total">' + escapeHtml(String(rows.length)) + ' projet' + (rows.length > 1 ? 's' : '') + '</span>' +
           '<span class="business-drill-pill">Bud ' + escapeHtml(formatValue(totalBud, 'won_amount')) + '</span>' +
           '<span class="business-drill-pill">CA win proba ' + escapeHtml(formatValue(totalWeighted, 'pipe_weighted')) + '</span>' +
+          '<span class="business-drill-pill business-drill-pill-muted" data-role="results-count">' + escapeHtml(String(rows.length)) + ' lignes affichees</span>' +
         '</div>' +
+      '</div>' +
+      '<div class="business-drill-toolbar">' +
+        '<input class="business-drill-search" type="text" placeholder="Rechercher dans toutes les colonnes...">' +
+        '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="reset-filters">Reinitialiser filtres</button>' +
       '</div>' +
       '<div class="business-drill-wrap">' +
         '<table class="business-drill-table">' +
-          '<thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Zone</th><th>Type</th><th>Statut source</th><th>Statut normalisé</th><th>Bud</th><th>CA win proba</th></tr></thead>' +
-          '<tbody>' + projectRowsHtml(rows) + '</tbody>' +
+          '<thead></thead>' +
+          '<tbody></tbody>' +
         '</table>' +
       '</div>';
+
+    bindBusinessDrillTable(panel);
+    renderBusinessDrillTable(panel);
 
     panel.classList.add('is-open');
     var globalSection = document.getElementById('detail-section');
