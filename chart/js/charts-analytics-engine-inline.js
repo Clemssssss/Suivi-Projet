@@ -1855,6 +1855,72 @@ function createAllCharts(data) {
     { key:'Commentaires',                         type:'text'    },
   ];
 
+var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+
+function formatTableCellValue(project, column) {
+  if (!column) return '';
+  var raw = project && project[column.key] !== undefined ? project[column.key] : (project ? project[column.key + ' '] : undefined);
+  if (raw === undefined || raw === null) return '';
+  return String(raw);
+}
+
+function buildVisibleTableViewPayload(data) {
+  var rows = Array.isArray(data) ? data : [];
+  var meta = [];
+  var datasetMeta = (typeof DashboardDataTransparency !== 'undefined' && DashboardDataTransparency.getDatasetMeta)
+    ? DashboardDataTransparency.getDatasetMeta()
+    : null;
+  var sourceName = datasetMeta && datasetMeta.sourceName ? datasetMeta.sourceName : 'Dataset actif';
+  var yearEl = document.getElementById('year-filter');
+  var dateFieldEl = document.getElementById('date-field-selector');
+  var energyEl = document.getElementById('energy-type-filter');
+  var activeFilters = (typeof AE !== 'undefined' && AE.getFilters) ? (AE.getFilters() || {}) : {};
+  var filterParts = [];
+
+  if (yearEl && yearEl.value) filterParts.push('Année ' + yearEl.value);
+  if (energyEl && energyEl.value && energyEl.options[energyEl.selectedIndex]) {
+    filterParts.push('Énergie ' + energyEl.options[energyEl.selectedIndex].textContent.trim());
+  }
+  Object.keys(activeFilters).forEach(function(key) {
+    if (!activeFilters[key]) return;
+    filterParts.push(key + ' = ' + activeFilters[key]);
+  });
+
+  meta.push('Source: ' + sourceName);
+  meta.push(rows.length + ' projet(s) visible(s)');
+  meta.push(filterParts.length ? ('Filtres: ' + filterParts.join(' • ')) : 'Filtres: aucun filtre fort');
+  meta.push('Champ date: ' + (dateFieldEl && dateFieldEl.value ? dateFieldEl.value : 'Date réception'));
+
+  return {
+    title: 'Projets visibles du dashboard',
+    subtitle: 'Vue plein écran des données actuellement visibles dans le tableau de bord',
+    meta: meta,
+    headers: EXPORT_COLUMNS.map(function(c) { return c.key; }),
+    rows: rows.map(function(project) {
+      return EXPORT_COLUMNS.map(function(column) {
+        return formatTableCellValue(project, column);
+      });
+    })
+  };
+}
+
+function openVisibleDataTablePage(data) {
+  var rows = Array.isArray(data) ? data : [];
+  if (!rows.length) {
+    notify('Tableau', 'Aucune donnée visible à ouvrir', 'warning', 2200);
+    return;
+  }
+  var payload = buildVisibleTableViewPayload(rows);
+  var token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  try {
+    if (window.localStorage) {
+      localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+    }
+  } catch (e) {}
+  window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
+}
+
 function exportExcel(data, filename, sheetTitle) {
   if (typeof XLSX === 'undefined') { notify('Export Excel', 'SheetJS non chargé', 'error'); return; }
   if (!data || !data.length)       { notify('Export Excel', 'Aucune donnée', 'error'); return; }
@@ -2474,6 +2540,11 @@ function update() {
   var _btnXls = document.getElementById('btn-excel');
   if (_btnXls) _btnXls.addEventListener('click', function() {
     exportExcel(AE.getFiltered(), 'analytics_' + new Date().toISOString().slice(0,10) + '.xlsx', 'Projets filtres');
+  });
+
+  var _btnTableView = document.getElementById('btn-open-table-view');
+  if (_btnTableView) _btnTableView.addEventListener('click', function() {
+    openVisibleDataTablePage(AE.getFiltered());
   });
 
   document.querySelectorAll('[data-ce]').forEach(btn => {
