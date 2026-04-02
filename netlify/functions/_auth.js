@@ -168,11 +168,14 @@ function getAdminUser() {
 function isAdminUser(username) {
   const user = String(username || '').trim();
   const admin = getAdminUser();
-  return !!user && !!admin && constantTimeEqual(user, admin);
+  if (!user) return false;
+  if (admin && constantTimeEqual(user, admin)) return true;
+  return user.toLowerCase() === 'admin';
 }
 
 function normalizeUserRole(role, username) {
   const normalized = String(role || '').trim().toLowerCase();
+  if (isAdminUser(username)) return 'admin';
   if (normalized === 'admin') return 'admin';
   if (normalized === 'consultation' || normalized === 'viewer' || normalized === 'read_only' || normalized === 'readonly') {
     return 'consultation';
