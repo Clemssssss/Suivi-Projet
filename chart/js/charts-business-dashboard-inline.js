@@ -880,7 +880,7 @@
   }
 
   function paletteFor(mode, count, entries) {
-    var palette = [
+    var defaultPalette = [
       'rgba(37,99,235,.88)',
       'rgba(249,115,22,.88)',
       'rgba(16,185,129,.88)',
@@ -892,6 +892,19 @@
       'rgba(14,165,233,.88)',
       'rgba(132,204,22,.88)'
     ];
+    var pipePalette = [
+      'rgba(0,102,204,.96)',
+      'rgba(230,81,0,.96)',
+      'rgba(0,153,102,.96)',
+      'rgba(200,30,80,.96)',
+      'rgba(107,70,193,.96)',
+      'rgba(191,144,0,.96)',
+      'rgba(0,151,167,.96)',
+      'rgba(149,56,54,.96)',
+      'rgba(82,109,130,.96)',
+      'rgba(46,125,50,.96)'
+    ];
+    var palette = mode.indexOf('pipe_') === 0 ? pipePalette : defaultPalette;
     function hashLabel(value) {
       var key = bucketKey(value);
       var hash = 0;
