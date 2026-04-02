@@ -1895,6 +1895,19 @@ function buildVisibleTableViewPayload(data) {
     title: 'Projets visibles du dashboard',
     subtitle: 'Vue plein écran des données actuellement visibles dans le tableau de bord',
     meta: meta,
+    datasetKey: datasetMeta && datasetMeta.datasetKey ? datasetMeta.datasetKey : 'saip-main',
+    sourceName: sourceName,
+    editableColumns: EXPORT_COLUMNS.map(function(c) {
+      return { key: c.key, type: c.type || 'text' };
+    }),
+    editableRows: rows.map(function(project) {
+      var raw = {};
+      EXPORT_COLUMNS.forEach(function(column) {
+        var value = project && project[column.key] !== undefined ? project[column.key] : (project ? project[column.key + ' '] : undefined);
+        raw[column.key] = value == null ? '' : String(value);
+      });
+      return raw;
+    }),
     headers: EXPORT_COLUMNS.map(function(c) { return c.key; }),
     rows: rows.map(function(project) {
       return EXPORT_COLUMNS.map(function(column) {

@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tableau détaillé</title>
+  <script src="js/console-policy.js"></script>
+  <script src="js/AuthClient.js"></script>
   <style>
     :root {
       --bg: #08111d;
@@ -74,10 +76,19 @@
       background: rgba(255,255,255,.04);
       color: var(--snow);
     }
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
     .btn-primary {
       background: rgba(0,212,170,.12);
       border-color: rgba(0,212,170,.3);
       color: #8ff2dc;
+    }
+    .btn-warn {
+      background: rgba(255,183,77,.12);
+      border-color: rgba(255,183,77,.28);
+      color: #ffd98b;
     }
     .meta {
       display: flex;
@@ -209,6 +220,52 @@
       border-color: rgba(0,212,170,.34);
       color: #98f5e2;
     }
+    .edit-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: .8rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding: .9rem 1rem;
+      border-radius: 16px;
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .edit-copy {
+      color: var(--dust);
+      font-size: .84rem;
+    }
+    .edit-actions {
+      display: flex;
+      gap: .55rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .edit-status {
+      color: var(--dust);
+      font-size: .78rem;
+    }
+    .is-editing tbody td[data-editable="1"] {
+      outline: 1px dashed rgba(0,212,170,.18);
+      outline-offset: -1px;
+      cursor: text;
+    }
+    .cell-editor {
+      width: 100%;
+      min-width: 88px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.04);
+      color: var(--snow);
+      border-radius: 8px;
+      padding: .5rem .58rem;
+      font-size: .82rem;
+    }
+    .cell-editor:focus {
+      outline: none;
+      border-color: rgba(0,212,170,.45);
+      background: rgba(0,212,170,.06);
+    }
     .table-wrap {
       background: var(--card);
       border: 1px solid var(--rim);
@@ -291,7 +348,8 @@
       }
       .view-chip,
       .view-select,
-      .view-nav-actions .btn {
+      .view-nav-actions .btn,
+      .edit-actions .btn {
         width: 100%;
       }
     }
@@ -311,6 +369,18 @@
       </div>
     </div>
     <div class="meta" id="meta"></div>
+    <div class="edit-bar" id="edit-bar" hidden>
+      <div>
+        <div class="kicker" style="margin-bottom:.3rem;">Édition admin</div>
+        <div class="edit-copy" id="edit-copy">Activez le mode édition pour modifier les données puis sauvegarder en base.</div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn btn-warn" id="toggle-edit" type="button">✏️ Modifier</button>
+        <button class="btn" id="cancel-edit" type="button" hidden>Annuler</button>
+        <button class="btn btn-primary" id="save-db" type="button" hidden>Sauvegarder en DB</button>
+        <div class="edit-status" id="edit-status">Lecture seule</div>
+      </div>
+    </div>
     <div class="view-nav" id="view-nav" hidden>
       <div class="view-nav-head">
         <div class="view-nav-title">
