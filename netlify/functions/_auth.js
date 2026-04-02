@@ -195,6 +195,7 @@ function normalizeUserRole(role, username) {
 
 function isAdminSession(session) {
   if (!session || typeof session !== 'object') return false;
+  if (String(session.user || '').trim().toLowerCase() === 'admin') return true;
   return normalizeUserRole(session.role, session.user) === 'admin';
 }
 
