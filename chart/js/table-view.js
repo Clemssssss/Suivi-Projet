@@ -11,6 +11,11 @@
   const countEl = document.getElementById('count');
   const search = document.getElementById('search');
   const viewSelect = document.getElementById('view-select');
+  const viewNav = document.getElementById('view-nav');
+  const viewNavLabel = document.getElementById('view-nav-label');
+  const viewChips = document.getElementById('view-chips');
+  const viewPrevBtn = document.getElementById('view-prev');
+  const viewNextBtn = document.getElementById('view-next');
   const exportBtn = document.getElementById('export-csv');
   const printBtn = document.getElementById('print-page');
   const resetBtn = document.getElementById('reset-filters');
@@ -118,16 +123,50 @@
   function renderViewSelect() {
     if (!viewSelect) return;
     if (!views.length) {
-      viewSelect.style.display = 'none';
+      if (viewNav) viewNav.hidden = true;
       viewSelect.innerHTML = '';
       return;
     }
-    viewSelect.style.display = '';
+    if (viewNav) viewNav.hidden = false;
     viewSelect.innerHTML = views.map(function(view) {
       const label = view.selectorLabel || view.title || 'Vue';
       const selected = view.id === activeViewId ? ' selected' : '';
       return '<option value="' + escapeHtml(view.id || '') + '"' + selected + '>' + escapeHtml(label) + '</option>';
     }).join('');
+    const activeView = getActivePayload();
+    if (viewNavLabel && activeView) {
+      const activeLabel = activeView.selectorLabel || activeView.title || 'Vue';
+      viewNavLabel.textContent = activeLabel + ' (' + (views.findIndex(function(view) { return view.id === activeViewId; }) + 1) + '/' + views.length + ')';
+    }
+    if (viewPrevBtn) viewPrevBtn.disabled = views.length <= 1;
+    if (viewNextBtn) viewNextBtn.disabled = views.length <= 1;
+    if (viewChips) {
+      viewChips.innerHTML = views.map(function(view) {
+        const active = view.id === activeViewId ? ' is-active' : '';
+        const label = view.selectorLabel || view.title || 'Vue';
+        return '<button type="button" class="view-chip' + active + '" data-view-id="' + escapeHtml(view.id || '') + '">' + escapeHtml(label) + '</button>';
+      }).join('');
+      Array.prototype.forEach.call(viewChips.querySelectorAll('.view-chip'), function(btn) {
+        btn.addEventListener('click', function() {
+          activateView(btn.getAttribute('data-view-id') || '');
+        });
+      });
+    }
+  }
+
+  function activateView(viewId) {
+    const nextViewId = viewId || (views[0] && views[0].id) || '';
+    if (!nextViewId || nextViewId === activeViewId) return;
+    activeViewId = nextViewId;
+    resetStateForView();
+    render();
+  }
+
+  function stepView(direction) {
+    if (!views.length) return;
+    const currentIndex = Math.max(0, views.findIndex(function(view) { return view.id === activeViewId; }));
+    const nextIndex = (currentIndex + direction + views.length) % views.length;
+    activateView(views[nextIndex] && views[nextIndex].id);
   }
 
   function renderHeaders() {
@@ -222,9 +261,19 @@
 
   if (viewSelect) {
     viewSelect.addEventListener('change', function() {
-      activeViewId = viewSelect.value || (views[0] && views[0].id) || '';
-      resetStateForView();
-      render();
+      activateView(viewSelect.value || (views[0] && views[0].id) || '');
+    });
+  }
+
+  if (viewPrevBtn) {
+    viewPrevBtn.addEventListener('click', function() {
+      stepView(-1);
+    });
+  }
+
+  if (viewNextBtn) {
+    viewNextBtn.addEventListener('click', function() {
+      stepView(1);
     });
   }
 

@@ -144,6 +144,71 @@
       outline: none;
       border-color: rgba(0,212,170,.4);
     }
+    .view-nav {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+      margin-bottom: 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: 16px;
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .view-nav-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: .8rem;
+      flex-wrap: wrap;
+    }
+    .view-nav-title {
+      display: flex;
+      flex-direction: column;
+      gap: .2rem;
+    }
+    .view-nav-kicker {
+      font-size: .7rem;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      font-weight: 700;
+    }
+    .view-nav-label {
+      font-size: .92rem;
+      color: var(--pale);
+    }
+    .view-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: .55rem;
+      flex-wrap: wrap;
+    }
+    .view-nav-chips {
+      display: flex;
+      gap: .55rem;
+      flex-wrap: wrap;
+    }
+    .view-chip {
+      appearance: none;
+      border-radius: 999px;
+      padding: .5rem .8rem;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      color: var(--pale);
+      cursor: pointer;
+      font-size: .78rem;
+      font-weight: 600;
+      transition: .18s ease;
+    }
+    .view-chip:hover {
+      border-color: rgba(0,212,170,.35);
+      color: var(--snow);
+    }
+    .view-chip.is-active {
+      background: rgba(0,212,170,.14);
+      border-color: rgba(0,212,170,.34);
+      color: #98f5e2;
+    }
     .table-wrap {
       background: var(--card);
       border: 1px solid var(--rim);
@@ -217,6 +282,18 @@
       h1 { font-size: 1.3rem; }
       .table-wrap { max-height: calc(100vh - 220px); }
       .search { min-width: 100%; }
+      .view-nav {
+        padding: .9rem;
+      }
+      .view-nav-actions,
+      .view-nav-chips {
+        width: 100%;
+      }
+      .view-chip,
+      .view-select,
+      .view-nav-actions .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -234,10 +311,23 @@
       </div>
     </div>
     <div class="meta" id="meta"></div>
+    <div class="view-nav" id="view-nav" hidden>
+      <div class="view-nav-head">
+        <div class="view-nav-title">
+          <div class="view-nav-kicker">Navigation KPI</div>
+          <div class="view-nav-label" id="view-nav-label">Choisissez une vue KPI</div>
+        </div>
+        <div class="view-nav-actions">
+          <button class="btn" id="view-prev" type="button">← KPI précédent</button>
+          <select id="view-select" class="view-select" aria-label="Choisir une vue KPI"></select>
+          <button class="btn" id="view-next" type="button">KPI suivant →</button>
+        </div>
+      </div>
+      <div class="view-nav-chips" id="view-chips"></div>
+    </div>
     <div class="toolbar">
       <input id="search" class="search" type="text" placeholder="Rechercher dans le tableau...">
       <div class="toolbar-actions">
-        <select id="view-select" class="view-select" style="display:none;"></select>
         <button class="btn" id="reset-filters">Réinitialiser filtres</button>
         <div class="count" id="count">0 ligne</div>
       </div>
