@@ -525,13 +525,15 @@ button, a, select, input, canvas,
 .hdr-right {
   margin-left: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: .9rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+  max-width: min(72vw, 1380px);
 }
 
 .hdr-actions-main,
+.hdr-actions-meta,
 .hdr-actions-status {
   display: flex;
   align-items: center;
@@ -539,11 +541,23 @@ button, a, select, input, canvas,
   flex-wrap: wrap;
 }
 
+.hdr-actions-main {
+  flex: 1 1 780px;
+  justify-content: flex-end;
+  min-width: min(100%, 560px);
+}
+
+.hdr-actions-meta {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+
 .mobile-shell-toggles {
   display: none;
 }
 
 .hdr-actions-status {
+  flex: 0 1 auto;
   padding: .35rem .45rem .35rem .65rem;
   border-radius: 999px;
   background: rgba(255,255,255,.035);
@@ -2778,8 +2792,10 @@ canvas { max-width: 100%; cursor: pointer !important; }
     background: rgba(0,212,170,.08);
   }
   .hdr-actions-main,
+  .hdr-actions-meta,
   .hdr-actions-status   { width: 100%; }
   .hdr-actions-main     { gap: .45rem; }
+  .hdr-actions-meta     { justify-content: flex-start; }
   .hdr-actions-status   { border-radius: 14px; justify-content: flex-start; padding: .3rem .35rem .35rem .45rem; }
   .btn-hdr              { min-height: 38px; }
   .kpi-grid             { grid-template-columns: repeat(2, 1fr); padding: 0 1.25rem; }
@@ -2842,6 +2858,7 @@ canvas { max-width: 100%; cursor: pointer !important; }
     box-shadow: 0 8px 18px rgba(0,0,0,.22);
   }
   body.mobile-shell-ready:not(.mobile-actions-open) .hdr-actions-main,
+  body.mobile-shell-ready:not(.mobile-actions-open) .hdr-actions-meta,
   body.mobile-shell-ready:not(.mobile-actions-open) .hdr-actions-status {
     display: none;
   }
@@ -2882,6 +2899,11 @@ canvas { max-width: 100%; cursor: pointer !important; }
     gap: .42rem;
     padding: .45rem;
     border-radius: 16px;
+  }
+  .hdr-actions-meta     {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .42rem;
   }
   .hdr-pill             {
     width: 100%;

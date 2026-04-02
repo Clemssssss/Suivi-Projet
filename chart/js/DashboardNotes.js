@@ -642,7 +642,7 @@ body.notes-mode-active .dashboard-note-target:hover {
   function _ensureDom() {
     if (_dom.button && _dom.panel) return;
 
-    var headerActions = document.querySelector('.hdr-right');
+    var headerActions = document.querySelector('.hdr-actions-main') || document.querySelector('.hdr-right');
     if (headerActions && !document.getElementById('btn-notes-mode')) {
       var btn = document.createElement('button');
       btn.id = 'btn-notes-mode';

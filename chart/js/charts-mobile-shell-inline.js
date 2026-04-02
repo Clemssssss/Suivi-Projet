@@ -82,8 +82,42 @@
     applyState();
   }
 
-  function injectToggles() {
+  function ensureHeaderGroups() {
     var headerRight = document.querySelector('.hdr-right');
+    if (!headerRight) return null;
+
+    var actionsMain = headerRight.querySelector('.hdr-actions-main');
+    var actionsMeta = headerRight.querySelector('.hdr-actions-meta');
+    var actionsStatus = headerRight.querySelector('.hdr-actions-status');
+
+    if (!actionsMain) {
+      actionsMain = document.createElement('div');
+      actionsMain.className = 'hdr-actions-main';
+      headerRight.insertBefore(actionsMain, headerRight.firstChild || null);
+    }
+    if (!actionsMeta) {
+      actionsMeta = document.createElement('div');
+      actionsMeta.className = 'hdr-actions-meta';
+      if (actionsStatus) headerRight.insertBefore(actionsMeta, actionsStatus);
+      else headerRight.appendChild(actionsMeta);
+    }
+
+    Array.prototype.slice.call(headerRight.children).forEach(function(child) {
+      if (!child || child === actionsMain || child === actionsMeta || child === actionsStatus) return;
+      if (child.id === 'mobile-shell-toggles') return;
+      if (child.id === 'project-count' || child.id === 'filter-micro' || child.classList.contains('hdr-pill') || child.classList.contains('filter-micro-badge')) {
+        actionsMeta.appendChild(child);
+        return;
+      }
+      actionsMain.appendChild(child);
+    });
+
+    return { headerRight: headerRight, actionsMain: actionsMain, actionsMeta: actionsMeta, actionsStatus: actionsStatus };
+  }
+
+  function injectToggles() {
+    var groups = ensureHeaderGroups();
+    var headerRight = groups && groups.headerRight ? groups.headerRight : document.querySelector('.hdr-right');
     if (!headerRight || document.getElementById('mobile-shell-toggles')) return;
 
     var wrap = document.createElement('div');
@@ -108,6 +142,7 @@
   }
 
   function init() {
+    ensureHeaderGroups();
     injectToggles();
     var controlsBtn = document.getElementById('ctrl-bars-toggle');
     if (controlsBtn && !controlsBtn._ctrlBarBound) {

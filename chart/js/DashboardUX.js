@@ -233,7 +233,7 @@ window.DashboardUX = (() => {
   ══════════════════════════════════════════════════════ */
   function _injectShareButton() {
     if (document.getElementById('ux-share-btn')) return;
-    const headerActions = document.querySelector('.hdr-right, .hdr-actions, .header-actions');
+    const headerActions = document.querySelector('.hdr-actions-main, .hdr-right, .hdr-actions, .header-actions');
     if (!headerActions) return;
     const btn = document.createElement('button');
     btn.id = 'ux-share-btn';
