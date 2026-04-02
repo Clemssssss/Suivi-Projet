@@ -82,6 +82,45 @@
     applyState();
   }
 
+  function ensureActionMenus() {
+    var headerRight = document.querySelector('.hdr-right');
+    if (!headerRight) return null;
+
+    var actionsMain = headerRight.querySelector('.hdr-actions-main');
+    if (!actionsMain) return null;
+
+    var exportsPanel = actionsMain.querySelector('[data-header-menu-panel="exports"]');
+    var toolsPanel = actionsMain.querySelector('[data-header-menu-panel="tools"]');
+    var adminPanel = actionsMain.querySelector('[data-header-menu-panel="admin"]');
+
+    var menuMap = {
+      exports: {
+        panel: exportsPanel,
+        ids: ['btn-csv', 'btn-excel', 'btn-export-json', 'btn-export-pdf']
+      },
+      tools: {
+        panel: toolsPanel,
+        ids: ['btn-email-report', 'btn-open-manual', 'btn-toggle-values', 'btn-notes-mode', 'ux-share-btn']
+      },
+      admin: {
+        panel: adminPanel,
+        ids: ['csv-import-trigger', 'btn-data-admin', 'btn-db-upload', 'btn-sharepoint-refresh', 'btn-sharepoint-source']
+      }
+    };
+
+    Object.keys(menuMap).forEach(function(key) {
+      var entry = menuMap[key];
+      if (!entry.panel) return;
+      entry.ids.forEach(function(id) {
+        var node = document.getElementById(id);
+        if (!node || node.parentElement === entry.panel) return;
+        entry.panel.appendChild(node);
+      });
+    });
+
+    return menuMap;
+  }
+
   function ensureHeaderGroups() {
     var headerRight = document.querySelector('.hdr-right');
     if (!headerRight) return null;
@@ -112,7 +151,21 @@
       actionsMain.appendChild(child);
     });
 
+    ensureActionMenus();
     return { headerRight: headerRight, actionsMain: actionsMain, actionsMeta: actionsMeta, actionsStatus: actionsStatus };
+  }
+
+  function bindMenuDismiss() {
+    if (document.body && document.body._headerMenusBound) return;
+    if (document.body) document.body._headerMenusBound = true;
+
+    document.addEventListener('click', function(event) {
+      var insideMenu = event.target && event.target.closest && event.target.closest('.hdr-menu');
+      if (insideMenu) return;
+      document.querySelectorAll('.hdr-menu[open]').forEach(function(menu) {
+        menu.removeAttribute('open');
+      });
+    });
   }
 
   function injectToggles() {
@@ -143,11 +196,21 @@
 
   function init() {
     ensureHeaderGroups();
+    ensureActionMenus();
+    bindMenuDismiss();
     injectToggles();
     var controlsBtn = document.getElementById('ctrl-bars-toggle');
     if (controlsBtn && !controlsBtn._ctrlBarBound) {
       controlsBtn._ctrlBarBound = true;
       controlsBtn.addEventListener('click', function() { toggleKey('controlsCollapsed'); });
+    }
+    if (!window._headerMenuObserverBound) {
+      window._headerMenuObserverBound = true;
+      var observer = new MutationObserver(function() {
+        ensureHeaderGroups();
+        ensureActionMenus();
+      });
+      observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
     }
     applyState();
   }

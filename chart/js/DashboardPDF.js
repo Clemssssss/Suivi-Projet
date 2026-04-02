@@ -964,7 +964,8 @@ window.DashboardPDF = (() => {
     if (document.getElementById('btn-export-pdf')) return;
 
     // Chercher la barre d'actions existante
-    const actionBar = document.querySelector('.hdr-actions-main')
+    const actionBar = document.querySelector('[data-header-menu-panel="exports"]')
+      || document.querySelector('.hdr-actions-main')
       || document.querySelector('.btn-hdr')?.parentElement
       || document.querySelector('.header-actions, .dashboard-actions, .toolbar');
 
