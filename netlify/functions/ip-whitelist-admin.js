@@ -7,7 +7,7 @@ const {
   logAccess
 } = require('./_auth');
 const { ensureSchema, query } = require('./_db');
-const WHITELIST_ADMIN_IP = '90.82.197.132';
+const WHITELIST_ADMIN_IP = String(process.env.AUTH_WHITELIST_ADMIN_IP || '').trim();
 
 function cleanText(value, max) {
   return String(value == null ? '' : value).trim().slice(0, max || 160);

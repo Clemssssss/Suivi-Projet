@@ -56,9 +56,16 @@
       ['Nb lignes', source ? String(source.lastRowCount || 0) : '—'],
       ['Mis à jour par', source ? (source.updatedBy || '—') : '—']
     ];
-    qs('source-snapshot').innerHTML = rows.map(function(row) {
-      return '<div>' + row[0] + '</div><div>' + row[1] + '</div>';
-    }).join('');
+    var snapshot = qs('source-snapshot');
+    snapshot.innerHTML = '';
+    rows.forEach(function(row) {
+      var keyEl = document.createElement('div');
+      keyEl.textContent = row[0];
+      var valEl = document.createElement('div');
+      valEl.textContent = row[1];
+      snapshot.appendChild(keyEl);
+      snapshot.appendChild(valEl);
+    });
   }
 
   async function loadSource() {

@@ -71,8 +71,12 @@ function parsePasswordConfig(encoded, envName) {
     throw new Error('Invalid password hash format');
   }
 
+  const iterations = Number(parts[1]);
+  if (!Number.isInteger(iterations) || iterations < 120000) {
+    throw new Error('Weak password hash: iterations must be >= 120000 (got ' + iterations + ')');
+  }
   return {
-    iterations: Number(parts[1]),
+    iterations,
     salt: parts[2],
     hash: parts[3]
   };

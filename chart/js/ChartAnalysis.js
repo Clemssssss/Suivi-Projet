@@ -93,7 +93,10 @@ window.ChartAnalysis = (() => {
   }
 
   function _storeTablePayload(payload) {
-    const token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const randomBytes = new Uint8Array(9);
+    crypto.getRandomValues(randomBytes);
+    const randomPart = Array.from(randomBytes).map(b => b.toString(36)).join('').slice(0, 12);
+    const token = 'tv-' + Date.now() + '-' + randomPart;
     try {
       if (window.localStorage) {
         localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
