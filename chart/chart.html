@@ -58,12 +58,15 @@
     <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
     <button class="btn-hdr" id="btn-email-report" type="button" title="Créer un brouillon d'email avec synthèse et graphiques">✉️ Créer email</button>
     <button class="btn-hdr" id="btn-open-manual" type="button" title="Ouvrir le manuel utilisateur du dashboard">📘 Manuel</button>
+    <button class="btn-hdr" id="btn-toggle-values" type="button" title="Afficher ou masquer les valeurs sur les graphiques">🔢 Valeurs : off</button>
     <label class="btn-hdr" id="csv-import-trigger" data-admin-only="1" hidden style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
       📥 Import CSV/Excel
       <input type="file" id="csv-import-input" accept=".csv,.xlsx" style="display:none">
     </label>
-    <button class="btn-hdr" id="btn-sharepoint-refresh" data-admin-only="1" hidden type="button" style="display:none;">🔄 Refresh SharePoint</button>
-    <a class="btn-hdr" id="btn-sharepoint-source" data-admin-only="1" hidden href="/chart/source-sync.html" style="display:none;text-decoration:none;">⚙️ Source SharePoint</a>
+    <a class="btn-hdr" id="btn-data-admin" data-admin-only="1" hidden href="/chart/data-admin.html" style="text-decoration:none;">🗄️ Admin données</a>
+    <a class="btn-hdr" id="btn-db-upload" data-admin-only="1" hidden href="/chart/dataset-upload.html" style="text-decoration:none;">⬆️ Import Excel</a>
+    <button class="btn-hdr" id="btn-sharepoint-refresh" data-admin-only="1" hidden type="button">🔄 Refresh SharePoint</button>
+    <a class="btn-hdr" id="btn-sharepoint-source" data-admin-only="1" hidden href="/chart/source-sync.html" style="text-decoration:none;">⚙️ Source SharePoint</a>
     <div class="hdr-pill" id="project-count">-- projets</div>
     <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
     <div class="hdr-actions-status">
@@ -171,41 +174,6 @@
   </div>
 </div>
 </div><!-- /#ctrl-bars-sticky -->
-
-<section id="dashboard-data-banner" aria-live="polite">
-  <div class="data-banner-head">
-    <div>
-      <div class="data-banner-kicker">Transparence Data</div>
-      <div class="data-banner-title">Lecture des chiffres et provenance du dataset</div>
-    </div>
-    <div class="data-banner-status" id="data-banner-status">Initialisation…</div>
-  </div>
-  <div class="data-banner-grid" id="data-banner-grid">
-    <div class="data-banner-card">
-      <span class="data-banner-label">Source</span>
-      <strong id="data-banner-source">Dataset non documenté</strong>
-      <span id="data-banner-storage">Mode de chargement inconnu</span>
-    </div>
-    <div class="data-banner-card">
-      <span class="data-banner-label">Fraîcheur</span>
-      <strong id="data-banner-updated">Mise à jour inconnue</strong>
-      <span id="data-banner-key">Dataset: —</span>
-    </div>
-    <div class="data-banner-card">
-      <span class="data-banner-label">Volume</span>
-      <strong id="data-banner-volume">0 ligne</strong>
-      <span id="data-banner-visible">0 projet visible</span>
-    </div>
-    <div class="data-banner-card">
-      <span class="data-banner-label">Périmètre de lecture</span>
-      <strong id="data-banner-scope">Filtres en cours d’analyse</strong>
-      <span id="data-banner-date-field">Champ date: —</span>
-    </div>
-  </div>
-  <div class="data-banner-foot" id="data-banner-foot">
-    Chaque graphique affiche ensuite un bloc “Analyse” pour expliquer ce qu’il mesure, sur quel périmètre, et comment ouvrir le tableau de lecture.
-  </div>
-</section>
 
 <!-- ══════════════════════════════════════
      SHELL — contenu scrollable
@@ -359,6 +327,41 @@
     <div class="vel-sub">obtenus récents</div>
   </div>
 </div>
+
+<section id="dashboard-data-banner" aria-live="polite">
+  <div class="data-banner-head">
+    <div>
+      <div class="data-banner-kicker">Transparence Data</div>
+      <div class="data-banner-title">Lecture des chiffres et provenance du dataset</div>
+    </div>
+    <div class="data-banner-status" id="data-banner-status">Initialisation…</div>
+  </div>
+  <div class="data-banner-grid" id="data-banner-grid">
+    <div class="data-banner-card">
+      <span class="data-banner-label">Source</span>
+      <strong id="data-banner-source">Dataset non documenté</strong>
+      <span id="data-banner-storage">Mode de chargement inconnu</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Fraîcheur</span>
+      <strong id="data-banner-updated">Mise à jour inconnue</strong>
+      <span id="data-banner-key">Dataset: —</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Volume</span>
+      <strong id="data-banner-volume">0 ligne</strong>
+      <span id="data-banner-visible">0 projet visible</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Périmètre de lecture</span>
+      <strong id="data-banner-scope">Filtres en cours d’analyse</strong>
+      <span id="data-banner-date-field">Champ date: —</span>
+    </div>
+  </div>
+  <div class="data-banner-foot" id="data-banner-foot">
+    Chaque graphique affiche ensuite un bloc “Analyse” pour expliquer ce qu’il mesure, sur quel périmètre, et comment ouvrir le tableau de lecture.
+  </div>
+</section>
 
 <!-- ── CONTRÔLES — déplacé hors du shell, injecté par JS ── -->
 <div class="filter-panel" id="filter-panel">
@@ -776,6 +779,13 @@
       <button class="btn-close" id="btn-close-table">✕ Fermer</button>
     </div>
   </div>
+  <div class="detail-toolbar">
+    <input id="detail-search" class="detail-search" type="text" placeholder="Rechercher dans toutes les colonnes...">
+    <div class="detail-toolbar-right">
+      <span class="detail-results-count" id="detail-results-count">0 ligne affichée</span>
+      <button class="btn-hdr" id="btn-detail-reset-filters" title="Réinitialiser recherche et filtres colonnes">Réinitialiser filtres</button>
+    </div>
+  </div>
   <div class="dtable-wrap">
     <table class="dtable" id="dtable">
       <thead>
@@ -788,6 +798,7 @@
           <th data-sort="echeance">Échéance ↕</th>
           <th data-sort="Puissance (MWc)">MW ↕</th>
         </tr>
+        <tr class="dtable-filter-row"></tr>
       </thead>
       <tbody id="dtable-body"></tbody>
     </table>
@@ -1934,4 +1945,3 @@
 <script src="js/sharepoint-source-controls.js"></script>
 </body>
 </html>
-
