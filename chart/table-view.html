@@ -131,6 +131,19 @@
       font-size: .78rem;
       white-space: nowrap;
     }
+    .view-select {
+      min-width: 260px;
+      padding: .8rem .95rem;
+      border-radius: 12px;
+      border: 1px solid var(--rim2);
+      background: rgba(255,255,255,.04);
+      color: var(--snow);
+      font-size: .88rem;
+    }
+    .view-select:focus {
+      outline: none;
+      border-color: rgba(0,212,170,.4);
+    }
     .table-wrap {
       background: var(--card);
       border: 1px solid var(--rim);
@@ -224,6 +237,7 @@
     <div class="toolbar">
       <input id="search" class="search" type="text" placeholder="Rechercher dans le tableau...">
       <div class="toolbar-actions">
+        <select id="view-select" class="view-select" style="display:none;"></select>
         <button class="btn" id="reset-filters">Réinitialiser filtres</button>
         <div class="count" id="count">0 ligne</div>
       </div>

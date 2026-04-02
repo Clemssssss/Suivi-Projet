@@ -1453,6 +1453,34 @@
     };
   }
 
+  function buildProjectTableView(projects, title, subtitle, meta, selectorLabel) {
+    var rows = normalizeInlineDrillRows(uniqueProjects(projects || []));
+    return {
+      id: bucketKey(selectorLabel || title || ('view-' + Date.now())),
+      selectorLabel: selectorLabel || title,
+      title: title,
+      subtitle: subtitle || 'Détail KPI',
+      headers: BUSINESS_DRILL_COLUMNS.map(function(col) { return col.label; }),
+      rows: rows.map(function(row) {
+        return BUSINESS_DRILL_COLUMNS.map(function(col) {
+          return row[col.key] ? String(row[col.key].display || '—') : '—';
+        });
+      }),
+      meta: Array.isArray(meta) ? meta.slice() : []
+    };
+  }
+
+  function openKpiTablePage(config) {
+    if (!config || !Array.isArray(config.views) || !config.views.length) return;
+    openTablePage({
+      title: config.title || 'Tableau KPI',
+      subtitle: config.subtitle || 'Sélectionnez une vue KPI pour afficher le tableau correspondant',
+      meta: Array.isArray(config.meta) ? config.meta.slice() : [],
+      views: config.views,
+      selectedViewId: config.selectedViewId || config.views[0].id
+    });
+  }
+
   function renderInlineDetails(chartId, projects, title) {
     var panel = getInlinePanel(chartId);
     if (!panel) return;
@@ -1604,7 +1632,8 @@
     return '';
   }
 
-  function renderKpi(id, label, value, sub, projects, title, mode) {
+  function renderKpi(id, label, value, sub, projects, title, mode, options) {
+    options = options || {};
     var el = document.getElementById(id);
     if (!el) return;
     el.innerHTML =
@@ -1612,6 +1641,10 @@
       '<span class="business-kpi-value">' + formatValue(value, mode) + '</span>' +
       '<span class="business-kpi-sub">' + sub + '</span>';
     el.onclick = function() {
+      if (options.tablePageConfig) {
+        openKpiTablePage(options.tablePageConfig);
+        return;
+      }
       openDetails(projects, title);
     };
   }
@@ -1873,11 +1906,40 @@
       ? ('Top couples zone geographique + client depuis tout le fichier filtre • ' + filterContextSummary())
       : ('Top couples zone geographique + client sur le meme perimetre que le bloc • ' + filterContextSummary());
 
-    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(scopeProjects, 'won_amount'), 'Base Bud, statut obtenu', scopeProjects.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
-    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(scopeProjects, 'lost_amount'), 'Base Bud, statut perdu', scopeProjects.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
-    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(scopeProjects, 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount');
-    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(scopeProjects, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount');
-    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count');
+    var performanceMeta = [
+      'Bloc KPI : Prise d’affaires / Performance',
+      scopeLabel,
+      filterContextSummary()
+    ];
+    var performanceViews = [
+      buildProjectTableView(scopeProjects.filter(isWon), '€ gagnés', 'Détail KPI — projets gagnés', performanceMeta, '€ gagnés'),
+      buildProjectTableView(scopeProjects.filter(isLost), '€ perdus', 'Détail KPI — projets perdus', performanceMeta, '€ perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), '€ gagnés + perdus', 'Détail KPI — projets décidés', performanceMeta, '€ gagnés + perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), 'Taux de transfo €', 'Détail KPI — base des projets décidés', performanceMeta.concat(['Base KPI : € gagnés / (€ gagnés + € perdus)']), 'Taux de transfo €'),
+      buildProjectTableView(scopeProjects.filter(isDecided), 'Nb dossiers décidés', 'Détail KPI — projets décidés', performanceMeta, 'Nb dossiers décidés')
+    ];
+    var performanceTableConfigBase = {
+      title: 'KPI Prise d’affaires / Performance',
+      subtitle: 'Choisissez un KPI pour afficher le tableau correspondant',
+      meta: performanceMeta,
+      views: performanceViews
+    };
+
+    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(scopeProjects, 'won_amount'), 'Base Bud, statut obtenu', scopeProjects.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[0].id })
+    });
+    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(scopeProjects, 'lost_amount'), 'Base Bud, statut perdu', scopeProjects.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[1].id })
+    });
+    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(scopeProjects, 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[2].id })
+    });
+    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(scopeProjects, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[3].id })
+    });
+    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[4].id })
+    });
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
       createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
@@ -1943,9 +2005,32 @@
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(scopeProjects, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud');
-    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(scopeProjects, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted');
-    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio');
+    var pipelineMeta = [
+      'Bloc KPI : Pipe commercial',
+      describeScopeLabel(scope),
+      filterContextSummary()
+    ];
+    var pipelineViews = [
+      buildProjectTableView(offers, '€ Remis + En étude total', 'Détail KPI — pipe commercial Bud', pipelineMeta.concat(['Base KPI : colonne Bud']), '€ Remis + En étude total'),
+      buildProjectTableView(offers, '€ Remis + En étude pondéré', 'Détail KPI — pipe commercial pondéré', pipelineMeta.concat(['Base KPI : colonne CA win proba']), '€ Remis + En étude pondéré'),
+      buildProjectTableView(offers, '% CA win proba / Bud', 'Détail KPI — pipe commercial', pipelineMeta.concat(['Base KPI : pondération globale du pipe actif']), '% CA win proba / Bud')
+    ];
+    var pipelineTableConfigBase = {
+      title: 'KPI Pipe commercial',
+      subtitle: 'Choisissez un KPI pour afficher le tableau correspondant',
+      meta: pipelineMeta,
+      views: pipelineViews
+    };
+
+    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(scopeProjects, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[0].id })
+    });
+    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(scopeProjects, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[1].id })
+    });
+    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[2].id })
+    });
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(scopeProjects, 'zone', view, 10), view, {
       indexAxis: 'y'

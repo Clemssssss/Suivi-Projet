@@ -10,6 +10,7 @@
   const tbody = document.getElementById('tbody');
   const countEl = document.getElementById('count');
   const search = document.getElementById('search');
+  const viewSelect = document.getElementById('view-select');
   const exportBtn = document.getElementById('export-csv');
   const printBtn = document.getElementById('print-page');
   const resetBtn = document.getElementById('reset-filters');
@@ -63,34 +64,78 @@
   }
 
   const payload = loadPayload();
-  if (!payload || !Array.isArray(payload.headers) || !Array.isArray(payload.rows)) {
+  if (!payload) {
     tbody.innerHTML = '<tr><td class="empty">Aucune donnée disponible pour cet onglet.</td></tr>';
     return;
   }
+  const views = Array.isArray(payload.views) && payload.views.length
+    ? payload.views.filter(function(view) {
+        return view && Array.isArray(view.headers) && Array.isArray(view.rows);
+      })
+    : [];
+  let activeViewId = payload.selectedViewId || (views[0] && views[0].id) || '';
 
-  titleEl.textContent = payload.title || 'Tableau detaille';
-  subtitleEl.textContent = payload.subtitle || 'Vue detaillee ouverte depuis le dashboard';
-  document.title = (payload.title || 'Tableau detaille') + ' - Dashboard';
+  function getActivePayload() {
+    if (views.length) {
+      return views.find(function(view) { return view.id === activeViewId; }) || views[0];
+    }
+    return payload;
+  }
 
-  (payload.meta || []).forEach(function (item) {
-    const pill = document.createElement('div');
-    pill.className = 'pill';
-    pill.textContent = item;
-    metaEl.appendChild(pill);
-  });
+  if (!getActivePayload() || !Array.isArray(getActivePayload().headers) || !Array.isArray(getActivePayload().rows)) {
+    tbody.innerHTML = '<tr><td class="empty">Aucune donnée disponible pour cet onglet.</td></tr>';
+    return;
+  }
 
   const state = {
     sortIndex: 0,
     sortAsc: true,
     query: '',
-    columnFilters: payload.headers.map(function () { return ''; })
+    columnFilters: getActivePayload().headers.map(function () { return ''; })
   };
 
+  function resetStateForView() {
+    state.sortIndex = 0;
+    state.sortAsc = true;
+    state.query = '';
+    search.value = '';
+    state.columnFilters = getActivePayload().headers.map(function () { return ''; });
+  }
+
+  function renderHeaderMeta(activePayload) {
+    titleEl.textContent = activePayload.title || 'Tableau detaille';
+    subtitleEl.textContent = activePayload.subtitle || 'Vue detaillee ouverte depuis le dashboard';
+    document.title = (activePayload.title || 'Tableau detaille') + ' - Dashboard';
+    metaEl.innerHTML = '';
+    (activePayload.meta || []).forEach(function(item) {
+      const pill = document.createElement('div');
+      pill.className = 'pill';
+      pill.textContent = item;
+      metaEl.appendChild(pill);
+    });
+  }
+
+  function renderViewSelect() {
+    if (!viewSelect) return;
+    if (!views.length) {
+      viewSelect.style.display = 'none';
+      viewSelect.innerHTML = '';
+      return;
+    }
+    viewSelect.style.display = '';
+    viewSelect.innerHTML = views.map(function(view) {
+      const label = view.selectorLabel || view.title || 'Vue';
+      const selected = view.id === activeViewId ? ' selected' : '';
+      return '<option value="' + escapeHtml(view.id || '') + '"' + selected + '>' + escapeHtml(label) + '</option>';
+    }).join('');
+  }
+
   function renderHeaders() {
+    const activePayload = getActivePayload();
     theadRow.innerHTML = '';
     filterRow.innerHTML = '';
 
-    payload.headers.forEach(function (header, index) {
+    activePayload.headers.forEach(function (header, index) {
       const th = document.createElement('th');
       const sorted = state.sortIndex === index;
       const arrow = sorted ? (state.sortAsc ? '▲' : '▼') : '↕';
@@ -119,8 +164,9 @@
   }
 
   function currentRows() {
+    const activePayload = getActivePayload();
     const query = normalizeText(state.query || '');
-    let rows = payload.rows.slice();
+    let rows = activePayload.rows.slice();
 
     rows = rows.filter(function (row) {
       const globalMatch = !query || row.some(function (cell) {
@@ -149,16 +195,19 @@
   }
 
   function render() {
+    const activePayload = getActivePayload();
+    renderHeaderMeta(activePayload);
+    renderViewSelect();
     renderHeaders();
     const rows = currentRows();
-    countEl.textContent = rows.length + ' ligne' + (rows.length > 1 ? 's' : '') + ' / ' + payload.rows.length;
+    countEl.textContent = rows.length + ' ligne' + (rows.length > 1 ? 's' : '') + ' / ' + activePayload.rows.length;
     tbody.innerHTML = rows.length
       ? rows.map(function (row) {
           return '<tr>' + row.map(function (cell) {
             return '<td>' + escapeHtml(cell) + '</td>';
           }).join('') + '</tr>';
         }).join('')
-      : '<tr><td class="empty" colspan="' + payload.headers.length + '">Aucune ligne ne correspond aux filtres en cours.</td></tr>';
+      : '<tr><td class="empty" colspan="' + activePayload.headers.length + '">Aucune ligne ne correspond aux filtres en cours.</td></tr>';
   }
 
   search.addEventListener('input', function () {
@@ -167,14 +216,21 @@
   });
 
   resetBtn.addEventListener('click', function () {
-    state.query = '';
-    state.columnFilters = payload.headers.map(function () { return ''; });
-    search.value = '';
+    resetStateForView();
     render();
   });
 
+  if (viewSelect) {
+    viewSelect.addEventListener('change', function() {
+      activeViewId = viewSelect.value || (views[0] && views[0].id) || '';
+      resetStateForView();
+      render();
+    });
+  }
+
   exportBtn.addEventListener('click', function () {
-    const rows = [payload.headers].concat(currentRows());
+    const activePayload = getActivePayload();
+    const rows = [activePayload.headers].concat(currentRows());
     const csv = rows.map(function (row) {
       return row.map(function (cell) {
         const value = String(cell == null ? '' : cell).replace(/"/g, '""');
@@ -185,7 +241,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = (payload.title || 'tableau').replace(/[^\w\-]+/g, '_') + '.csv';
+    link.download = (activePayload.title || 'tableau').replace(/[^\w\-]+/g, '_') + '.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -196,5 +252,6 @@
     window.print();
   });
 
+  if (views.length && !activeViewId) activeViewId = views[0].id || '';
   render();
 })();
