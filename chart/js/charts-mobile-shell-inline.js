@@ -96,7 +96,7 @@
     var menuMap = {
       exports: {
         panel: exportsPanel,
-        ids: ['btn-csv', 'btn-excel', 'btn-export-json', 'btn-export-pdf']
+        ids: ['btn-export-html', 'btn-csv', 'btn-excel', 'btn-export-json', 'btn-export-pdf']
       },
       tools: {
         panel: toolsPanel,
