@@ -1408,9 +1408,16 @@ function updateKPIs(data) {
   const pipeline = Math.round(offerCA * (conv / 100));
 
   // Top société
-  const sc  = {};
-  data.forEach(p => { const s = AE.nv(p['Client']); if (s) sc[s] = (sc[s]||0)+1; });
-  const top = Object.entries(sc).sort((a,b)=>b[1]-a[1])[0];
+  const topSociete = (typeof Analytics !== 'undefined' && typeof Analytics.topSocieteScore === 'function')
+    ? (Analytics.topSocieteScore(data, {}, 1)[0] || null)
+    : null;
+  const topSocieteSub = topSociete
+    ? (
+        topSociete.obtenu + '/' + topSociete.total + ' gagnes'
+        + ' · ' + topSociete.taux_reussite + '% reussite'
+        + ' · CA gagne ' + fmt(topSociete.ca_gagne || 0)
+      )
+    : '';
 
   // Taux réponse
   const ofArr = data.filter(p => ProjectUtils.getStatus(p) === 'offre');
@@ -1436,8 +1443,8 @@ function updateKPIs(data) {
   setEl('k-offers-pct',total > 0 ? Math.round(offers/total*100)+'% du total' : '');
   setEl('k-ca-avg',   won > 0 ? 'moy. '+fmt(Math.round(wonCA/won)) : 'moy. —');
   setEl('k-power-avg',total > 0 ? 'moy. '+(totPow/total).toFixed(1)+' MW' : '');
-  setEl('k-top',      top ? top[0] : '—');
-  setEl('k-top-sub',  top ? top[1]+' projet'+(top[1]>1?'s':'') : '');
+  setEl('k-top',      topSociete ? topSociete.client : '—');
+  setEl('k-top-sub',  topSociete ? topSocieteSub : '');
   setEl('project-count', total + ' projets');
 
   // GoNogo dashboard

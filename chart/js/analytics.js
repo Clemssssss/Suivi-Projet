@@ -284,7 +284,7 @@
 
   /**
    * Top société — score composite :
-   *   score = total + (obtenu × 2) + (ca_gagne / 1_000_000)
+   *   score = (obtenu × 3) + (taux_reussite × 0.08) + (ca_gagne / 1_000_000) + (total × 0.2)
    * Retourne un tableau trié décroissant.
    */
   function topSocieteScore(projects, filters = {}, limit = 10) {
@@ -301,13 +301,17 @@
       }
     });
     return Object.entries(map)
-      .map(([client, d]) => ({
-        client,
-        total:    d.total,
-        obtenu:   d.obtenu,
-        ca_gagne: d.ca_gagne,
-        score:    d.total + (d.obtenu * 2) + (d.ca_gagne / 1_000_000)
-      }))
+      .map(([client, d]) => {
+        const tauxReussite = d.total > 0 ? Math.round((d.obtenu / d.total) * 100) : 0;
+        return {
+          client,
+          total: d.total,
+          obtenu: d.obtenu,
+          ca_gagne: d.ca_gagne,
+          taux_reussite: tauxReussite,
+          score: (d.obtenu * 3) + (tauxReussite * 0.08) + (d.ca_gagne / 1_000_000) + (d.total * 0.2)
+        };
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
   }
