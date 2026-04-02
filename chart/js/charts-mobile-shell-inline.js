@@ -24,7 +24,8 @@
     var state = loadState();
     return {
       actionsOpen: !!state.actionsOpen,
-      filtersOpen: !!state.filtersOpen
+      filtersOpen: state.filtersOpen !== false,
+      controlsCollapsed: !!state.controlsCollapsed
     };
   }
 
@@ -41,12 +42,21 @@
 
     var actionsBtn = document.getElementById('mobile-actions-toggle');
     var filtersBtn = document.getElementById('mobile-filters-toggle');
+    var controlsBtn = document.getElementById('ctrl-bars-toggle');
+    var controlsBar = document.getElementById('ctrl-bars-sticky');
 
     if (!isMobile()) {
       body.classList.remove('mobile-shell-ready', 'mobile-actions-open', 'mobile-filters-open');
       setButtonState(actionsBtn, true, { open: '✕ Actions', closed: '☰ Actions' });
       setButtonState(filtersBtn, true, { open: '✕ Filtres', closed: '⚙ Filtres' });
+      if (controlsBar) controlsBar.classList.toggle('is-minimized', getState().controlsCollapsed);
+      if (controlsBtn) {
+        var desktopCollapsed = getState().controlsCollapsed;
+        controlsBtn.setAttribute('aria-expanded', desktopCollapsed ? 'false' : 'true');
+        controlsBtn.textContent = desktopCollapsed ? '▸ Afficher' : '▾ Réduire';
+      }
       if (typeof window._syncShellPadding === 'function') setTimeout(window._syncShellPadding, 30);
+      if (typeof window._scheduleViewportRefresh === 'function') setTimeout(window._scheduleViewportRefresh, 60);
       return;
     }
 
@@ -54,9 +64,15 @@
     body.classList.add('mobile-shell-ready');
     body.classList.toggle('mobile-actions-open', state.actionsOpen);
     body.classList.toggle('mobile-filters-open', state.filtersOpen);
+    if (controlsBar) controlsBar.classList.toggle('is-minimized', state.controlsCollapsed);
     setButtonState(actionsBtn, state.actionsOpen, { open: '✕ Actions', closed: '☰ Actions' });
     setButtonState(filtersBtn, state.filtersOpen, { open: '✕ Filtres', closed: '⚙ Filtres' });
+    if (controlsBtn) {
+      controlsBtn.setAttribute('aria-expanded', state.controlsCollapsed ? 'false' : 'true');
+      controlsBtn.textContent = state.controlsCollapsed ? '▸ Afficher' : '▾ Réduire';
+    }
     if (typeof window._syncShellPadding === 'function') setTimeout(window._syncShellPadding, 30);
+    if (typeof window._scheduleViewportRefresh === 'function') setTimeout(window._scheduleViewportRefresh, 60);
   }
 
   function toggleKey(key) {
@@ -93,6 +109,11 @@
 
   function init() {
     injectToggles();
+    var controlsBtn = document.getElementById('ctrl-bars-toggle');
+    if (controlsBtn && !controlsBtn._ctrlBarBound) {
+      controlsBtn._ctrlBarBound = true;
+      controlsBtn.addEventListener('click', function() { toggleKey('controlsCollapsed'); });
+    }
     applyState();
   }
 

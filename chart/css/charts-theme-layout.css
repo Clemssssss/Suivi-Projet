@@ -1119,6 +1119,50 @@ button, a, select, input, canvas,
   backdrop-filter: blur(20px) saturate(160%);
   box-shadow: 0 4px 24px rgba(0,0,0,.5);
 }
+.ctrl-bars-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0 .55rem;
+}
+.ctrl-bars-head-copy {
+  display: flex;
+  flex-direction: column;
+  gap: .18rem;
+  min-width: 0;
+}
+.ctrl-bars-kicker {
+  font-family: var(--mono);
+  font-size: .63rem;
+  color: rgba(159,217,255,.78);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.ctrl-bars-title {
+  font-size: .88rem;
+  color: var(--snow);
+  line-height: 1.25;
+}
+.ctrl-bars-toggle {
+  flex: 0 0 auto;
+  min-width: 118px;
+  justify-content: center;
+}
+.ctrl-bars-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+#ctrl-bars-sticky.is-minimized {
+  padding-bottom: .55rem;
+}
+#ctrl-bars-sticky.is-minimized .ctrl-bars-body {
+  display: none;
+}
+#ctrl-bars-sticky.is-minimized .ctrl-bars-head {
+  padding-bottom: 0;
+}
 .ctrl-grp { display: flex; gap: .6rem; align-items: center; }
 .ctrl-lbl {
   font-family: var(--mono);
@@ -2741,6 +2785,8 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .ctrl-grp             { width: 100%; flex-wrap: wrap; align-items: stretch; }
   .ctrl-lbl             { white-space: normal; }
   .ctrl-inp             { width: 100% !important; min-height: 42px; }
+  .ctrl-bars-head       { align-items: flex-start; }
+  .ctrl-bars-toggle     { width: 100%; min-height: 40px; }
   #timeline-filter-bar .ctrl-grp[style*="margin-left:auto"] {
     margin-left: 0 !important;
     justify-content: flex-start;
@@ -2863,6 +2909,8 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .ctrl-grp             { gap: .35rem; }
   .ctrl-lbl             { font-size: .64rem; }
   .ctrl-inp             { font-size: .82rem; padding: .56rem .72rem; min-height: 40px; }
+  .ctrl-bars-head       { gap: .65rem; }
+  .ctrl-bars-title      { font-size: .8rem; }
   .chart-card           { border-radius: 14px; }
   .chart-title-actions  { gap: .32rem; }
   .chart-title-actions button,
