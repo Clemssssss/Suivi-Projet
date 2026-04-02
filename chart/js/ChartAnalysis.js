@@ -677,7 +677,97 @@ window.ChartAnalysis = (() => {
     return isFinite(value) ? value : null;
   }
 
+  function _summarizeBusinessChartData(chartId) {
+    if (typeof window.BusinessChartsDashboard === 'undefined'
+        || typeof window.BusinessChartsDashboard.getChartSummary !== 'function') {
+      return null;
+    }
+    const rawSummary = window.BusinessChartsDashboard.getChartSummary(chartId);
+    if (!rawSummary || !Array.isArray(rawSummary.entries) || !rawSummary.entries.length) return null;
+
+    if (rawSummary.kind === 'comparison') {
+      const series = Array.isArray(rawSummary.series) ? rawSummary.series : [];
+      const datasets = series.map(function(serie, datasetIndex) {
+        const points = rawSummary.entries.map(function(entry, index) {
+          const values = entry && entry.values && typeof entry.values === 'object' ? entry.values : {};
+          const numeric = Number(values[serie.key]);
+          return {
+            index: index,
+            label: String(entry && entry.label != null ? entry.label : ('#' + (index + 1))),
+            value: isFinite(numeric) ? numeric : 0
+          };
+        }).filter(function(point) { return point.value !== null; });
+        const total = points.reduce(function(sum, point) { return sum + point.value; }, 0);
+        const top = points.slice().sort(function(a, b) { return b.value - a.value; })[0] || null;
+        return {
+          index: datasetIndex,
+          label: serie.label || 'Valeur',
+          total: total,
+          points: points,
+          top: top
+        };
+      }).filter(function(ds) { return ds.points.length > 0; });
+
+      const aggregate = {};
+      datasets.forEach(function(ds) {
+        ds.points.forEach(function(point) {
+          aggregate[point.label] = (aggregate[point.label] || 0) + point.value;
+        });
+      });
+
+      const categories = Object.keys(aggregate).map(function(label) {
+        return { label: label, value: aggregate[label] };
+      }).sort(function(a, b) { return b.value - a.value; });
+
+      return {
+        chart: _resolveChart(chartId),
+        labels: rawSummary.entries.map(function(entry) { return entry.label; }),
+        datasets: datasets,
+        categories: categories,
+        total: categories.reduce(function(sum, item) { return sum + item.value; }, 0),
+        topCategory: categories[0] || null,
+        secondCategory: categories[1] || null,
+        topDataset: datasets.slice().sort(function(a, b) { return b.total - a.total; })[0] || null
+      };
+    }
+
+    const visibleEntries = rawSummary.entries.filter(function(entry) {
+      return entry && entry.label !== 'Autres';
+    }).map(function(entry, index) {
+      return {
+        index: index,
+        label: String(entry.label || ('#' + (index + 1))),
+        value: Number(entry.value) || 0
+      };
+    });
+
+    if (!visibleEntries.length) return null;
+
+    const categories = visibleEntries.slice().sort(function(a, b) { return b.value - a.value; });
+    const dataset = {
+      index: 0,
+      label: rawSummary.title || 'Valeur',
+      total: visibleEntries.reduce(function(sum, point) { return sum + point.value; }, 0),
+      points: visibleEntries,
+      top: categories[0] || null
+    };
+
+    return {
+      chart: _resolveChart(chartId),
+      labels: visibleEntries.map(function(entry) { return entry.label; }),
+      datasets: [dataset],
+      categories: categories,
+      total: dataset.total,
+      topCategory: categories[0] || null,
+      secondCategory: categories[1] || null,
+      topDataset: dataset
+    };
+  }
+
   function _summarizeChartData(chartId) {
+    const businessSummary = _summarizeBusinessChartData(chartId);
+    if (businessSummary) return businessSummary;
+
     const chart = _resolveChart(chartId);
     if (!chart || !chart.data) return null;
 

@@ -13,6 +13,7 @@
   var INLINE_DRILL_STATE = {};
   var BUSINESS_DRILL_STATE = { filters: {} };
   var BUSINESS_RENDER_TICKET = null;
+  var BUSINESS_CHART_SUMMARIES = {};
   var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
   var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   var BUSINESS_FILTER_LABELS = {
@@ -282,6 +283,29 @@
   function getDate(project) {
     if (typeof Analytics !== 'undefined' && Analytics.getProjectDate) return Analytics.getProjectDate(project);
     return null;
+  }
+
+  function cloneBusinessEntry(entry) {
+    var cloned = {
+      label: entry && entry.label != null ? String(entry.label) : '',
+      value: Number(entry && entry.value) || 0
+    };
+    if (entry && entry.values && typeof entry.values === 'object') {
+      cloned.values = Object.assign({}, entry.values);
+    }
+    if (Array.isArray(entry && entry._othersEntries)) {
+      cloned._othersEntries = entry._othersEntries.map(cloneBusinessEntry);
+    }
+    return cloned;
+  }
+
+  function registerBusinessChartSummary(id, payload) {
+    if (!id) return;
+    BUSINESS_CHART_SUMMARIES[id] = Object.assign({ chartId: id }, payload || {});
+  }
+
+  function getBusinessChartSummary(id) {
+    return id && BUSINESS_CHART_SUMMARIES[id] ? BUSINESS_CHART_SUMMARIES[id] : null;
   }
 
   function normalizeMonthLabel(value) {
@@ -1594,6 +1618,12 @@
 
   function createChart(id, title, entries, mode, opts) {
     opts = opts || {};
+    registerBusinessChartSummary(id, {
+      kind: 'single',
+      title: title,
+      mode: mode,
+      entries: (entries || []).map(cloneBusinessEntry)
+    });
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
     var colors = paletteFor(mode, values.length, entries);
@@ -1690,6 +1720,15 @@
   function createComparisonChart(id, title, entries, mode, opts) {
     opts = opts || {};
     var series = comparisonSeriesForMode(mode);
+    registerBusinessChartSummary(id, {
+      kind: 'comparison',
+      title: title,
+      mode: mode,
+      series: series.map(function(serie) {
+        return { key: serie.key, label: serie.label };
+      }),
+      entries: (entries || []).map(cloneBusinessEntry)
+    });
     var labels = entries.map(function(e) { return e.label; });
     var isHorizontal = opts.indexAxis === 'y';
     var modeForTicks = mode === 'compare_status_count' ? 'won_count' : 'won_amount';
@@ -2040,7 +2079,8 @@
     hideLegacy: archiveLegacyCharts,
     getDrillFilters: getBusinessDrillFilters,
     clearDrillFilters: clearBusinessDrillFilters,
-    removeDrillFilter: removeBusinessDrillFilter
+    removeDrillFilter: removeBusinessDrillFilter,
+    getChartSummary: getBusinessChartSummary
   };
 
   if (document.readyState === 'loading') {
