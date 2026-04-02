@@ -14,7 +14,7 @@
   var BUSINESS_DRILL_STATE = { filters: {} };
   var BUSINESS_RENDER_TICKET = null;
   var BUSINESS_CHART_SUMMARIES = {};
-  var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
+  var OFFER_UI_LABEL = 'Offres en cours';
   var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   var BUSINESS_FILTER_LABELS = {
     '_mois': 'Mois',
@@ -568,12 +568,12 @@
       won_amount: '€ gagnés',
       lost_amount: '€ perdus',
       decided_amount: '€ gagnés + perdus',
-      compare_status_amount: '€ gagnés / perdus / ' + OFFER_UI_LABEL,
+      compare_status_amount: '€ gagnés / perdus / offres en cours',
       won_rate_amount: 'Taux de transfo €',
       won_count: 'Nb gagnés',
       lost_count: 'Nb perdus',
       decided_count: 'Nb gagnés + perdus',
-      compare_status_count: 'Dossiers gagnés / perdus / ' + OFFER_UI_LABEL,
+      compare_status_count: 'Dossiers gagnés / perdus / offres en cours',
       won_rate_count: 'Taux de transfo dossiers',
       pipe_bud: '€ Remis + En étude',
       pipe_weighted: '€ Remis + En étude',
@@ -1823,11 +1823,11 @@
     var label = modeLabel(mode);
     var mappings = {
       month: 'par mois',
-      zone: 'par zone geographique',
+      zone: 'par zone géographique',
       client: 'par client',
       type: 'par type de projet',
-      'zone-client': 'par couple zone geographique / client',
-      'client-type': 'client / type de projet'
+      'zone-client': 'par zone × client',
+      'client-type': 'par client × type de projet'
     };
 
     Object.keys(mappings).forEach(function(key) {
@@ -1894,12 +1894,12 @@
       });
       createComparisonChart(
         'biz-chart-perf-zone-client',
-        modeLabel(displayMode) + ' par couple zone geographique / client',
+        modeLabel(displayMode) + ' par zone × client',
         createComparisonComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
         displayMode,
         { indexAxis: 'y' }
       );
-      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComparisonComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' par client × type de projet', createComparisonComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
         indexAxis: 'y'
       });
       return;
@@ -1920,12 +1920,12 @@
     });
     createChart(
       'biz-chart-perf-zone-client',
-      modeLabel(displayMode) + ' par couple zone geographique / client',
+      modeLabel(displayMode) + ' par zone × client',
       createComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
       displayMode,
       { indexAxis: 'y' }
     );
-    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' par client × type de projet', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
       indexAxis: 'y'
     });
   }
@@ -1937,9 +1937,9 @@
     var offers = scopeProjects.filter(isPipeCommercialStatus);
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
-    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
-    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par couple client / zone géographique' : 'Remis + En étude par couple client / zone géographique';
-    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / type de chantier' : 'Remis + En étude par client / type de chantier';
+    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de projet' : 'Remis + En étude par type de projet';
+    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone × client' : 'Remis + En étude par zone × client';
+    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client × type de projet' : 'Remis + En étude par client × type de projet';
 
     updateTitles('biz-title-pipe-', view);
 
@@ -1953,13 +1953,13 @@
     createChart('biz-chart-pipe-client', modeLabel(view) + ' par client', createAggregateEntries(scopeProjects, 'client', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type', createAggregateEntries(scopeProjects, 'type', view, 10), view, {
+    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type de projet', createAggregateEntries(scopeProjects, 'type', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par couple zone geographique / client', createComboEntries(scopeProjects, 'Zone Géographique', 'Client', view, 12), view, {
+    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par zone × client', createComboEntries(scopeProjects, 'Zone Géographique', 'Client', view, 12), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', view, 12), view, {
+    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' par client × type de projet', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', view, 12), view, {
       indexAxis: 'y'
     });
 
