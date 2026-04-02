@@ -417,23 +417,19 @@ window.ChartAnalysis = (() => {
       });
 
       const currentOptions = chart.options || {};
-      const currentPlugins = currentOptions.plugins && typeof currentOptions.plugins === 'object'
-        ? currentOptions.plugins
-        : {};
-      const currentLegend = currentPlugins.legend && typeof currentPlugins.legend === 'object'
-        ? currentPlugins.legend
-        : {};
-      const currentLegendLabels = currentLegend.labels && typeof currentLegend.labels === 'object'
-        ? currentLegend.labels
-        : {};
-      chart.options.plugins = Object.assign({}, currentPlugins, {
-        legend: Object.assign({}, currentLegend, {
-          display: !!styleCfg.legend,
-          labels: Object.assign({}, currentLegendLabels, {
-            color: '#dce8f5'
-          })
-        })
-      });
+      if (!currentOptions.plugins || typeof currentOptions.plugins !== 'object') {
+        currentOptions.plugins = {};
+      }
+      const currentPlugins = currentOptions.plugins;
+      if (!currentPlugins.legend || typeof currentPlugins.legend !== 'object') {
+        currentPlugins.legend = {};
+      }
+      const currentLegend = currentPlugins.legend;
+      if (!currentLegend.labels || typeof currentLegend.labels !== 'object') {
+        currentLegend.labels = {};
+      }
+      currentLegend.display = !!styleCfg.legend;
+      currentLegend.labels.color = '#dce8f5';
 
       const currentScales = currentOptions.scales && typeof currentOptions.scales === 'object'
         ? currentOptions.scales
