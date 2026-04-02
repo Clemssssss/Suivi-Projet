@@ -2817,6 +2817,8 @@ function caByYearAllModes(projects, filters = {}) {
     const y = requestedYear;
     const dataY = _projectsForYear(projects, y);
     const dataPrev = _projectsForYear(projects, y - 1);
+    const countsY = countByStatus(dataY);
+    const countsPrev = countByStatus(dataPrev);
     const objectif = objectivesConfig[String(y)] || 0;
     const positiveOnly = options.positiveOnly || _displayMode.positiveOnly;
 
@@ -2827,6 +2829,10 @@ function caByYearAllModes(projects, filters = {}) {
     const conc = clientConcentration(projects, y);
     const proj = projectedYearEnd(projects, y, objectif);
     const eff = commercialEfficiency(dataY);
+    const decidedCount = countsY.obtenu + countsY.perdu;
+    const decidedPrevCount = countsPrev.obtenu + countsPrev.perdu;
+    const hasReliableConversionSample = decidedCount >= 5;
+    const hasMinimalConversionSample = decidedCount >= 1;
 
     const fmtV = v => ProjectUtils.formatMontant(v, true);
 
@@ -2850,25 +2856,32 @@ function caByYearAllModes(projects, filters = {}) {
         parts.push(`CA en ${dir} de ${growthPct >= 0 ? '+' : ''}${growthPct}% vs ${y - 1}`);
       }
     }
-    if (rate !== null) parts.push(`Taux de conversion : ${rate}%`);
-    parts.push(`${dataY.length} projets traités`);
+    if (rate !== null) {
+      if (hasReliableConversionSample) {
+        parts.push(`Taux de conversion : ${rate}%`);
+      } else if (hasMinimalConversionSample) {
+        parts.push(`Taux de conversion provisoire : ${rate}% (${decidedCount} décidé${decidedCount > 1 ? 's' : ''})`);
+      }
+    }
+    parts.push(`${decidedCount} projet${decidedCount > 1 ? 's' : ''} décidé${decidedCount > 1 ? 's' : ''} sur ${dataY.length} visible${dataY.length > 1 ? 's' : ''}`);
 
     // Strengths
     const strengths = [];
-    if (rate !== null && rate >= 40) strengths.push(`Excellent taux de conversion (${rate}%)`);
+    if (rate !== null && hasReliableConversionSample && rate >= 40) strengths.push(`Excellent taux de conversion (${rate}%)`);
+    if (rate !== null && !hasReliableConversionSample && hasMinimalConversionSample) strengths.push(`Conversion provisoire à confirmer (${rate}% sur ${decidedCount} décidé${decidedCount > 1 ? 's' : ''})`);
     if (caPrev > 0 && caGagne > caPrev) strengths.push(`Croissance du CA gagné vs N-1`);
     if (conc.riskLevel === 'low') strengths.push('Portefeuille client bien diversifié');
-    if (eff.score >= 70) strengths.push(`Efficacité commerciale élevée (${eff.score}/100)`);
+    if (eff.score >= 70 && hasReliableConversionSample) strengths.push(`Efficacité commerciale élevée (${eff.score}/100)`);
     if (objectif > 0 && caGagne >= objectif) strengths.push('Objectif annuel atteint ✅');
 
     // Risks
     const risks = [];
     if (!positiveOnly) {
-      if (rate !== null && rate < 25) risks.push(`Taux de conversion faible (${rate}%)`);
-      if (conc.riskLevel === 'high' || conc.riskLevel === 'critical') {
+      if (rate !== null && hasReliableConversionSample && rate < 25) risks.push(`Taux de conversion faible (${rate}%)`);
+      if ((conc.riskLevel === 'high' || conc.riskLevel === 'critical') && countsY.obtenu >= 3) {
         risks.push(`Concentration client : ${conc.topClient} = ${conc.share}% du CA`);
       }
-      if (ratePrev !== null && rate !== null && rate < ratePrev) {
+      if (ratePrev !== null && rate !== null && hasReliableConversionSample && decidedPrevCount >= 5 && rate < ratePrev) {
         risks.push(`Conversion en baisse vs N-1 (${rate}% vs ${ratePrev}%)`);
       }
       if (objectif > 0 && proj.projectedCompletion < 80) {
@@ -2886,8 +2899,9 @@ function caByYearAllModes(projects, filters = {}) {
 
     // Recommendation
     const recommendations = [];
-    if (conc.riskLevel !== 'low') recommendations.push('Diversifier le portefeuille client');
-    if (rate !== null && rate < 30) recommendations.push('Analyser les causes des pertes pour améliorer la conversion');
+    if (conc.riskLevel !== 'low' && countsY.obtenu >= 3) recommendations.push('Diversifier le portefeuille client');
+    if (rate !== null && hasReliableConversionSample && rate < 30) recommendations.push('Analyser les causes des pertes pour améliorer la conversion');
+    if (!hasReliableConversionSample) recommendations.push('Attendre davantage de dossiers décidés avant de conclure sur la conversion');
     if (objectif > 0 && proj.projectedCompletion < 90) recommendations.push('Renforcer la prospection pour alimenter le pipeline');
     if (eff.score < 50) recommendations.push('Optimiser les délais de cycle commercial');
 
