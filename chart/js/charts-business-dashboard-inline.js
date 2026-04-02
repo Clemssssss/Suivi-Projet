@@ -115,6 +115,45 @@
     return null;
   }
 
+  function normalizeMonthLabel(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function getProjectMonthTokens(project) {
+    var dt = getDate(project);
+    if (!(dt instanceof Date) || !isFinite(dt.getTime())) return null;
+    var month = MONTHS[dt.getMonth()];
+    if (!month) return null;
+    return {
+      month: normalizeMonthLabel(month),
+      monthYear: normalizeMonthLabel(month + ' ' + dt.getFullYear())
+    };
+  }
+
+  function matchesMonthFilter(project, value) {
+    var tokens = getProjectMonthTokens(project);
+    if (!tokens) return false;
+    var target = normalizeMonthLabel(value);
+    if (!target) return true;
+    return target === tokens.month || target === tokens.monthYear;
+  }
+
+  function matchesBusinessStatus(project, value) {
+    var target = String(value == null ? '' : value).trim().toLowerCase();
+    if (!target) return true;
+    if (target === 'won') return isWon(project);
+    if (target === 'lost') return isLost(project);
+    if (target === 'offer') return isOffer(project);
+    if (target === 'decided') return isDecided(project);
+    if (target === 'pipe') return isPipeCommercialStatus(project);
+    return true;
+  }
+
   function isValidYear(value) {
     return typeof value === 'number' && isFinite(value);
   }
@@ -139,7 +178,7 @@
   }
 
   function resolveBusinessScope(projects, mode) {
-    var baseVisible = applyEngineLikeFilters(projects, { respectYear: false, includeEngineFilters: false });
+    var baseVisible = applyEngineLikeFilters(projects, { respectYear: false, includeEngineFilters: true });
     var explicitYear = explicitSelectedYear();
     var hasExplicitYear = isValidYear(explicitYear);
     var referenceYear = resolveReferenceYear(baseVisible, mode);
@@ -239,6 +278,8 @@
       if (v == null) return;
       data = data.filter(function(p) {
         if (k === 'Statut') return getStatus(p) === v || (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseStatusKey && ProjectUtils.parseStatusKey(v) === getStatus(p));
+        if (k === '_mois') return matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return matchesBusinessStatus(p, v);
         var pv = nv(p[k]);
         return pv != null && pv === v;
       });
@@ -390,6 +431,11 @@
       var bucket = buckets[key];
       return {
         label: bucket.label,
+        filters: dimension === 'zone'
+          ? { 'Zone Géographique': bucket.label }
+          : (dimension === 'client'
+              ? { 'Client': bucket.label }
+              : { 'Type de projet (Activité)': bucket.label }),
         value: computeValue(bucket.projects, mode),
         projects: bucket.projects
       };
@@ -428,6 +474,7 @@
     });
     buckets.forEach(function(bucket) {
       bucket.value = computeValue(bucket.projects, mode);
+      bucket.filters = { _mois: bucket.label };
     });
     return buckets;
   }
@@ -452,6 +499,7 @@
         year: monthCursor.getFullYear(),
         month: monthCursor.getMonth(),
         label: MONTHS[monthCursor.getMonth()] + (spansMultipleYears ? (' ' + monthCursor.getFullYear()) : ''),
+        filters: { _mois: MONTHS[monthCursor.getMonth()] + (spansMultipleYears ? (' ' + monthCursor.getFullYear()) : '') },
         value: 0,
         projects: []
       });
@@ -526,6 +574,11 @@
       if (!mapped[key]) {
         mapped[key] = {
           label: label,
+          filters: dimension === 'zone'
+            ? { 'Zone Géographique': label }
+            : (dimension === 'client'
+                ? { 'Client': label }
+                : { 'Type de projet (Activité)': label }),
           projects: []
         };
       }
@@ -540,6 +593,7 @@
       });
       return {
         label: entry.label,
+        filters: entry.filters,
         values: values,
         projects: entry.projects
       };
@@ -567,6 +621,7 @@
       });
       return {
         label: MONTHS[idx],
+        filters: { _mois: MONTHS[idx] },
         values: values,
         projects: bucketProjects
       };
@@ -585,6 +640,7 @@
       });
       return {
         label: bucket.label,
+        filters: bucket.filters,
         values: values,
         projects: bucket.projects
       };
@@ -605,8 +661,11 @@
       if (!mapped[key]) {
         mapped[key] = {
           label: a + ' • ' + b,
+          filters: {},
           projects: []
         };
+        mapped[key].filters[keyA] = a;
+        mapped[key].filters[keyB] = b;
       }
       mapped[key].projects.push(project);
     });
@@ -619,6 +678,7 @@
       });
       return {
         label: entry.label,
+        filters: entry.filters,
         values: values,
         projects: entry.projects
       };
@@ -644,13 +704,19 @@
       'rgba(14,165,233,.88)',
       'rgba(132,204,22,.88)'
     ];
+    function hashLabel(value) {
+      var key = bucketKey(value);
+      var hash = 0;
+      for (var i = 0; i < key.length; i++) hash = ((hash << 5) - hash) + key.charCodeAt(i);
+      return Math.abs(hash);
+    }
     var arr = [];
     for (var i = 0; i < count; i++) {
       var entry = Array.isArray(entries) ? entries[i] : null;
       if (entry && entry.label === 'Autres') {
         arr.push('rgba(148,163,184,.82)');
       } else {
-        arr.push(palette[i % palette.length]);
+        arr.push(palette[hashLabel(entry && entry.label ? entry.label : String(i)) % palette.length]);
       }
     }
     return arr;
@@ -1306,6 +1372,64 @@
     return false;
   }
 
+  function managedDashboardFilterKeys() {
+    return ['_mois', 'Zone Géographique', 'Client', 'Type de projet (Activité)', '_businessStatus'];
+  }
+
+  function sameDashboardFilters(current, next) {
+    var managed = managedDashboardFilterKeys();
+    return managed.every(function(key) {
+      var cur = current && current[key] != null ? String(current[key]) : '';
+      var val = next && next[key] != null ? String(next[key]) : '';
+      return cur === val;
+    });
+  }
+
+  function applyDashboardFilters(filters, projects, title, fallbackOptions) {
+    var next = {};
+    Object.keys(filters || {}).forEach(function(key) {
+      if (filters[key] == null) return;
+      var value = String(filters[key]).trim();
+      if (!value) return;
+      next[key] = value;
+    });
+
+    if (!Object.keys(next).length || typeof AE === 'undefined' || !AE.getFilters || !AE.toggleFilter || !AE.removeFilter) {
+      return applyDashboardSelection(projects, title, fallbackOptions);
+    }
+
+    var current = AE.getFilters() || {};
+    var managed = managedDashboardFilterKeys();
+    var shouldClear = sameDashboardFilters(current, next);
+
+    if (typeof AE.clearSelection === 'function') {
+      try { AE.clearSelection(true); } catch (_) {}
+    }
+
+    managed.forEach(function(key) {
+      if (current[key] == null) return;
+      if (shouldClear || next[key] == null || String(current[key]) !== String(next[key])) {
+        AE.removeFilter(key);
+      }
+    });
+
+    if (shouldClear) return true;
+
+    Object.keys(next).forEach(function(key) {
+      if (current[key] == null || String(current[key]) !== String(next[key])) {
+        AE.toggleFilter(key, next[key]);
+      }
+    });
+    return true;
+  }
+
+  function comparisonStatusFilter(serieKey) {
+    if (serieKey === 'won_amount' || serieKey === 'won_count') return 'won';
+    if (serieKey === 'lost_amount' || serieKey === 'lost_count') return 'lost';
+    if (serieKey === 'offer_count' || serieKey === 'pipe_bud') return 'offer';
+    return '';
+  }
+
   function renderKpi(id, label, value, sub, projects, title, mode) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -1404,7 +1528,7 @@
             return;
           }
           closeOthersPanel(id);
-          applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          applyDashboardFilters(entry.filters || {}, entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
         }
       }
     });
@@ -1492,7 +1616,10 @@
             if (serie.key === 'pipe_bud' || serie.key === 'offer_count') return isOffer(project);
             return true;
           });
-          applyDashboardSelection(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          var nextFilters = Object.assign({}, entry.filters || {});
+          var statusFilter = comparisonStatusFilter(serie.key);
+          if (statusFilter) nextFilters._businessStatus = statusFilter;
+          applyDashboardFilters(nextFilters, filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
         }
       }
     });

@@ -76,6 +76,58 @@ if (!window.AE) {
     return EOLIEN.test(nom) || EOLIEN.test(type);
   }
 
+  const MONTHS_SHORT = ['jan', 'fev', 'mar', 'avr', 'mai', 'juin', 'juil', 'aout', 'sep', 'oct', 'nov', 'dec'];
+
+  function _normalizeMonthLabel(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function _getProjectMonthTokens(project) {
+    let dt = null;
+    if (typeof Analytics !== 'undefined' && typeof Analytics.getProjectDate === 'function') {
+      dt = Analytics.getProjectDate(project);
+    }
+    if (!(dt instanceof Date) || !isFinite(dt.getTime())) return null;
+    const month = MONTHS_SHORT[dt.getMonth()];
+    if (!month) return null;
+    return {
+      month,
+      monthYear: month + ' ' + dt.getFullYear()
+    };
+  }
+
+  function _matchesMonthFilter(project, filterValue) {
+    const target = _normalizeMonthLabel(filterValue);
+    if (!target) return true;
+    const tokens = _getProjectMonthTokens(project);
+    if (!tokens) return false;
+    return target === tokens.month || target === tokens.monthYear;
+  }
+
+  function _matchesBusinessStatus(project, filterValue) {
+    const target = String(filterValue == null ? '' : filterValue).trim().toLowerCase();
+    const status = typeof ProjectUtils !== 'undefined' && ProjectUtils.getStatus ? ProjectUtils.getStatus(project) : '';
+    if (target === 'won') return status === 'obtenu';
+    if (target === 'lost') return status === 'perdu';
+    if (target === 'offer') return status === 'offre';
+    if (target === 'decided') return status === 'obtenu' || status === 'perdu';
+    if (target === 'pipe') {
+      const raw = String((project && (project['Statut'] || project['MG Statut Odoo MG'])) || '')
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+      return raw === 'remis' || raw === 'en etude';
+    }
+    return true;
+  }
+
   function getFiltered() {
     let d = st.raw;
     if (st.year) {
@@ -101,6 +153,8 @@ if (!window.AE) {
           const py = p._annee ? String(p._annee) : '';
           return py === String(v);
         }
+        if (k === '_mois') return _matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return _matchesBusinessStatus(p, v);
         const pv = nv(p[k]);
         if (v === EMPTY_LBL) return pv === null;
         return pv !== null && pv === v;
@@ -368,7 +422,8 @@ if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
 /* ─── Labels & couleurs ─── */
 const FL = {
   'Client': 'Client', 'Zone Géographique': 'Zone', 'Statut': 'Statut',
-  'Type de projet (Activité)': 'Type projet', '_annee': 'Année'
+  'Type de projet (Activité)': 'Type projet', '_annee': 'Année',
+  '_mois': 'Mois', '_businessStatus': 'Vue'
 };
 const PAL = [
   'rgba(0,212,170,.82)',  'rgba(0,153,255,.82)',  'rgba(245,183,64,.82)',
