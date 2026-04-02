@@ -153,7 +153,7 @@ async function verifyPasswordForUserAsync(username, password) {
     const candidate = hashPassword(password, config.salt, config.iterations);
     return {
       ok: constantTimeEqual(candidate, config.hash),
-      role: String(dbUser.role || 'user'),
+      role: normalizeUserRole(String(dbUser.role || 'user'), String(dbUser.username || username)),
       user: String(dbUser.username || username)
     };
   }
@@ -170,7 +170,7 @@ function isAdminUser(username) {
   const admin = getAdminUser();
   if (!user) return false;
   if (admin && constantTimeEqual(user, admin)) return true;
-  return user.toLowerCase() === 'admin';
+  return user.toLowerCase() === 'admin' && !!String(process.env.DASHBOARD_ADMIN_PASSWORD_HASH || '').trim();
 }
 
 function normalizeUserRole(role, username) {
