@@ -698,6 +698,13 @@
     }), limit || 12);
   }
 
+  function dimensionValue(project, dimension) {
+    if (dimension === 'zone') return project['Zone Géographique'];
+    if (dimension === 'client') return project['Client'];
+    if (dimension === 'type') return project['Type de projet (Activité)'];
+    return '';
+  }
+
   function comparisonSeriesForMode(mode) {
     return mode === 'compare_status_count'
       ? [
