@@ -13,6 +13,14 @@ window.DashboardAuthGuard = (function() {
 
   var lastReadOnlyNoticeAt = 0;
 
+  function whenBodyReady(callback) {
+    if (document.body) {
+      callback();
+      return;
+    }
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  }
+
   function getNextURL() {
     return window.AuthClient.sanitizeNext(
       window.location.pathname + window.location.search + window.location.hash
@@ -43,10 +51,19 @@ window.DashboardAuthGuard = (function() {
     adminOnlyNodes.forEach(function(node) {
       node.hidden = !state.isAdmin;
       node.setAttribute('aria-hidden', state.isAdmin ? 'false' : 'true');
+      if (state.isAdmin) {
+        if (node.id === 'csv-import-trigger') node.style.display = 'inline-flex';
+        if (node.id === 'btn-data-admin') node.style.display = 'inline-flex';
+        if (node.id === 'btn-db-upload') node.style.display = 'inline-flex';
+      } else if (node.id === 'csv-import-trigger' || node.id === 'btn-data-admin' || node.id === 'btn-db-upload') {
+        node.style.display = 'none';
+      }
     });
-    document.body.classList.toggle('role-admin', !!state.isAdmin);
-    document.body.classList.toggle('role-user', !state.isAdmin && !state.isReadOnly);
-    document.body.classList.toggle('role-consultation', !!state.isReadOnly);
+    whenBodyReady(function() {
+      document.body.classList.toggle('role-admin', !!state.isAdmin);
+      document.body.classList.toggle('role-user', !state.isAdmin && !state.isReadOnly);
+      document.body.classList.toggle('role-consultation', !!state.isReadOnly);
+    });
   }
 
   function updateReadOnlyUI() {
