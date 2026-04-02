@@ -587,14 +587,27 @@
     });
   }
 
-  function paletteFor(mode, count) {
-    var base = (mode === 'lost_amount' || mode === 'lost_count') ? 'rgba(255,77,109,.86)' :
-      (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 'rgba(245,183,64,.9)' :
-      (mode.indexOf('pipe_') === 0 || mode === 'offer_count') ? 'rgba(0,153,255,.86)' :
-      'rgba(0,212,170,.86)';
+  function paletteFor(mode, count, entries) {
+    var palette = [
+      'rgba(37,99,235,.88)',
+      'rgba(249,115,22,.88)',
+      'rgba(16,185,129,.88)',
+      'rgba(225,29,72,.88)',
+      'rgba(168,85,247,.88)',
+      'rgba(234,179,8,.88)',
+      'rgba(20,184,166,.88)',
+      'rgba(239,68,68,.88)',
+      'rgba(14,165,233,.88)',
+      'rgba(132,204,22,.88)'
+    ];
     var arr = [];
     for (var i = 0; i < count; i++) {
-      arr.push(base);
+      var entry = Array.isArray(entries) ? entries[i] : null;
+      if (entry && entry.label === 'Autres') {
+        arr.push('rgba(148,163,184,.82)');
+      } else {
+        arr.push(palette[i % palette.length]);
+      }
     }
     return arr;
   }
@@ -1265,7 +1278,7 @@
     opts = opts || {};
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
-    var colors = paletteFor(mode, values.length);
+    var colors = paletteFor(mode, values.length, entries);
     var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
     var primaryColor = colors[0] || 'rgba(0,212,170,.82)';
     var dataset = {
