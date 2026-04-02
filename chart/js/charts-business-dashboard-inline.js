@@ -515,9 +515,25 @@
   }
 
   function createComparisonAggregateEntries(projects, dimension, mode, limit) {
-    var baseEntries = createAggregateEntries(projects, dimension, 'decided_amount', limit);
     var series = comparisonSeriesForMode(mode);
-    return baseEntries.map(function(entry) {
+    var relevantProjects = modeScopeProjects(projects, mode);
+    var mapped = {};
+
+    relevantProjects.forEach(function(project) {
+      var rawLabel = dimensionValue(project, dimension);
+      var label = cleanLabel(rawLabel);
+      var key = bucketKey(label);
+      if (!mapped[key]) {
+        mapped[key] = {
+          label: label,
+          projects: []
+        };
+      }
+      mapped[key].projects.push(project);
+    });
+
+    return Object.keys(mapped).map(function(key) {
+      var entry = mapped[key];
       var values = {};
       series.forEach(function(serie) {
         values[serie.key] = computeValue(entry.projects, serie.key);
@@ -529,7 +545,11 @@
       };
     }).filter(function(entry) {
       return series.some(function(serie) { return entry.values[serie.key] > 0; });
-    });
+    }).sort(function(a, b) {
+      var totalA = series.reduce(function(sum, serie) { return sum + (Number(a.values[serie.key]) || 0); }, 0);
+      var totalB = series.reduce(function(sum, serie) { return sum + (Number(b.values[serie.key]) || 0); }, 0);
+      return totalB - totalA;
+    }).slice(0, limit || 10);
   }
 
   function createComparisonMonthlyEntries(projects, mode, year) {
@@ -550,6 +570,8 @@
         values: values,
         projects: bucketProjects
       };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
     });
   }
 
@@ -566,13 +588,31 @@
         values: values,
         projects: bucket.projects
       };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
     });
   }
 
   function createComparisonComboEntries(projects, keyA, keyB, mode, limit) {
-    var baseEntries = createComboEntries(projects, keyA, keyB, 'decided_amount', limit);
     var series = comparisonSeriesForMode(mode);
-    return baseEntries.map(function(entry) {
+    var relevantProjects = modeScopeProjects(projects, mode);
+    var mapped = {};
+
+    relevantProjects.forEach(function(project) {
+      var a = cleanLabel(project[keyA]);
+      var b = cleanLabel(project[keyB]);
+      var key = bucketKey(a) + ' • ' + bucketKey(b);
+      if (!mapped[key]) {
+        mapped[key] = {
+          label: a + ' • ' + b,
+          projects: []
+        };
+      }
+      mapped[key].projects.push(project);
+    });
+
+    return Object.keys(mapped).map(function(key) {
+      var entry = mapped[key];
       var values = {};
       series.forEach(function(serie) {
         values[serie.key] = computeValue(entry.projects, serie.key);
@@ -584,7 +624,11 @@
       };
     }).filter(function(entry) {
       return series.some(function(serie) { return entry.values[serie.key] > 0; });
-    });
+    }).sort(function(a, b) {
+      var totalA = series.reduce(function(sum, serie) { return sum + (Number(a.values[serie.key]) || 0); }, 0);
+      var totalB = series.reduce(function(sum, serie) { return sum + (Number(b.values[serie.key]) || 0); }, 0);
+      return totalB - totalA;
+    }).slice(0, limit || 12);
   }
 
   function paletteFor(mode, count, entries) {
