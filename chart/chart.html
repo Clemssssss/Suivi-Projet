@@ -50,7 +50,13 @@
 <header class="hdr">
   <div class="hdr-brand">Analytics <em>Dashboard</em></div>
   <div class="hdr-sep"></div>
-  <div class="hdr-sub">📊 Tableau de bord interactif</div>
+  <div class="hdr-sub-row">
+    <div class="hdr-sub">📊 Tableau de bord interactif</div>
+    <div class="hdr-actions-status hdr-actions-status-inline">
+      <span class="hdr-pill hdr-pill-muted" id="auth-user-label">🔒 Session</span>
+      <button class="btn-hdr" id="btn-logout" type="button">Se déconnecter</button>
+    </div>
+  </div>
   <div class="hdr-right">
     <div class="hdr-actions-main">
       <button class="btn-hdr" id="btn-share">🔗 Partager</button>
@@ -88,10 +94,6 @@
     <div class="hdr-actions-meta">
       <div class="hdr-pill" id="project-count">-- projets</div>
       <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
-    </div>
-    <div class="hdr-actions-status">
-      <span class="hdr-pill hdr-pill-muted" id="auth-user-label">🔒 Session</span>
-      <button class="btn-hdr" id="btn-logout" type="button">Se déconnecter</button>
     </div>
   </div>
 </header>

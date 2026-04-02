@@ -508,6 +508,12 @@ button, a, select, input, canvas,
   align-items: center;
   gap: .5rem;
 }
+.hdr-sub-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
 .hdr-sub::before {
   content: '';
   width: 6px; height: 6px;
@@ -614,6 +620,18 @@ button, a, select, input, canvas,
   border: 1px solid rgba(255,255,255,.06);
 }
 
+.hdr-actions-status-inline {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.08);
+  padding: .22rem .35rem .22rem .5rem;
+  gap: .4rem;
+}
+
+.hdr-actions-status-inline .btn-hdr {
+  padding: .3rem .72rem;
+  font-size: .74rem;
+}
+
 .hdr-pill {
   background: rgba(0,212,170,.1);
   border: 1px solid rgba(0,212,170,.25);
@@ -706,6 +724,10 @@ button, a, select, input, canvas,
     gap: .7rem;
   }
 
+  .hdr-sub-row {
+    width: 100%;
+  }
+
   .hdr-actions-main {
     flex: 1 1 100%;
     min-width: 0;
@@ -719,6 +741,15 @@ button, a, select, input, canvas,
 }
 
 @media (max-width: 768px) {
+  .hdr-sub-row {
+    align-items: flex-start;
+  }
+
+  .hdr-actions-status-inline {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .hdr-actions-main {
     width: 100%;
     align-items: stretch;
