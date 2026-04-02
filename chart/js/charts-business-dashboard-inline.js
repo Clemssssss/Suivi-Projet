@@ -12,6 +12,7 @@
   ];
   var INLINE_DRILL_STATE = {};
   var BUSINESS_DRILL_STATE = { filters: {} };
+  var BUSINESS_RENDER_TICKET = null;
   var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
   var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   var BUSINESS_FILTER_LABELS = {
@@ -106,6 +107,19 @@
     return value;
   }
 
+  function scheduleBusinessRender() {
+    if (BUSINESS_RENDER_TICKET != null) return;
+    var runner = function() {
+      BUSINESS_RENDER_TICKET = null;
+      render();
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      BUSINESS_RENDER_TICKET = window.requestAnimationFrame(runner);
+      return;
+    }
+    BUSINESS_RENDER_TICKET = window.setTimeout(runner, 0);
+  }
+
   function ensureBusinessDrillBar() {
     var root = document.getElementById('business-dashboard-root');
     if (!root) return null;
@@ -162,7 +176,7 @@
         delete next[key];
         BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(next);
         renderBusinessDrillBar();
-        render();
+        scheduleBusinessRender();
       });
     });
   }
@@ -171,7 +185,7 @@
     if (!hasBusinessDrillFilters()) return false;
     BUSINESS_DRILL_STATE.filters = {};
     renderBusinessDrillBar();
-    render();
+    scheduleBusinessRender();
     return true;
   }
 
@@ -197,7 +211,7 @@
 
     BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(current);
     renderBusinessDrillBar();
-    render();
+    scheduleBusinessRender();
     return true;
   }
 
