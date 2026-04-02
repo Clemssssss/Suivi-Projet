@@ -154,6 +154,9 @@
     if (!Object.keys(filters).length) {
       bar.classList.remove('is-active');
       tags.innerHTML = '<span class="business-drill-empty">Aucun filtre de graphique actif</span>';
+      if (typeof FloatingFilterBar !== 'undefined' && FloatingFilterBar.render) {
+        try { FloatingFilterBar.render(); } catch (_) {}
+      }
       return;
     }
 
@@ -179,11 +182,25 @@
         scheduleBusinessRender();
       });
     });
+    if (typeof FloatingFilterBar !== 'undefined' && FloatingFilterBar.render) {
+      try { FloatingFilterBar.render(); } catch (_) {}
+    }
   }
 
   function clearBusinessDrillFilters() {
     if (!hasBusinessDrillFilters()) return false;
     BUSINESS_DRILL_STATE.filters = {};
+    renderBusinessDrillBar();
+    scheduleBusinessRender();
+    return true;
+  }
+
+  function removeBusinessDrillFilter(key) {
+    if (!key) return false;
+    var current = getBusinessDrillFilters();
+    if (current[key] == null) return false;
+    delete current[key];
+    BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(current);
     renderBusinessDrillBar();
     scheduleBusinessRender();
     return true;
@@ -2004,7 +2021,14 @@
     }
   }
 
-  window.BusinessChartsDashboard = { init: init, render: render, hideLegacy: archiveLegacyCharts };
+  window.BusinessChartsDashboard = {
+    init: init,
+    render: render,
+    hideLegacy: archiveLegacyCharts,
+    getDrillFilters: getBusinessDrillFilters,
+    clearDrillFilters: clearBusinessDrillFilters,
+    removeDrillFilter: removeBusinessDrillFilter
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });

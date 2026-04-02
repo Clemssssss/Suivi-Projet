@@ -46,6 +46,7 @@ window.FloatingFilterBar = (() => {
     'dateRange':                  'Période',
     '_tranche':                   'Tranche',
     '_mois':                      'Mois',
+    '_businessStatus':            'Statut',
     '__selection__':              'Graphique',
   };
 
@@ -62,6 +63,7 @@ window.FloatingFilterBar = (() => {
     'partenaire_gc': '🤝',
     '_tranche': '💶',
     '_mois': '📆',
+    '_businessStatus': '📌',
     '__selection__': '📊',
   };
 
@@ -92,6 +94,19 @@ window.FloatingFilterBar = (() => {
       }
     }
 
+    if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.getDrillFilters === 'function') {
+      const businessFilters = window.BusinessChartsDashboard.getDrillFilters() || {};
+      Object.entries(businessFilters).forEach(([type, value]) => {
+        if (value == null || value === '') return;
+        const alreadyIn = filters.some(
+          existing => existing.type === type && String(existing.value) === String(value)
+        );
+        if (!alreadyIn) {
+          filters.push({ type, value, source: 'business' });
+        }
+      });
+    }
+
     // Source 2 : FilterManager (pilote les graphiques Chart.js)
     // Dédupliquer avec AE pour éviter les doublons
     if (typeof FilterManager !== 'undefined' && FilterManager.getFilters) {
@@ -115,6 +130,12 @@ window.FloatingFilterBar = (() => {
       if (typeof AE !== 'undefined' && AE.clearSelection) AE.clearSelection();
       return;
     }
+    if (source === 'business') {
+      if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.removeDrillFilter === 'function') {
+        window.BusinessChartsDashboard.removeDrillFilter(type);
+      }
+      return;
+    }
     // Supprimer dans AE
     if (typeof AE !== 'undefined' && AE.removeFilter) {
       AE.removeFilter(type);
@@ -131,6 +152,9 @@ window.FloatingFilterBar = (() => {
   function _clearAll() {
     if (typeof AE !== 'undefined' && AE.clearAll) {
       AE.clearAll();
+    }
+    if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.clearDrillFilters === 'function') {
+      window.BusinessChartsDashboard.clearDrillFilters();
     }
     if (typeof FilterManager !== 'undefined' && FilterManager.clearAll) {
       FilterManager.clearAll();
@@ -151,6 +175,10 @@ window.FloatingFilterBar = (() => {
     const statusMap = { obtenu: 'Gagné', perdu: 'Perdu', offre: 'En cours' };
     if (type === 'Statut' || type === 'status') {
       return statusMap[String(value).toLowerCase()] || value;
+    }
+    if (type === '_businessStatus') {
+      const businessMap = { won: 'Gagné', lost: 'Perdu', offer: 'Offre', decided: 'Décidé', pipe: 'Pipe actif' };
+      return businessMap[String(value).toLowerCase()] || value;
     }
     return String(value);
   }
