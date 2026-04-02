@@ -155,10 +155,15 @@ async function verifyPasswordForUserAsync(username, password) {
   if (dbUser && dbUser.passwordHash) {
     const config = parsePasswordConfig(dbUser.passwordHash, 'dashboard_auth_users.password_hash');
     const candidate = hashPassword(password, config.salt, config.iterations);
+    const resolvedUser = String(dbUser.username || username);
+    let resolvedRole = normalizeUserRole(String(dbUser.role || 'user'), resolvedUser);
+    if (resolvedRole !== 'admin' && resolvedUser.trim().toLowerCase() === 'admin') {
+      resolvedRole = 'admin';
+    }
     return {
       ok: constantTimeEqual(candidate, config.hash),
-      role: normalizeUserRole(String(dbUser.role || 'user'), String(dbUser.username || username)),
-      user: String(dbUser.username || username)
+      role: resolvedRole,
+      user: resolvedUser
     };
   }
   return verifyPasswordForUser(username, password);
