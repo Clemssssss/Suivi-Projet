@@ -20,6 +20,7 @@
   const editCopy = document.getElementById('edit-copy');
   const editStatus = document.getElementById('edit-status');
   const toggleEditBtn = document.getElementById('toggle-edit');
+  const addRowBtn = document.getElementById('add-row');
   const cancelEditBtn = document.getElementById('cancel-edit');
   const saveDbBtn = document.getElementById('save-db');
   const exportBtn = document.getElementById('export-csv');
@@ -105,13 +106,44 @@
     columnFilters: getActivePayload().headers.map(function () { return ''; }),
     isAdmin: false,
     editMode: false,
-    drafts: {}
+    drafts: {},
+    deletedRows: {}
   };
 
   function cloneRows(rows) {
     return (Array.isArray(rows) ? rows : []).map(function(row) {
       return Object.assign({}, row || {});
     });
+  }
+
+  function cloneRow(row) {
+    return Object.assign({}, row || {});
+  }
+
+  function createDraftRow(row, meta) {
+    const copy = cloneRow(row);
+    copy.__draftMeta = Object.assign({
+      isNew: false,
+      original: cloneRow(row)
+    }, meta || {});
+    return copy;
+  }
+
+  function getRowMeta(row) {
+    return row && row.__draftMeta ? row.__draftMeta : { isNew: false, original: cloneRow(row) };
+  }
+
+  function serializeDraftRow(row) {
+    const output = {};
+    const headers = getActiveHeaders();
+    headers.forEach(function(header) {
+      output[header] = row && row[header] != null ? String(row[header]) : '';
+    });
+    return output;
+  }
+
+  function rowsEqual(a, b) {
+    return JSON.stringify(serializeDraftRow(a || {})) === JSON.stringify(serializeDraftRow(b || {}));
   }
 
   function getViewKey() {
@@ -136,8 +168,11 @@
     if (!editablePayload) return null;
     const key = getViewKey();
     if (!Array.isArray(state.drafts[key])) {
-      state.drafts[key] = cloneRows(editablePayload.editableRows);
+      state.drafts[key] = (editablePayload.editableRows || []).map(function(row) {
+        return createDraftRow(row);
+      });
     }
+    if (!Array.isArray(state.deletedRows[key])) state.deletedRows[key] = [];
     return state.drafts[key];
   }
 
@@ -222,6 +257,7 @@
 
   function renderHeaders() {
     const headers = getActiveHeaders();
+    const editablePayload = getEditablePayload();
     theadRow.innerHTML = '';
     filterRow.innerHTML = '';
 
@@ -251,6 +287,17 @@
       filterTh.appendChild(input);
       filterRow.appendChild(filterTh);
     });
+
+    if (state.editMode && editablePayload) {
+      const actionTh = document.createElement('th');
+      actionTh.className = 'row-action-cell';
+      actionTh.textContent = 'Actions';
+      theadRow.appendChild(actionTh);
+
+      const actionFilterTh = document.createElement('th');
+      actionFilterTh.className = 'row-action-cell';
+      filterRow.appendChild(actionFilterTh);
+    }
   }
 
   function buildWorkingRows() {
@@ -310,15 +357,17 @@
     if (!canEdit) return;
 
     const workingRows = getWorkingEditableRows() || [];
-    const originalRows = editablePayload.editableRows || [];
+    const deletedRows = state.deletedRows[getViewKey()] || [];
     let dirtyCount = 0;
-    workingRows.forEach(function(row, index) {
-      if (JSON.stringify(row || {}) !== JSON.stringify(originalRows[index] || {})) dirtyCount += 1;
+    workingRows.forEach(function(row) {
+      const meta = getRowMeta(row);
+      if (meta.isNew || !rowsEqual(row, meta.original || {})) dirtyCount += 1;
     });
+    dirtyCount += deletedRows.length;
 
     if (editCopy) {
       editCopy.textContent = state.editMode
-        ? 'Les cellules sont modifiables. Vous pouvez corriger puis sauvegarder le dataset en base.'
+        ? 'Les cellules sont modifiables. Vous pouvez corriger, ajouter ou supprimer des lignes puis sauvegarder en base.'
         : 'Ouvrez le mode édition pour corriger les lignes visibles du dataset.';
     }
     if (editStatus) {
@@ -327,6 +376,7 @@
         : (state.editMode ? 'Mode édition actif' : 'Aucune modification');
     }
     if (toggleEditBtn) toggleEditBtn.textContent = state.editMode ? '👁️ Quitter l’édition' : '✏️ Modifier';
+    if (addRowBtn) addRowBtn.hidden = !state.editMode;
     if (cancelEditBtn) cancelEditBtn.hidden = !state.editMode;
     if (saveDbBtn) {
       saveDbBtn.hidden = !state.editMode;
@@ -349,18 +399,24 @@
     const editablePayload = getEditablePayload();
     if (!editablePayload || !state.isAdmin) return;
 
-    const originalRows = editablePayload.editableRows || [];
     const workingRows = getWorkingEditableRows() || [];
+    const deletedRows = state.deletedRows[getViewKey()] || [];
     const changes = [];
-    workingRows.forEach(function(row, index) {
-      const before = originalRows[index] || {};
-      const after = row || {};
-      if (JSON.stringify(before) !== JSON.stringify(after)) {
-        changes.push({ original: before, updated: after });
+    const addedRows = [];
+
+    workingRows.forEach(function(row) {
+      const meta = getRowMeta(row);
+      const cleanRow = serializeDraftRow(row);
+      if (meta.isNew) {
+        addedRows.push(cleanRow);
+        return;
+      }
+      if (!rowsEqual(row, meta.original || {})) {
+        changes.push({ original: serializeDraftRow(meta.original || {}), updated: cleanRow });
       }
     });
 
-    if (!changes.length) {
+    if (!changes.length && !addedRows.length && !deletedRows.length) {
       updateEditBar();
       return;
     }
@@ -378,7 +434,9 @@
       body: JSON.stringify({
         datasetKey: editablePayload.datasetKey || payload.datasetKey || 'saip-main',
         sourceName: editablePayload.sourceName || payload.sourceName || 'Tableau Excel',
-        changes: changes
+        changes: changes,
+        addedRows: addedRows,
+        deletedRows: deletedRows.map(function(row) { return serializeDraftRow(row); })
       })
     });
     const data = await response.json();
@@ -386,12 +444,15 @@
       throw new Error(data && data.error ? data.error : ('HTTP ' + response.status));
     }
 
-    editablePayload.editableRows = cloneRows(workingRows);
-    editablePayload.rows = workingRows.map(function(row) {
+    const savedRows = workingRows.map(function(row) { return serializeDraftRow(row); });
+    editablePayload.editableRows = cloneRows(savedRows);
+    editablePayload.rows = savedRows.map(function(row) {
       return (editablePayload.editableColumns || []).map(function(column) {
         return row && row[column.key] != null ? String(row[column.key]) : '';
       });
     });
+    state.drafts[getViewKey()] = savedRows.map(function(row) { return createDraftRow(row); });
+    state.deletedRows[getViewKey()] = [];
     state.editMode = false;
     updateEditBar();
     render();
@@ -407,16 +468,16 @@
     countEl.textContent = rows.length + ' ligne' + (rows.length > 1 ? 's' : '') + ' / ' + totalRows;
     tbody.innerHTML = rows.length
       ? rows.map(function (row) {
-          const editablePayload = getEditablePayload();
-          return '<tr>' + row.cells.map(function (cell, columnIndex) {
+      const editablePayload = getEditablePayload();
+      return '<tr>' + row.cells.map(function (cell, columnIndex) {
             const header = getActiveHeaders()[columnIndex];
             if (state.editMode && editablePayload) {
               return '<td data-editable="1"><input class="cell-editor" type="text" data-row-index="' + row.rowIndex + '" data-column-key="' + escapeHtml(header) + '" value="' + escapeHtml(cell) + '"></td>';
             }
             return '<td>' + escapeHtml(cell) + '</td>';
-          }).join('') + '</tr>';
+          }).join('') + (state.editMode && editablePayload ? '<td class="row-action-cell"><button class="row-delete-btn" type="button" data-delete-row="' + row.rowIndex + '">🗑 Suppr.</button></td>' : '') + '</tr>';
         }).join('')
-      : '<tr><td class="empty" colspan="' + getActiveHeaders().length + '">Aucune ligne ne correspond aux filtres en cours.</td></tr>';
+      : '<tr><td class="empty" colspan="' + (getActiveHeaders().length + (state.editMode && getEditablePayload() ? 1 : 0)) + '">Aucune ligne ne correspond aux filtres en cours.</td></tr>';
     updateEditBar();
   }
 
@@ -461,6 +522,23 @@
       workingRows[rowIndex][columnKey] = input.value;
       updateEditBar();
     });
+    tbody.addEventListener('click', function(event) {
+      const button = event.target && event.target.closest ? event.target.closest('[data-delete-row]') : null;
+      if (!button) return;
+      const editablePayload = getEditablePayload();
+      const workingRows = getWorkingEditableRows();
+      if (!editablePayload || !workingRows) return;
+      const rowIndex = Number(button.getAttribute('data-delete-row'));
+      if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= workingRows.length) return;
+      const row = workingRows[rowIndex];
+      const meta = getRowMeta(row);
+      if (!meta.isNew) {
+        if (!Array.isArray(state.deletedRows[getViewKey()])) state.deletedRows[getViewKey()] = [];
+        state.deletedRows[getViewKey()].push(createDraftRow(meta.original || serializeDraftRow(row)));
+      }
+      workingRows.splice(rowIndex, 1);
+      render();
+    });
   }
 
   if (toggleEditBtn) {
@@ -475,8 +553,23 @@
     cancelEditBtn.addEventListener('click', function() {
       const editablePayload = getEditablePayload();
       if (!editablePayload) return;
-      state.drafts[getViewKey()] = cloneRows(editablePayload.editableRows || []);
+      state.drafts[getViewKey()] = (editablePayload.editableRows || []).map(function(row) { return createDraftRow(row); });
+      state.deletedRows[getViewKey()] = [];
       state.editMode = false;
+      render();
+    });
+  }
+
+  if (addRowBtn) {
+    addRowBtn.addEventListener('click', function() {
+      const editablePayload = getEditablePayload();
+      const workingRows = getWorkingEditableRows();
+      if (!editablePayload || !workingRows) return;
+      const row = {};
+      getActiveHeaders().forEach(function(header) {
+        row[header] = '';
+      });
+      workingRows.unshift(createDraftRow(row, { isNew: true, original: null }));
       render();
     });
   }

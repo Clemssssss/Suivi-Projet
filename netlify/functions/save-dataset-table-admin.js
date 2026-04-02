@@ -27,9 +27,29 @@ function stableRowJson(row) {
   const source = row && typeof row === 'object' ? row : {};
   const ordered = {};
   Object.keys(source).sort().forEach((key) => {
+    if (String(key).indexOf('__') === 0) return;
     ordered[key] = normalizeCell(source[key]).trim();
   });
   return JSON.stringify(ordered);
+}
+
+function sanitizeRow(row) {
+  const source = row && typeof row === 'object' ? row : {};
+  const output = {};
+  Object.keys(source).forEach((key) => {
+    if (String(key).indexOf('__') === 0) return;
+    output[key] = normalizeCell(source[key]);
+  });
+  return output;
+}
+
+function findMatchingRowIndex(rows, targetRow, usedIndexes) {
+  const stableTarget = stableRowJson(targetRow);
+  for (let index = 0; index < rows.length; index += 1) {
+    if (usedIndexes && usedIndexes.has(index)) continue;
+    if (stableRowJson(rows[index]) === stableTarget) return index;
+  }
+  return -1;
 }
 
 async function ensureAdmin(event) {
@@ -82,7 +102,9 @@ exports.handler = async function(event) {
 
   const datasetKey = String(body.datasetKey || DEFAULT_DATASET_KEY).trim() || DEFAULT_DATASET_KEY;
   const changes = Array.isArray(body.changes) ? body.changes : [];
-  if (!changes.length) {
+  const addedRows = Array.isArray(body.addedRows) ? body.addedRows : [];
+  const deletedRows = Array.isArray(body.deletedRows) ? body.deletedRows : [];
+  if (!changes.length && !addedRows.length && !deletedRows.length) {
     return jsonResponse(400, { ok: false, error: 'Aucune modification à sauvegarder' });
   }
 
@@ -101,21 +123,15 @@ exports.handler = async function(event) {
   const usedIndexes = new Set();
   const unmatched = [];
   let updatedCount = 0;
+  let deletedCount = 0;
+  let addedCount = 0;
 
   changes.forEach((change) => {
     const original = change && change.original && typeof change.original === 'object' ? change.original : null;
     const updated = change && change.updated && typeof change.updated === 'object' ? change.updated : null;
     if (!original || !updated) return;
 
-    const originalStable = stableRowJson(original);
-    let matchIndex = -1;
-    for (let index = 0; index < rows.length; index += 1) {
-      if (usedIndexes.has(index)) continue;
-      if (stableRowJson(rows[index]) === originalStable) {
-        matchIndex = index;
-        break;
-      }
-    }
+    const matchIndex = findMatchingRowIndex(rows, original, usedIndexes);
 
     if (matchIndex === -1) {
       unmatched.push(original['Dénomination'] || original['Client'] || 'ligne');
@@ -123,11 +139,28 @@ exports.handler = async function(event) {
     }
 
     usedIndexes.add(matchIndex);
-    rows[matchIndex] = Object.assign({}, rows[matchIndex] || {}, updated);
+    rows[matchIndex] = Object.assign({}, rows[matchIndex] || {}, sanitizeRow(updated));
     updatedCount += 1;
   });
 
-  if (!updatedCount) {
+  deletedRows.forEach((originalRow) => {
+    if (!originalRow || typeof originalRow !== 'object') return;
+    const matchIndex = findMatchingRowIndex(rows, originalRow);
+    if (matchIndex === -1) {
+      unmatched.push(originalRow['Dénomination'] || originalRow['Client'] || 'ligne');
+      return;
+    }
+    rows.splice(matchIndex, 1);
+    deletedCount += 1;
+  });
+
+  addedRows.forEach((row) => {
+    if (!row || typeof row !== 'object') return;
+    rows.push(sanitizeRow(row));
+    addedCount += 1;
+  });
+
+  if (!updatedCount && !deletedCount && !addedCount) {
     return jsonResponse(409, {
       ok: false,
       error: 'Aucune ligne correspondante trouvée en base',
@@ -142,6 +175,8 @@ exports.handler = async function(event) {
     await logAccess(event, 'save_dataset_table_admin_success', 'info', {
       datasetKey,
       updatedCount,
+      deletedCount,
+      addedCount,
       unmatchedCount: unmatched.length
     }, accessResult.session.user);
     return jsonResponse(200, {
@@ -150,6 +185,8 @@ exports.handler = async function(event) {
       rowCount: saved.rowCount,
       updatedAt: saved.updatedAt,
       updatedCount,
+      deletedCount,
+      addedCount,
       unmatched
     });
   } catch (err) {

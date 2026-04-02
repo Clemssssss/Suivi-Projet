@@ -266,6 +266,25 @@
       border-color: rgba(0,212,170,.45);
       background: rgba(0,212,170,.06);
     }
+    .row-action-cell {
+      width: 74px;
+      text-align: center;
+    }
+    .row-delete-btn {
+      appearance: none;
+      border: 1px solid rgba(255,77,109,.24);
+      background: rgba(255,77,109,.1);
+      color: #ffc3d0;
+      border-radius: 10px;
+      padding: .45rem .55rem;
+      font-size: .78rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .row-delete-btn:hover {
+      border-color: rgba(255,77,109,.45);
+      background: rgba(255,77,109,.16);
+    }
     .table-wrap {
       background: var(--card);
       border: 1px solid var(--rim);
@@ -376,6 +395,7 @@
       </div>
       <div class="edit-actions">
         <button class="btn btn-warn" id="toggle-edit" type="button">✏️ Modifier</button>
+        <button class="btn" id="add-row" type="button" hidden>＋ Ajouter une ligne</button>
         <button class="btn" id="cancel-edit" type="button" hidden>Annuler</button>
         <button class="btn btn-primary" id="save-db" type="button" hidden>Sauvegarder en DB</button>
         <div class="edit-status" id="edit-status">Lecture seule</div>
