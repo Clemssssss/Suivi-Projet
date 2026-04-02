@@ -12,6 +12,7 @@ window.DashboardAuthGuard = (function() {
   };
 
   var lastReadOnlyNoticeAt = 0;
+  var domSyncScheduled = false;
 
   function whenBodyReady(callback) {
     if (document.body) {
@@ -19,6 +20,29 @@ window.DashboardAuthGuard = (function() {
       return;
     }
     document.addEventListener('DOMContentLoaded', callback, { once: true });
+  }
+
+  function syncStateToDOM() {
+    if (!document.body || document.readyState === 'loading') {
+      if (!domSyncScheduled) {
+        domSyncScheduled = true;
+        document.addEventListener('DOMContentLoaded', function() {
+          domSyncScheduled = false;
+          syncStateToDOM();
+        }, { once: true });
+      }
+      return;
+    }
+
+    updateHeaderUser();
+    updateRoleVisibility();
+    updateReadOnlyUI();
+    bindLogout();
+    bindReadOnlyGuard();
+    window.AuthClient.setDocumentAuthenticated(true);
+    document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
+      detail: { user: state.user, role: state.role, isAdmin: state.isAdmin, isReadOnly: state.isReadOnly }
+    }));
   }
 
   function getNextURL() {
@@ -206,15 +230,7 @@ window.DashboardAuthGuard = (function() {
         return false;
       }
 
-      updateHeaderUser();
-      updateRoleVisibility();
-      updateReadOnlyUI();
-      bindLogout();
-      bindReadOnlyGuard();
-      window.AuthClient.setDocumentAuthenticated(true);
-      document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
-        detail: { user: state.user, role: state.role, isAdmin: state.isAdmin, isReadOnly: state.isReadOnly }
-      }));
+      syncStateToDOM();
       return true;
     } catch (err) {
       console.error('[AuthGuard] Vérification session impossible', err);
