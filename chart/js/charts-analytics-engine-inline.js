@@ -526,20 +526,6 @@ const CM = (() => {
     }
   }
 
-  function ensureChartTooltipInstance(chart) {
-    if (!chart || chart.tooltip) return;
-    chart.tooltip = {
-      opacity: 0,
-      _active: [],
-      initialize: function() {},
-      update: function() {},
-      draw: function() {},
-      handleEvent: function() { return false; },
-      getActiveElements: function() { return this._active || []; },
-      setActiveElements: function(active) { this._active = Array.isArray(active) ? active : []; }
-    };
-  }
-
   function create(id, cfg, click = null) {
     // FIX P4 : logs explicites pour diagnostiquer les échecs silencieux
     const card = document.querySelector(`[data-chart-id="${id}"]`);
@@ -571,7 +557,12 @@ const CM = (() => {
     cfg.options.plugins = cfg.options.plugins || {};
     cfg.options.plugins.tooltip = Object.assign({}, TT, cfg.options.plugins.tooltip || {});
     const _reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    cfg.options.animation  = _reducedMotion ? false : (cfg.options.animation || { duration: 420 });
+    cfg.options.animation  = _reducedMotion ? false : Object.assign({ duration: 280 }, cfg.options.animation || {});
+    cfg.options.transitions = Object.assign({}, cfg.options.transitions || {});
+    cfg.options.transitions.active = Object.assign(
+      { animation: { duration: 0 } },
+      cfg.options.transitions.active || {}
+    );
     cfg.options.responsive = true;
     cfg.options.maintainAspectRatio = false;
 
@@ -607,7 +598,6 @@ const CM = (() => {
     }
 
     const ch = new Chart(cv, cfg);
-    ensureChartTooltipInstance(ch);
     ins[id] = ch;
 
     if (click) {
