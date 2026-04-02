@@ -11,8 +11,23 @@
     'Graphiques interactifs — cliquez pour filtrer'
   ];
   var INLINE_DRILL_STATE = {};
+  var BUSINESS_DRILL_STATE = { filters: {} };
   var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
   var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+  var BUSINESS_FILTER_LABELS = {
+    '_mois': 'Mois',
+    'Zone Géographique': 'Zone',
+    'Client': 'Client',
+    'Type de projet (Activité)': 'Type',
+    '_businessStatus': 'Statut'
+  };
+  var BUSINESS_STATUS_LABELS = {
+    won: 'Gagne',
+    lost: 'Perdu',
+    offer: 'Offre',
+    decided: 'Decide',
+    pipe: 'Pipe actif'
+  };
 
   function cleanLabel(value) {
     var raw = value == null ? '' : String(value).trim();
@@ -61,6 +76,129 @@
       .toLowerCase()
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function businessDrillKeys() {
+    return ['_mois', 'Zone Géographique', 'Client', 'Type de projet (Activité)', '_businessStatus'];
+  }
+
+  function normalizeBusinessDrillFilters(filters) {
+    var normalized = {};
+    businessDrillKeys().forEach(function(key) {
+      if (!filters || filters[key] == null) return;
+      var value = String(filters[key]).trim();
+      if (!value) return;
+      normalized[key] = value;
+    });
+    return normalized;
+  }
+
+  function getBusinessDrillFilters() {
+    return normalizeBusinessDrillFilters(BUSINESS_DRILL_STATE.filters || {});
+  }
+
+  function hasBusinessDrillFilters() {
+    return Object.keys(getBusinessDrillFilters()).length > 0;
+  }
+
+  function formatBusinessDrillValue(key, value) {
+    if (key === '_businessStatus') return BUSINESS_STATUS_LABELS[value] || value;
+    return value;
+  }
+
+  function ensureBusinessDrillBar() {
+    var root = document.getElementById('business-dashboard-root');
+    if (!root) return null;
+    var bar = document.getElementById('business-drill-bar');
+    if (bar) return bar;
+
+    bar = document.createElement('div');
+    bar.id = 'business-drill-bar';
+    bar.className = 'business-drill-bar';
+    bar.innerHTML =
+      '<div class="business-drill-bar-label">Filtres graphiques</div>' +
+      '<div class="business-drill-bar-tags" data-role="tags"></div>' +
+      '<button type="button" class="business-drill-bar-clear" data-role="clear">Tout effacer</button>';
+
+    var collapse = root.querySelector('.business-section-collapsible');
+    if (collapse) root.insertBefore(bar, collapse);
+    else root.appendChild(bar);
+
+    bar.querySelector('[data-role="clear"]').addEventListener('click', function() {
+      clearBusinessDrillFilters();
+    });
+    return bar;
+  }
+
+  function renderBusinessDrillBar() {
+    var bar = ensureBusinessDrillBar();
+    if (!bar) return;
+    var filters = getBusinessDrillFilters();
+    var tags = bar.querySelector('[data-role="tags"]');
+    if (!tags) return;
+
+    if (!Object.keys(filters).length) {
+      bar.classList.remove('is-active');
+      tags.innerHTML = '<span class="business-drill-empty">Aucun filtre de graphique actif</span>';
+      return;
+    }
+
+    bar.classList.add('is-active');
+    tags.innerHTML = businessDrillKeys().filter(function(key) {
+      return filters[key] != null;
+    }).map(function(key) {
+      return '<button type="button" class="business-drill-tag" data-key="' + escapeHtml(key) + '">' +
+        '<span class="business-drill-tag-label">' + escapeHtml(BUSINESS_FILTER_LABELS[key] || key) + '</span>' +
+        '<span class="business-drill-tag-value">' + escapeHtml(formatBusinessDrillValue(key, filters[key])) + '</span>' +
+        '<span class="business-drill-tag-close">✕</span>' +
+      '</button>';
+    }).join('');
+
+    tags.querySelectorAll('.business-drill-tag').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var key = this.getAttribute('data-key');
+        if (!key) return;
+        var next = getBusinessDrillFilters();
+        delete next[key];
+        BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(next);
+        renderBusinessDrillBar();
+        render();
+      });
+    });
+  }
+
+  function clearBusinessDrillFilters() {
+    if (!hasBusinessDrillFilters()) return false;
+    BUSINESS_DRILL_STATE.filters = {};
+    renderBusinessDrillBar();
+    render();
+    return true;
+  }
+
+  function toggleBusinessDrillFilters(partialFilters) {
+    var partial = normalizeBusinessDrillFilters(partialFilters);
+    var keys = Object.keys(partial);
+    if (!keys.length) return false;
+
+    var current = getBusinessDrillFilters();
+    var shouldClear = keys.every(function(key) {
+      return String(current[key] || '') === String(partial[key] || '');
+    });
+
+    if (shouldClear) {
+      keys.forEach(function(key) {
+        delete current[key];
+      });
+    } else {
+      keys.forEach(function(key) {
+        current[key] = partial[key];
+      });
+    }
+
+    BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(current);
+    renderBusinessDrillBar();
+    render();
+    return true;
   }
 
   function getRawStatus(project) {
@@ -278,6 +416,18 @@
       if (v == null) return;
       data = data.filter(function(p) {
         if (k === 'Statut') return getStatus(p) === v || (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseStatusKey && ProjectUtils.parseStatusKey(v) === getStatus(p));
+        if (k === '_mois') return matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return matchesBusinessStatus(p, v);
+        var pv = nv(p[k]);
+        return pv != null && pv === v;
+      });
+    });
+
+    var businessFilters = getBusinessDrillFilters();
+    Object.keys(businessFilters).forEach(function(k) {
+      var v = businessFilters[k];
+      if (v == null) return;
+      data = data.filter(function(p) {
         if (k === '_mois') return matchesMonthFilter(p, v);
         if (k === '_businessStatus') return matchesBusinessStatus(p, v);
         var pv = nv(p[k]);
@@ -1372,57 +1522,6 @@
     return false;
   }
 
-  function managedDashboardFilterKeys() {
-    return ['_mois', 'Zone Géographique', 'Client', 'Type de projet (Activité)', '_businessStatus'];
-  }
-
-  function sameDashboardFilters(current, next) {
-    var managed = managedDashboardFilterKeys();
-    return managed.every(function(key) {
-      var cur = current && current[key] != null ? String(current[key]) : '';
-      var val = next && next[key] != null ? String(next[key]) : '';
-      return cur === val;
-    });
-  }
-
-  function applyDashboardFilters(filters, projects, title, fallbackOptions) {
-    var next = {};
-    Object.keys(filters || {}).forEach(function(key) {
-      if (filters[key] == null) return;
-      var value = String(filters[key]).trim();
-      if (!value) return;
-      next[key] = value;
-    });
-
-    if (!Object.keys(next).length || typeof AE === 'undefined' || !AE.getFilters || !AE.toggleFilter || !AE.removeFilter) {
-      return applyDashboardSelection(projects, title, fallbackOptions);
-    }
-
-    var current = AE.getFilters() || {};
-    var managed = managedDashboardFilterKeys();
-    var shouldClear = sameDashboardFilters(current, next);
-
-    if (typeof AE.clearSelection === 'function') {
-      try { AE.clearSelection(true); } catch (_) {}
-    }
-
-    managed.forEach(function(key) {
-      if (current[key] == null) return;
-      if (shouldClear || next[key] == null || String(current[key]) !== String(next[key])) {
-        AE.removeFilter(key);
-      }
-    });
-
-    if (shouldClear) return true;
-
-    Object.keys(next).forEach(function(key) {
-      if (current[key] == null || String(current[key]) !== String(next[key])) {
-        AE.toggleFilter(key, next[key]);
-      }
-    });
-    return true;
-  }
-
   function comparisonStatusFilter(serieKey) {
     if (serieKey === 'won_amount' || serieKey === 'won_count') return 'won';
     if (serieKey === 'lost_amount' || serieKey === 'lost_count') return 'lost';
@@ -1528,7 +1627,9 @@
             return;
           }
           closeOthersPanel(id);
-          applyDashboardFilters(entry.filters || {}, entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          if (!toggleBusinessDrillFilters(entry.filters || {})) {
+            applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          }
         }
       }
     });
@@ -1619,7 +1720,9 @@
           var nextFilters = Object.assign({}, entry.filters || {});
           var statusFilter = comparisonStatusFilter(serie.key);
           if (statusFilter) nextFilters._businessStatus = statusFilter;
-          applyDashboardFilters(nextFilters, filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          if (!toggleBusinessDrillFilters(nextFilters)) {
+            applyDashboardSelection(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          }
         }
       }
     });
@@ -1869,6 +1972,8 @@
 
   function init() {
     archiveLegacyCharts();
+    ensureBusinessDrillBar();
+    renderBusinessDrillBar();
     bindControls();
     syncPerformanceControls();
     render();
