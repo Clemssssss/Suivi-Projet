@@ -73,7 +73,13 @@ window.DashboardAuthGuard = (function() {
   function updateRoleVisibility() {
     var adminOnlyNodes = document.querySelectorAll('[data-admin-only="1"]');
     adminOnlyNodes.forEach(function(node) {
-      node.hidden = !state.isAdmin;
+      if (state.isAdmin) {
+        node.hidden = false;
+        node.removeAttribute('hidden');
+      } else {
+        node.hidden = true;
+        node.setAttribute('hidden', '');
+      }
       node.setAttribute('aria-hidden', state.isAdmin ? 'false' : 'true');
       if (state.isAdmin) {
         if (node.id === 'csv-import-trigger') node.style.display = 'inline-flex';
