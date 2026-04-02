@@ -46,6 +46,7 @@ window.FloatingFilterBar = (() => {
     'dateRange':                  'Période',
     '_tranche':                   'Tranche',
     '_mois':                      'Mois',
+    '__selection__':              'Graphique',
   };
 
   /* ── Icônes par type de filtre ────────────────────────────────── */
@@ -61,6 +62,7 @@ window.FloatingFilterBar = (() => {
     'partenaire_gc': '🤝',
     '_tranche': '💶',
     '_mois': '📆',
+    '__selection__': '📊',
   };
 
   let _container = null;
@@ -78,6 +80,16 @@ window.FloatingFilterBar = (() => {
           filters.push({ type, value, source: 'ae' });
         }
       });
+    }
+    if (typeof AE !== 'undefined' && AE.getSelection) {
+      const selection = AE.getSelection();
+      if (selection && selection.label) {
+        filters.push({
+          type: '__selection__',
+          value: selection.label + (selection.count ? ' (' + selection.count + ')' : ''),
+          source: 'ae-selection'
+        });
+      }
     }
 
     // Source 2 : FilterManager (pilote les graphiques Chart.js)
@@ -99,6 +111,10 @@ window.FloatingFilterBar = (() => {
 
   /* ── Supprimer un filtre dans les deux systèmes ───────────────── */
   function _removeFilter(type, value, source) {
+    if (type === '__selection__') {
+      if (typeof AE !== 'undefined' && AE.clearSelection) AE.clearSelection();
+      return;
+    }
     // Supprimer dans AE
     if (typeof AE !== 'undefined' && AE.removeFilter) {
       AE.removeFilter(type);

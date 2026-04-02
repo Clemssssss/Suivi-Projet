@@ -11,8 +11,9 @@
 
     var filters = (typeof AE !== 'undefined') ? AE.getFilters() : {};
     var entries = Object.entries(filters);
+    var selection = (typeof AE !== 'undefined' && AE.getSelection) ? AE.getSelection() : null;
 
-    if (entries.length === 0) {
+    if (entries.length === 0 && !selection) {
       bar.classList.remove('visible');
       document.body.classList.remove('dashboard-filtered');
       return;
@@ -25,14 +26,28 @@
                type_offre: 'Type', partenaire_gc: 'Partenaire',
                annee: 'Année commerciale', annee_facturation: 'Année facturation' };
 
-    summary.innerHTML = entries.map(function(e) {
+    var filterBadges = entries.map(function(e) {
       return '<span class="filter-badge" data-fk="' + e[0] + '">'
         + (FL[e[0]] || e[0]) + ': ' + e[1]
         + ' <span class="close-x">✕</span></span>';
-    }).join('');
+    });
+
+    if (selection) {
+      filterBadges.push(
+        '<span class="filter-badge filter-badge-selection" data-fk="__selection__">'
+        + 'Graphique: ' + selection.label + ' (' + selection.count + ')'
+        + ' <span class="close-x">✕</span></span>'
+      );
+    }
+
+    summary.innerHTML = filterBadges.join('');
 
     summary.querySelectorAll('.filter-badge').forEach(function(badge) {
       badge.addEventListener('click', function() {
+        if (this.dataset.fk === '__selection__' && typeof AE.clearSelection === 'function') {
+          AE.clearSelection();
+          return;
+        }
         AE.removeFilter(this.dataset.fk);
       });
     });
