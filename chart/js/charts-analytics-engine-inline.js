@@ -526,6 +526,20 @@ const CM = (() => {
     }
   }
 
+  function ensureChartTooltipInstance(chart) {
+    if (!chart || chart.tooltip) return;
+    chart.tooltip = {
+      opacity: 0,
+      _active: [],
+      initialize: function() {},
+      update: function() {},
+      draw: function() {},
+      handleEvent: function() { return false; },
+      getActiveElements: function() { return this._active || []; },
+      setActiveElements: function(active) { this._active = Array.isArray(active) ? active : []; }
+    };
+  }
+
   function create(id, cfg, click = null) {
     // FIX P4 : logs explicites pour diagnostiquer les échecs silencieux
     const card = document.querySelector(`[data-chart-id="${id}"]`);
@@ -593,6 +607,7 @@ const CM = (() => {
     }
 
     const ch = new Chart(cv, cfg);
+    ensureChartTooltipInstance(ch);
     ins[id] = ch;
 
     if (click) {
