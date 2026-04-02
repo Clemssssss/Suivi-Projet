@@ -21,6 +21,11 @@ if (!window.ChartAnalysis) {
 window.ChartAnalysis = (() => {
   'use strict';
 
+  const TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+  const STYLE_STORAGE_KEY = 'dashboard.chart.styles';
+  const _STYLE_APPLYING = new WeakSet();
+  const _STYLE_SIGNATURES = new WeakMap();
+
   /* ──────────────────────────────────────────────────────────────
      HELPERS
   ────────────────────────────────────────────────────────────── */
@@ -55,7 +60,7 @@ window.ChartAnalysis = (() => {
 
   function _resolveChart(chartId) {
     if (typeof Chart === 'undefined') return null;
-    const canvas = document.getElementById(chartId);
+    const canvas = _getChartCanvas(chartId);
     if (!canvas) return null;
     try {
       if (typeof Chart.getChart === 'function') return Chart.getChart(canvas) || null;
@@ -70,6 +75,35 @@ window.ChartAnalysis = (() => {
     if (Math.abs(num) <= 1 && num !== 0) return Math.round(num * 100) + '%';
     if (Math.abs(num) > 0 && Math.abs(num) <= 100) return num.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
     return _fmt(num);
+  }
+
+  function _storageGet(key, fallback) {
+    try {
+      const raw = window.localStorage ? localStorage.getItem(key) : null;
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function _storageSet(key, value) {
+    try {
+      if (window.localStorage) localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {}
+  }
+
+  function _storeTablePayload(payload) {
+    const randomBytes = new Uint8Array(9);
+    crypto.getRandomValues(randomBytes);
+    const randomPart = Array.from(randomBytes).map(b => b.toString(36)).join('').slice(0, 12);
+    const token = 'tv-' + Date.now() + '-' + randomPart;
+    try {
+      if (window.localStorage) {
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+      }
+    } catch (e) {}
+    return token;
   }
 
   /* Année d'un projet selon champ date courant */
@@ -160,6 +194,7 @@ window.ChartAnalysis = (() => {
       <div class="ca-table-controls">
         <input class="ca-search-input" type="text" placeholder="🔍 Rechercher dans le tableau…" autocomplete="off">
         <span class="ca-row-count"></span>
+        <button class="ca-open-table-btn" title="Ouvrir ce tableau dans un nouvel onglet">↗ Pleine page</button>
         <button class="ca-export-btn" title="Exporter vers Excel">⬇ Excel</button>
       </div>
       <div class="ca-scroll-wrap">
@@ -181,6 +216,7 @@ window.ChartAnalysis = (() => {
     const table      = tableView.querySelector('.ca-data-table');
     const searchInput= tableView.querySelector('.ca-search-input');
     const exportBtn  = tableView.querySelector('.ca-export-btn');
+    const openBtn    = tableView.querySelector('.ca-open-table-btn');
     const rowCount   = tableView.querySelector('.ca-row-count');
     const topScroll  = tableView.querySelector('.ca-top-scroll');
     const topInner   = tableView.querySelector('.ca-top-scroll-inner');
@@ -299,6 +335,244 @@ window.ChartAnalysis = (() => {
         URL.revokeObjectURL(url);
       });
     }
+
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        _openTableInNewTab({
+          source: 'chart-analysis',
+          title: _chartTitle(chartId),
+          subtitle: 'Vue synthétique du graphique',
+          meta: _buildAnalysisMetaPayload(chartId),
+          headers: ths.map(th => th.textContent.replace(/[↑↓▲▼↕]$/,'').trim()),
+          rows: allRows()
+            .filter(r => r.style.display !== 'none')
+            .map(row => Array.from(row.cells).map(cell => cell.textContent.trim()))
+        });
+      });
+    }
+  }
+
+  function _chartTitle(chartId) {
+    const card = document.querySelector('[data-chart-id="' + chartId + '"]');
+    const title = card && card.querySelector('.chart-title');
+    if (title) return title.textContent.replace(/\s+/g, ' ').trim();
+    const canvas = _getChartCanvas(chartId);
+    if (!canvas) return chartId;
+    const label = canvas.closest('.chart-card')?.querySelector('.chart-title');
+    return label ? label.textContent.replace(/\s+/g, ' ').trim() : chartId;
+  }
+
+  function _getChartCard(chartId) {
+    const byAttr = document.querySelector('.chart-card[data-chart-id="' + chartId + '"]')
+      || document.querySelector('[data-chart-id="' + chartId + '"]');
+    if (byAttr) return byAttr;
+    const canvas = document.getElementById(chartId);
+    return canvas ? canvas.closest('.chart-card, [data-chart-id]') : null;
+  }
+
+  function _getChartCanvas(chartId) {
+    const direct = document.getElementById(chartId);
+    if (direct) return direct;
+    const card = _getChartCard(chartId);
+    return card ? card.querySelector('canvas[id]') : null;
+  }
+
+  function _buildAnalysisMetaPayload(chartId) {
+    const block = document.getElementById(`ca-block-${chartId}`);
+    if (!block) return [];
+    return Array.from(block.querySelectorAll('.ca-block-meta span')).map(function(item) {
+      return item.textContent.replace(/\s+/g, ' ').trim();
+    }).filter(Boolean);
+  }
+
+  function _openTableInNewTab(payload) {
+    const finalPayload = Object.assign({ generatedAt: new Date().toISOString() }, payload);
+    const token = _storeTablePayload(finalPayload);
+    window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
+  }
+
+  function _applyChartStyle(chartId, styleCfg) {
+    const chart = _resolveChart(chartId);
+    if (!chart) return;
+    if (_STYLE_APPLYING.has(chart)) return;
+
+    _STYLE_APPLYING.add(chart);
+
+    const palettes = {
+      emerald: ['#00d4aa', '#0099ff', '#8b78f8', '#f5b740', '#ff4d6d', '#10b981'],
+      sunset: ['#fb7185', '#f97316', '#f59e0b', '#facc15', '#38bdf8', '#6366f1'],
+      ocean: ['#22d3ee', '#38bdf8', '#0ea5e9', '#0284c7', '#14b8a6', '#34d399'],
+      graphite: ['#e2e8f0', '#94a3b8', '#64748b', '#cbd5e1', '#14b8a6', '#f59e0b']
+    };
+    const colors = palettes[styleCfg.palette] || palettes.emerald;
+    try {
+      (chart.data.datasets || []).forEach(function(ds, index) {
+        const color = colors[index % colors.length];
+        ds.borderColor = color;
+        ds.backgroundColor = Array.isArray(ds.data)
+          ? ds.data.map(function(_, idx) { return colors[idx % colors.length]; })
+          : color;
+        ds.pointBackgroundColor = color;
+        ds.pointBorderColor = color;
+      });
+
+      chart.options.plugins = chart.options.plugins || {};
+      chart.options.plugins.legend = chart.options.plugins.legend || {};
+      chart.options.plugins.legend.display = !!styleCfg.legend;
+      chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
+      chart.options.plugins.legend.labels.color = '#dce8f5';
+
+      const scales = chart.options.scales || {};
+      Object.keys(scales).forEach(function(key) {
+        const scale = scales[key] || {};
+        scale.grid = scale.grid || {};
+        scale.ticks = scale.ticks || {};
+        scale.title = scale.title || {};
+        scale.grid.display = !!styleCfg.grid;
+        scale.grid.color = styleCfg.grid ? 'rgba(148,163,184,.14)' : 'rgba(0,0,0,0)';
+        scale.ticks.color = '#c0d0e0';
+        if (key === 'x' && styleCfg.xTitle != null) {
+          scale.title.display = !!String(styleCfg.xTitle).trim();
+          scale.title.text = String(styleCfg.xTitle || '').trim();
+          scale.title.color = '#94a3b8';
+        }
+        if (key === 'y' && styleCfg.yTitle != null) {
+          scale.title.display = !!String(styleCfg.yTitle).trim();
+          scale.title.text = String(styleCfg.yTitle || '').trim();
+          scale.title.color = '#94a3b8';
+        }
+      });
+      chart.update('none');
+
+      const styleMap = _storageGet(STYLE_STORAGE_KEY, {});
+      styleMap[chartId] = styleCfg;
+      _storageSet(STYLE_STORAGE_KEY, styleMap);
+    } catch (err) {
+      console.error('[ChartAnalysis] apply style failed for', chartId, err);
+    } finally {
+      _STYLE_APPLYING.delete(chart);
+    }
+  }
+
+  function _getChartStyle(chartId) {
+    const map = _storageGet(STYLE_STORAGE_KEY, {});
+    return Object.assign({
+      palette: 'emerald',
+      legend: true,
+      grid: true,
+      xTitle: '',
+      yTitle: ''
+    }, map[chartId] || {});
+  }
+
+  function _openStyleEditor(chartId) {
+    const current = _getChartStyle(chartId);
+    const overlay = document.createElement('div');
+    overlay.className = 'ca-style-modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'ca-style-modal';
+    modal.innerHTML = `
+      <div class="ca-style-modal-head">
+        <div class="ca-style-modal-title">Style du graphique</div>
+        <button class="ca-style-secondary" data-role="close">Fermer</button>
+      </div>
+      <div class="ca-style-modal-body">
+        <div class="ca-style-row">
+          <label>Palette</label>
+          <select data-field="palette">
+            <option value="emerald"${current.palette === 'emerald' ? ' selected' : ''}>Emerald</option>
+            <option value="sunset"${current.palette === 'sunset' ? ' selected' : ''}>Sunset</option>
+            <option value="ocean"${current.palette === 'ocean' ? ' selected' : ''}>Ocean</option>
+            <option value="graphite"${current.palette === 'graphite' ? ' selected' : ''}>Graphite</option>
+          </select>
+        </div>
+        <div class="ca-style-row">
+          <label>Nom graduation X</label>
+          <input data-field="xTitle" type="text" value="${current.xTitle || ''}" placeholder="Ex. Mois / Client / Zone">
+        </div>
+        <div class="ca-style-row">
+          <label>Nom graduation Y</label>
+          <input data-field="yTitle" type="text" value="${current.yTitle || ''}" placeholder="Ex. CA (€) / Volume">
+        </div>
+        <div class="ca-style-row">
+          <label>Affichage</label>
+          <div class="ca-style-checks">
+            <label class="ca-style-check"><input data-field="legend" type="checkbox"${current.legend ? ' checked' : ''}> Légende</label>
+            <label class="ca-style-check"><input data-field="grid" type="checkbox"${current.grid ? ' checked' : ''}> Graduations / grille</label>
+          </div>
+        </div>
+      </div>
+      <div class="ca-style-modal-foot">
+        <button class="ca-style-secondary" data-role="reset">Réinitialiser</button>
+        <button class="ca-style-primary" data-role="apply">Appliquer</button>
+      </div>
+    `;
+
+    function close() {
+      overlay.remove();
+      modal.remove();
+    }
+
+    overlay.addEventListener('click', close);
+    modal.querySelector('[data-role="close"]').addEventListener('click', close);
+    modal.querySelector('[data-role="reset"]').addEventListener('click', function() {
+      _applyChartStyle(chartId, {
+        palette: 'emerald',
+        legend: true,
+        grid: true,
+        xTitle: '',
+        yTitle: ''
+      });
+      close();
+    });
+    modal.querySelector('[data-role="apply"]').addEventListener('click', function() {
+      _applyChartStyle(chartId, {
+        palette: modal.querySelector('[data-field="palette"]').value,
+        legend: !!modal.querySelector('[data-field="legend"]').checked,
+        grid: !!modal.querySelector('[data-field="grid"]').checked,
+        xTitle: modal.querySelector('[data-field="xTitle"]').value || '',
+        yTitle: modal.querySelector('[data-field="yTitle"]').value || ''
+      });
+      close();
+    });
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
+  }
+
+  function _toggleGlobalMode() {
+    if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
+    const current = AE.getCAMode();
+    const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
+    AE.setCAMode(next);
+    if (typeof update === 'function') update();
+  }
+
+  function _formatAnalysisMarkup(text) {
+    if (!text) return '';
+    const normalized = text.replace(/&nbsp;·&nbsp;/g, ' · ');
+    const lines = normalized.split(/<br\s*\/?>/i).map(function(line) { return line.trim(); }).filter(Boolean);
+    if (!lines.length) return normalized;
+
+    let lead = '';
+    const points = [];
+    lines.forEach(function(line) {
+      const fragments = line.split(/\s*[·•]\s*/).map(function(part) { return part.trim(); }).filter(Boolean);
+      if (!lead && fragments.length) {
+        lead = fragments.shift();
+      }
+      points.push.apply(points, fragments.length ? fragments : (lead ? [] : [line]));
+    });
+
+    if (!lead && points.length) lead = points.shift();
+    if (!lead) return normalized;
+
+    return `
+      <div class="ca-analysis-lead">${lead}</div>
+      ${points.length ? `<div class="ca-analysis-grid">${points.map(function(point) {
+        return `<div class="ca-analysis-point">${point}</div>`;
+      }).join('')}</div>` : ''}
+    `;
   }
 
   /* ──────────────────────────────────────────────────────────────
@@ -376,6 +650,144 @@ window.ChartAnalysis = (() => {
     ];
 
     return lines.filter(Boolean).join('<br>');
+  }
+
+  function _toChartNumber(raw) {
+    const value = typeof raw === 'object' && raw !== null ? Number(raw.y != null ? raw.y : raw.x) : Number(raw);
+    return isFinite(value) ? value : null;
+  }
+
+  function _summarizeChartData(chartId) {
+    const chart = _resolveChart(chartId);
+    if (!chart || !chart.data) return null;
+
+    const labels = Array.isArray(chart.data.labels) ? chart.data.labels.map(function(label) {
+      return String(label == null ? '' : label).trim();
+    }).filter(Boolean) : [];
+    const datasets = (chart.data.datasets || []).filter(function(ds) {
+      return ds && Array.isArray(ds.data);
+    }).map(function(ds, datasetIndex) {
+      const points = ds.data.map(function(raw, index) {
+        return {
+          index: index,
+          label: labels[index] || ('#' + (index + 1)),
+          value: _toChartNumber(raw)
+        };
+      }).filter(function(point) { return point.value !== null; });
+      const total = points.reduce(function(sum, point) { return sum + point.value; }, 0);
+      const top = points.slice().sort(function(a, b) { return b.value - a.value; })[0] || null;
+      return {
+        index: datasetIndex,
+        label: ds.label || 'Valeur',
+        total: total,
+        points: points,
+        top: top
+      };
+    });
+
+    if (!datasets.length) return null;
+
+    const aggregate = {};
+    datasets.forEach(function(ds) {
+      ds.points.forEach(function(point) {
+        aggregate[point.label] = (aggregate[point.label] || 0) + point.value;
+      });
+    });
+
+    const categories = Object.keys(aggregate).map(function(label) {
+      return { label: label, value: aggregate[label] };
+    }).sort(function(a, b) { return b.value - a.value; });
+
+    return {
+      chart: chart,
+      labels: labels,
+      datasets: datasets,
+      categories: categories,
+      total: categories.reduce(function(sum, item) { return sum + item.value; }, 0),
+      topCategory: categories[0] || null,
+      secondCategory: categories[1] || null,
+      topDataset: datasets.slice().sort(function(a, b) { return b.total - a.total; })[0] || null
+    };
+  }
+
+  function _chartDrivenBusinessAnalysis(chartId, data, options) {
+    options = options || {};
+    const summary = _summarizeChartData(chartId);
+    if (!summary || !summary.categories.length) return null;
+
+    const top = summary.topCategory;
+    const second = summary.secondCategory;
+    const topShare = summary.total > 0 ? Math.round(top.value / summary.total * 100) : null;
+    const lines = [];
+
+    if (options.emphasis === 'time') {
+      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
+      if (second) {
+        const delta = second.value !== 0 ? _pct(top.value, second.value) : null;
+        lines.push(delta !== null
+          ? `📈 Écart avec le 2e point : <strong>${delta >= 0 ? '+' : ''}${delta}%</strong> face à <strong>${second.label}</strong>.`
+          : `📊 2e point : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}).`);
+      }
+    } else {
+      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
+      if (second) {
+        const gap = top.value - second.value;
+        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}) — écart ${_formatVal(gap) || _fmt(gap)}.`);
+      }
+    }
+
+    if (summary.datasets.length > 1 && summary.topDataset) {
+      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
+    }
+
+    if (topShare !== null) {
+      lines.push(
+        topShare >= 45
+          ? `⚠️ Concentration marquée : <strong>${top.label}</strong> pèse ${topShare}% du total affiché.`
+          : `🧭 Répartition sur <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} avec un leader à ${topShare}%.`
+      );
+    }
+
+    if (data && data.length) {
+      const offers = data.filter(function(p) { return _status(p) === 'offre'; }).length;
+      const won = data.filter(function(p) { return _status(p) === 'obtenu'; }).length;
+      if (options.family === 'pipeline') {
+        lines.push(`💡 Lecture pipe : <strong>${offers}</strong> offre${_s(offers)} active${_s(offers)} dans le périmètre visible.`);
+      } else if (options.family === 'performance') {
+        lines.push(`💡 Lecture performance : <strong>${won}</strong> projet${_s(won)} gagné${_s(won)} pour comparer les écarts entre catégories.`);
+      }
+    }
+
+    if (options.emphasis === 'time' && summary.categories.length >= 3) {
+      const last = summary.categories[summary.categories.length - 1] || null;
+      const prev = summary.categories[summary.categories.length - 2] || null;
+      if (last && prev && prev.value > 0) {
+        const trend = _pct(last.value, prev.value);
+        if (trend !== null) {
+          lines.push(
+            trend <= -20
+              ? `🎯 Action : investiguer la baisse récente sur <strong>${last.label}</strong> (${trend}%) avant qu’elle ne s’installe.`
+              : trend >= 20
+              ? `🚀 Action : capitaliser sur la dynamique de <strong>${last.label}</strong> (+${trend}%) et répliquer les leviers du mois.`
+              : `🧩 Action : tendance courte stable, utile pour consolider avant de changer les priorités.`
+          );
+        }
+      }
+    } else if (options.family === 'pipeline') {
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `🎯 Action : sécuriser rapidement <strong>${top.label}</strong> puis ouvrir 1 à 2 relais secondaires pour réduire la dépendance.`
+          : `🎯 Action : cibler d’abord <strong>${top.label}</strong> puis le 2e niveau pour convertir plus vite le pipe visible.`
+      );
+    } else if (options.family === 'performance') {
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `🎯 Action : protéger la catégorie forte <strong>${top.label}</strong> tout en lançant un plan de rattrapage sur les catégories de queue.`
+          : `🎯 Action : dupliquer les pratiques de <strong>${top.label}</strong> sur les catégories sous le 2e niveau pour lisser la performance.`
+      );
+    }
+
+    return lines.filter(Boolean).join(' &nbsp;·&nbsp; ');
   }
 
   /* ──────────────────────────────────────────────────────────────
@@ -1049,13 +1461,17 @@ window.ChartAnalysis = (() => {
     },
 
     /* ── BIZ CHARTS (Pilotage métier) ── */
-    'biz-chart-perf-month':       (data) => _ANALYZERS['chart-monthly'](data),
-    'biz-chart-perf-zone':        (data) => _ANALYZERS['chart-status-zone'](data),
-    'biz-chart-perf-client':      (data) => _ANALYZERS['chart-obtenu'](data),
-    'biz-chart-perf-type':        (data) => _ANALYZERS['chart-conv-par-type'](data),
-    'biz-chart-pipe-zone':        (data) => _ANALYZERS['chart-ca-zone'](data),
-    'biz-chart-pipe-client':      (data) => _ANALYZERS['chart-ca-company'](data),
-    'biz-chart-pipe-type':        (data) => _ANALYZERS['chart-offer-type'](data),
+    'biz-chart-perf-month':       (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-month', data, { family: 'performance', emphasis: 'time' }) || _ANALYZERS['chart-monthly'](data),
+    'biz-chart-perf-zone':        (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-zone', data, { family: 'performance' }) || _ANALYZERS['chart-status-zone'](data),
+    'biz-chart-perf-client':      (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-client', data, { family: 'performance' }) || _ANALYZERS['chart-obtenu'](data),
+    'biz-chart-perf-type':        (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-type', data, { family: 'performance' }) || _ANALYZERS['chart-conv-par-type'](data),
+    'biz-chart-perf-zone-client': (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-zone-client', data, { family: 'performance' }),
+    'biz-chart-perf-client-type': (data) => _chartDrivenBusinessAnalysis('biz-chart-perf-client-type', data, { family: 'performance' }),
+    'biz-chart-pipe-zone':        (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-zone', data, { family: 'pipeline' }) || _ANALYZERS['chart-ca-zone'](data),
+    'biz-chart-pipe-client':      (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-client', data, { family: 'pipeline' }) || _ANALYZERS['chart-ca-company'](data),
+    'biz-chart-pipe-type':        (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-type', data, { family: 'pipeline' }) || _ANALYZERS['chart-offer-type'](data),
+    'biz-chart-pipe-zone-client': (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-zone-client', data, { family: 'pipeline' }),
+    'biz-chart-pipe-client-type': (data) => _chartDrivenBusinessAnalysis('biz-chart-pipe-client-type', data, { family: 'pipeline' }),
   };
 
   /* ──────────────────────────────────────────────────────────────
@@ -1069,6 +1485,7 @@ window.ChartAnalysis = (() => {
     const decided = obtenus + perdus;
     const conv    = decided > 0 ? Math.round(obtenus/decided*100) : null;
     const caTotal = data.reduce((s,p)=>s+_getCA(p,'ca_etudie'),0);
+    const summary = _summarizeChartData(chartId);
 
     // Texte de base
     const parts = [
@@ -1077,37 +1494,21 @@ window.ChartAnalysis = (() => {
       caTotal > 0   ? `📊 CA total étudié : <strong>${_fmt(caTotal)}</strong>.` : '',
     ];
 
-    // Enrichissement depuis le graphique Chart.js
-    const chart = _resolveChart(chartId);
-    if (chart && chart.data) {
-      const labels   = Array.isArray(chart.data.labels) ? chart.data.labels.filter(v=>v!=null&&String(v).trim()!=='') : [];
-      const datasets = (chart.data.datasets||[]).filter(ds=>ds&&Array.isArray(ds.data));
-      if (labels.length) {
-        parts.push(`🧭 <strong>${labels.length}</strong> catégorie${_s(labels.length)} visible${_s(labels.length)}.`);
+    if (summary) {
+      if (summary.categories.length) {
+        parts.push(`🧭 <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} visible${_s(summary.categories.length)}.`);
       }
-      if (datasets.length === 1) {
-        const ds = datasets[0];
-        let best = null;
-        ds.data.forEach((raw, i) => {
-          const v = typeof raw==='object'&&raw!==null ? Number(raw.y??raw.x) : Number(raw);
-          if (isFinite(v) && (!best||v>best.value)) best = { label: String(labels[i]??`#${i+1}`), value: v };
-        });
-        if (best) {
-          const fv = _formatVal(best.value);
-          if (fv) parts.push(`🏆 Point fort : <strong>${best.label}</strong> (${fv}).`);
-        }
-      } else if (datasets.length > 1) {
-        const totals = datasets.map(ds => ({
-          label: ds.label||'Série',
-          total: ds.data.reduce((s,raw)=>{
-            const v = typeof raw==='object'&&raw!==null?Number(raw.y??raw.x):Number(raw);
-            return s+(isFinite(v)?v:0);
-          },0)
-        })).sort((a,b)=>b.total-a.total);
-        if (totals[0]) {
-          const fv = _formatVal(totals[0].total);
-          if (fv) parts.push(`📚 Série dominante : <strong>${totals[0].label}</strong> (${fv}).`);
-        }
+      if (summary.topCategory) {
+        parts.push(`🏆 Point fort : <strong>${summary.topCategory.label}</strong> (${_formatVal(summary.topCategory.value) || _fmt(summary.topCategory.value)}).`);
+      }
+      if (summary.datasets.length > 1 && summary.topDataset) {
+        parts.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
+      }
+      if (summary.topCategory && summary.secondCategory && summary.total > 0) {
+        const share = Math.round(summary.topCategory.value / summary.total * 100);
+        parts.push(share >= 45
+          ? `⚠️ La catégorie leader concentre <strong>${share}%</strong> du total visible.`
+          : `📊 Répartition équilibrée : leader à <strong>${share}%</strong> du total.`);
       }
     }
 
@@ -1151,9 +1552,35 @@ window.ChartAnalysis = (() => {
         gap: .5rem;
         background: rgba(0,212,170,.035);
       }
+      .ca-block-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
       .ca-block-text {
         flex: 1;
-        padding: .45rem .75rem;
+        padding: .7rem .8rem .55rem;
+      }
+      .ca-analysis-lead {
+        color: #e6f1fb;
+        font-size: .72rem;
+        line-height: 1.65;
+      }
+      .ca-analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: .45rem;
+        margin-top: .55rem;
+      }
+      .ca-analysis-point {
+        padding: .52rem .6rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,.06);
+        background: rgba(255,255,255,.025);
+        color: rgba(220,232,245,.88);
+        line-height: 1.55;
       }
       .ca-block-meta {
         display: flex;
@@ -1188,6 +1615,36 @@ window.ChartAnalysis = (() => {
       }
       .ca-toggle-btn:hover { background: rgba(0,153,255,.22); color: #93c5fd; }
       .ca-toggle-btn.is-table { background: rgba(0,212,170,.12); border-color: rgba(0,212,170,.3); color: #34d399; }
+      .ca-open-btn,
+      .ca-style-btn,
+      .ca-mode-btn {
+        flex-shrink: 0;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all .18s;
+        white-space: nowrap;
+        font-family: 'DM Mono', monospace;
+        font-size: .6rem;
+        padding: .2rem .55rem;
+      }
+      .ca-open-btn {
+        background: rgba(16,185,129,.1);
+        border: 1px solid rgba(16,185,129,.24);
+        color: #6ee7b7;
+      }
+      .ca-open-btn:hover { background: rgba(16,185,129,.18); color: #a7f3d0; }
+      .ca-style-btn {
+        background: rgba(245,183,64,.1);
+        border: 1px solid rgba(245,183,64,.25);
+        color: #f5d77f;
+      }
+      .ca-style-btn:hover { background: rgba(245,183,64,.18); color: #fde68a; }
+      .ca-mode-btn {
+        background: rgba(139,120,248,.1);
+        border: 1px solid rgba(139,120,248,.25);
+        color: #c4b5fd;
+      }
+      .ca-mode-btn:hover { background: rgba(139,120,248,.18); color: #ddd6fe; }
 
       /* ── TABLE WRAPPER ── */
       .ca-table-view { display: none; }
@@ -1238,6 +1695,121 @@ window.ChartAnalysis = (() => {
         transition: all .15s;
       }
       .ca-export-btn:hover { background: rgba(16,185,129,.22); color: #6ee7b7; }
+      .ca-open-table-btn {
+        flex-shrink: 0;
+        background: rgba(0,153,255,.12);
+        border: 1px solid rgba(0,153,255,.28);
+        color: #7dd3fc;
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        padding: .22rem .6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .ca-open-table-btn:hover { background: rgba(0,153,255,.22); color: #bae6fd; }
+
+      .ca-style-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2,6,12,.72);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+      }
+      .ca-style-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10001;
+        width: min(520px, calc(100vw - 2rem));
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,.09);
+        background: linear-gradient(180deg, rgba(12,22,38,.98), rgba(8,15,28,.98));
+        box-shadow: 0 22px 65px rgba(0,0,0,.52);
+        overflow: hidden;
+        color: #dce8f5;
+      }
+      .ca-style-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .95rem 1rem;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+      }
+      .ca-style-modal-title {
+        font-family: 'DM Mono', monospace;
+        font-size: .72rem;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: #e6f1fb;
+      }
+      .ca-style-modal-body {
+        padding: 1rem;
+        display: grid;
+        gap: .85rem;
+      }
+      .ca-style-row {
+        display: grid;
+        gap: .38rem;
+      }
+      .ca-style-row label {
+        font-family: 'DM Mono', monospace;
+        font-size: .6rem;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: rgba(159,179,200,.82);
+      }
+      .ca-style-row input,
+      .ca-style-row select {
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 10px;
+        color: #dce8f5;
+        padding: .62rem .75rem;
+        font-family: 'DM Mono', monospace;
+        font-size: .67rem;
+      }
+      .ca-style-checks {
+        display: flex;
+        gap: .8rem;
+        flex-wrap: wrap;
+      }
+      .ca-style-check {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        font-size: .67rem;
+        color: #c0d0e0;
+      }
+      .ca-style-check input { accent-color: #00d4aa; }
+      .ca-style-modal-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: .55rem;
+        padding: 0 1rem 1rem;
+      }
+      .ca-style-primary,
+      .ca-style-secondary {
+        border-radius: 10px;
+        padding: .55rem .8rem;
+        font-family: 'DM Mono', monospace;
+        font-size: .64rem;
+        cursor: pointer;
+        transition: all .15s;
+      }
+      .ca-style-primary {
+        background: rgba(0,212,170,.15);
+        border: 1px solid rgba(0,212,170,.36);
+        color: #6ee7b7;
+      }
+      .ca-style-secondary {
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.08);
+        color: #c0d0e0;
+      }
 
       /* ── DUAL SCROLLBAR ── */
       .ca-scroll-wrap { position: relative; }
@@ -1318,37 +1890,47 @@ window.ChartAnalysis = (() => {
   function _getOrCreateBlock(chartId) {
     const blockId = `ca-block-${chartId}`;
     let block = document.getElementById(blockId);
-    if (!block) {
-      const canvas = document.getElementById(chartId);
-      if (!canvas) return null;
+    const card = _getChartCard(chartId);
+    const canvas = _getChartCanvas(chartId);
+    if (!card || !canvas) return null;
 
+    const container = card.querySelector('.chart-container') || canvas.closest('.chart-container') || canvas.parentElement;
+    const host = container && container.parentElement ? container.parentElement : card;
+
+    if (!block) {
       block = document.createElement('div');
-      block.id    = blockId;
+      block.id = blockId;
       block.className = 'chart-analysis-block';
 
-      // Structure interne
       block.innerHTML = `
         <div class="ca-block-header">
           <span class="ca-block-kicker" style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(0,212,170,.7);">Analyse</span>
-          <button class="ca-toggle-btn" title="Basculer entre graphique et tableau synthétique">📊 Tableau</button>
+          <div class="ca-block-actions">
+            <button class="ca-mode-btn" title="Basculer entre volume et valeur">📈 / 💰 Mode</button>
+            <button class="ca-style-btn" title="Personnaliser les couleurs, axes et graduations">🎨 Style</button>
+            <button class="ca-toggle-btn" title="Afficher ou masquer le tableau synthétique">📊 Afficher le tableau</button>
+          </div>
         </div>
         <div class="ca-block-text"></div>
         <div class="ca-block-meta"></div>
         <div class="ca-table-view"></div>
       `;
+    }
 
-      const container = canvas.closest('.chart-container') || canvas.parentElement;
-      if (container && container.parentElement) {
-        container.parentElement.insertBefore(block, container.nextSibling);
-      }
+    if (host && block.parentElement !== host) {
+      host.insertBefore(block, container ? container.nextSibling : host.firstChild);
+    }
 
       // Toggle logique
       const btn       = block.querySelector('.ca-toggle-btn');
       const tableView = block.querySelector('.ca-table-view');
+      const styleBtn  = block.querySelector('.ca-style-btn');
+      const modeBtn   = block.querySelector('.ca-mode-btn');
 
+      if (!block.dataset.bound) {
       btn.addEventListener('click', () => {
         const isTableNow = tableView.classList.toggle('is-visible');
-        btn.textContent = isTableNow ? '📈 Graphique' : '📊 Tableau';
+        btn.textContent = isTableNow ? '📕 Masquer le tableau' : '📊 Afficher le tableau';
         btn.classList.toggle('is-table', isTableNow);
 
         if (isTableNow && !tableView.dataset.built) {
@@ -1361,11 +1943,11 @@ window.ChartAnalysis = (() => {
           }
           tableView.dataset.built = '1';
         }
-
-        // Montrer/cacher le canvas
-        const c = document.getElementById(chartId);
-        if (c) c.style.display = isTableNow ? 'none' : '';
       });
+
+      if (styleBtn) styleBtn.addEventListener('click', () => _openStyleEditor(chartId));
+      if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode());
+      block.dataset.bound = '1';
     }
     return block;
   }
@@ -1383,7 +1965,8 @@ window.ChartAnalysis = (() => {
     const analyzer = _ANALYZERS[chartId];
     let text;
     try {
-      text = analyzer ? analyzer(data) : _defaultAnalysis(chartId, data);
+      text = analyzer ? analyzer(data) : '';
+      if (!text) text = _defaultAnalysis(chartId, data);
     } catch (e) {
       console.warn('[ChartAnalysis] Erreur pour', chartId, e);
       text = _defaultAnalysis(chartId, data);
@@ -1395,7 +1978,7 @@ window.ChartAnalysis = (() => {
       if (!text) {
         block.style.display = 'none';
       } else {
-        textEl.innerHTML = text;
+        textEl.innerHTML = _formatAnalysisMarkup(text);
         block.style.display = '';
       }
     }
@@ -1406,6 +1989,10 @@ window.ChartAnalysis = (() => {
       } else {
         metaEl.innerHTML = '';
       }
+    }
+    var modeBtn = block.querySelector('.ca-mode-btn');
+    if (modeBtn && typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
+      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '💰 Passer en valeur' : '📈 Passer en volume';
     }
 
     // Invalider le tableau en cache si les données ont changé
@@ -1425,6 +2012,16 @@ window.ChartAnalysis = (() => {
     }
 
     block.classList.remove('ca-updating');
+
+    const savedStyle = _getChartStyle(chartId);
+    if (savedStyle) {
+      const nextStyleSig = JSON.stringify(savedStyle);
+      const chart = _resolveChart(chartId);
+      if (chart && _STYLE_SIGNATURES.get(chart) !== nextStyleSig) {
+        _applyChartStyle(chartId, savedStyle);
+        _STYLE_SIGNATURES.set(chart, nextStyleSig);
+      }
+    }
   }
 
   function renderAll(data) {
@@ -1433,10 +2030,16 @@ window.ChartAnalysis = (() => {
         ? DataFilterEngine.getFilteredData()
         : (window.DATA || []);
     }
-    const chartIds = new Set([
-      ...Object.keys(_ANALYZERS),
-      ...Array.from(document.querySelectorAll('canvas[id]')).map(c => c.id),
-    ]);
+    const chartIds = new Set();
+    Array.from(document.querySelectorAll('.chart-card[data-chart-id], [data-chart-id]')).forEach(function(card) {
+      const chartId = card.getAttribute('data-chart-id');
+      if (!chartId) return;
+      if (card.classList && card.classList.contains('hidden-chart')) return;
+      chartIds.add(chartId);
+    });
+    Object.keys(_ANALYZERS).forEach(function(chartId) {
+      if (_getChartCanvas(chartId) || _getChartCard(chartId)) chartIds.add(chartId);
+    });
     chartIds.forEach(id => renderForChart(id, data));
   }
 
@@ -1444,7 +2047,8 @@ window.ChartAnalysis = (() => {
     const analyzer = _ANALYZERS[chartId];
     let text;
     try {
-      text = analyzer ? analyzer(data) : _defaultAnalysis(chartId, data);
+      text = analyzer ? analyzer(data) : '';
+      if (!text) text = _defaultAnalysis(chartId, data);
     } catch (e) { text = _defaultAnalysis(chartId, data); }
     if (!text) return '';
     return text

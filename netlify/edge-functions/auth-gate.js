@@ -153,12 +153,42 @@ function isAdminOnlyPage(request) {
     || url.pathname === '/chart/whitelist.html';
 }
 
-function exactWhitelistIPAllowed(request) {
-  return getClientIP(request) === '90.82.197.132';
+function readAdminIP(context) {
+  try {
+    if (context && context.env && typeof context.env.get === 'function') {
+      const value = context.env.get('AUTH_WHITELIST_ADMIN_IP');
+      if (value) return String(value).trim();
+    }
+  } catch (_) {}
+  try {
+    if (globalThis.Netlify && globalThis.Netlify.env && typeof globalThis.Netlify.env.get === 'function') {
+      const value = globalThis.Netlify.env.get('AUTH_WHITELIST_ADMIN_IP');
+      if (value) return String(value).trim();
+    }
+  } catch (_) {}
+  try {
+    if (typeof Deno !== 'undefined' && Deno.env && typeof Deno.env.get === 'function') {
+      const value = Deno.env.get('AUTH_WHITELIST_ADMIN_IP');
+      if (value) return String(value).trim();
+    }
+  } catch (_) {}
+  return '';
+}
+
+function exactWhitelistIPAllowed(request, context) {
+  const adminIP = readAdminIP(context);
+  if (!adminIP) return false;
+  return getClientIP(request) === adminIP;
 }
 
 export default async (request, context) => {
-  if (isRestrictedWhitelistPage(request) && !exactWhitelistIPAllowed(request)) {
+  // Session verification FIRST — IP check is a second layer, never the only one
+  const session = await readSessionPayload(request, context);
+  if (!session) {
+    return buildRedirect(request);
+  }
+
+  if (isAdminOnlyPage(request) && String(session.role || '').toLowerCase() !== 'admin') {
     return new Response('Forbidden', {
       status: 403,
       headers: {
@@ -168,18 +198,15 @@ export default async (request, context) => {
     });
   }
 
-  const session = await readSessionPayload(request, context);
-  if (session) {
-    if (isAdminOnlyPage(request) && String(session.role || '').toLowerCase() !== 'admin') {
-      return new Response('Forbidden', {
-        status: 403,
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-store'
-        }
-      });
-    }
-    return context.next();
+  if (isRestrictedWhitelistPage(request) && !exactWhitelistIPAllowed(request, context)) {
+    return new Response('Forbidden', {
+      status: 403,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
+      }
+    });
   }
-  return buildRedirect(request);
+
+  return context.next();
 };

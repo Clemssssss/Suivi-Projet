@@ -2,17 +2,6 @@
   'use strict';
 
   function isDebugEnabled() {
-    try {
-      var params = new URLSearchParams(window.location.search || '');
-      if (params.get('debug') === '1') return true;
-    } catch (_) {}
-
-    try {
-      if (window.localStorage && window.localStorage.getItem('dashboard_debug') === '1') {
-        return true;
-      }
-    } catch (_) {}
-
     var host = String(window.location.hostname || '').toLowerCase();
     return host === 'localhost' || host === '127.0.0.1';
   }

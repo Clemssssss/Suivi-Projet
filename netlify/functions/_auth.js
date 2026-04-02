@@ -71,8 +71,12 @@ function parsePasswordConfig(encoded, envName) {
     throw new Error('Invalid password hash format');
   }
 
+  const iterations = Number(parts[1]);
+  if (!Number.isInteger(iterations) || iterations < 120000) {
+    throw new Error('Weak password hash: iterations must be >= 120000 (got ' + iterations + ')');
+  }
   return {
-    iterations: Number(parts[1]),
+    iterations,
     salt: parts[2],
     hash: parts[3]
   };
@@ -153,7 +157,7 @@ async function verifyPasswordForUserAsync(username, password) {
     const candidate = hashPassword(password, config.salt, config.iterations);
     return {
       ok: constantTimeEqual(candidate, config.hash),
-      role: String(dbUser.role || 'user'),
+      role: normalizeUserRole(String(dbUser.role || 'user'), String(dbUser.username || username)),
       user: String(dbUser.username || username)
     };
   }
@@ -168,11 +172,14 @@ function getAdminUser() {
 function isAdminUser(username) {
   const user = String(username || '').trim();
   const admin = getAdminUser();
-  return !!user && !!admin && constantTimeEqual(user, admin);
+  if (!user) return false;
+  if (admin && constantTimeEqual(user, admin)) return true;
+  return user.toLowerCase() === 'admin' && !!String(process.env.DASHBOARD_ADMIN_PASSWORD_HASH || '').trim();
 }
 
 function normalizeUserRole(role, username) {
   const normalized = String(role || '').trim().toLowerCase();
+  if (isAdminUser(username)) return 'admin';
   if (normalized === 'admin') return 'admin';
   if (normalized === 'consultation' || normalized === 'viewer' || normalized === 'read_only' || normalized === 'readonly') {
     return 'consultation';
