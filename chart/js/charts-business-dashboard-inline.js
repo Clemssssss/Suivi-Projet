@@ -412,7 +412,8 @@
     top.push({
       label: 'Autres',
       value: rest.reduce(function(sum, entry) { return sum + (Number(entry.value) || 0); }, 0),
-      projects: othersProjects
+      projects: othersProjects,
+      _othersEntries: rest
     });
     return top;
   }
@@ -800,6 +801,101 @@
     return panel;
   }
 
+  function getOthersPanel(chartId) {
+    var card = getInlineCard(chartId);
+    if (!card) return null;
+    var panel = card.querySelector('.business-others-panel');
+    if (panel) return panel;
+
+    panel = document.createElement('div');
+    panel.className = 'business-others-panel';
+    card.appendChild(panel);
+    return panel;
+  }
+
+  function closeOthersPanel(chartId) {
+    var panel = getOthersPanel(chartId);
+    if (!panel) return;
+    panel.classList.remove('is-open');
+    panel.innerHTML = '';
+    panel._businessOthersState = null;
+  }
+
+  function bindOthersPanel(chartId, panel, title, mode) {
+    if (!panel || panel._businessOthersBound) return;
+    panel._businessOthersBound = true;
+    panel.addEventListener('click', function(event) {
+      var closeBtn = event.target.closest('[data-role="close-others"]');
+      if (closeBtn) {
+        closeOthersPanel(chartId);
+        return;
+      }
+      var rowBtn = event.target.closest('[data-role="open-other-entry"]');
+      if (!rowBtn || !panel._businessOthersState) return;
+      var idx = parseInt(rowBtn.getAttribute('data-entry-index') || '-1', 10);
+      var entry = panel._businessOthersState.entries[idx];
+      if (!entry) return;
+      applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: chartId, useInline: true });
+    });
+  }
+
+  function renderOthersPanel(chartId, title, mode, aggregateEntry) {
+    var panel = getOthersPanel(chartId);
+    if (!panel) return;
+
+    var hiddenEntries = Array.isArray(aggregateEntry && aggregateEntry._othersEntries)
+      ? aggregateEntry._othersEntries.slice()
+      : [];
+
+    if (!hiddenEntries.length) {
+      closeOthersPanel(chartId);
+      return;
+    }
+
+    panel._businessOthersState = {
+      title: title,
+      mode: mode,
+      entries: hiddenEntries
+    };
+
+    panel.innerHTML =
+      '<div class="business-others-head">' +
+        '<div>' +
+          '<div class="business-others-title">Autres valeurs masquees</div>' +
+          '<div class="business-others-subtitle">' + escapeHtml(title) + '</div>' +
+        '</div>' +
+        '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="close-others">Masquer</button>' +
+      '</div>' +
+      '<div class="business-others-list">' +
+        hiddenEntries.map(function(entry, index) {
+          var count = Array.isArray(entry.projects) ? entry.projects.length : 0;
+          return (
+            '<button type="button" class="business-others-item" data-role="open-other-entry" data-entry-index="' + index + '">' +
+              '<span class="business-others-item-main">' +
+                '<span class="business-others-item-label">' + escapeHtml(entry.label) + '</span>' +
+                '<span class="business-others-item-meta">' + escapeHtml(String(count)) + ' projet' + (count > 1 ? 's' : '') + '</span>' +
+              '</span>' +
+              '<span class="business-others-item-value">' + escapeHtml(formatValue(entry.value, mode)) + '</span>' +
+            '</button>'
+          );
+        }).join('') +
+      '</div>';
+
+    bindOthersPanel(chartId, panel, title, mode);
+    panel.classList.add('is-open');
+  }
+
+  function toggleOthersPanel(chartId, title, mode, aggregateEntry) {
+    var panel = getOthersPanel(chartId);
+    var current = panel && panel._businessOthersState;
+    var sameGroup = !!(current && current.title === title);
+    if (panel && panel.classList.contains('is-open') && sameGroup) {
+      closeOthersPanel(chartId);
+      return;
+    }
+    renderOthersPanel(chartId, title, mode, aggregateEntry);
+  }
+
   var BUSINESS_DRILL_COLUMNS = [
     { key: 'date', label: 'Date', width: '110px', align: 'left', filterType: 'text' },
     { key: 'client', label: 'Client', width: '170px', align: 'left', filterType: 'text' },
@@ -1096,6 +1192,7 @@
     if (!actions || !panel) return;
     panel.classList.remove('is-open');
     panel.innerHTML = '';
+    closeOthersPanel(chartId);
 
     var showAllBtn = actions.querySelector('[data-role="show-all"]');
     var hideBtn = actions.querySelector('[data-role="hide"]');
@@ -1245,6 +1342,11 @@
           var idx = elements[0].index;
           var entry = entries[idx];
           if (!entry) return;
+          if (Array.isArray(entry._othersEntries) && entry._othersEntries.length) {
+            toggleOthersPanel(id, title, mode, entry);
+            return;
+          }
+          closeOthersPanel(id);
           applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
         }
       }

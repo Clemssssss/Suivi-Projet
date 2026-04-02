@@ -1925,6 +1925,82 @@ button, a, select, input, canvas,
 .business-drill-panel.is-open {
   display: block;
 }
+.business-others-panel {
+  display: none;
+  margin-top: .8rem;
+  padding: .9rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20,30,48,.88), rgba(12,20,34,.96));
+  border: 1px solid rgba(245,183,64,.24);
+}
+.business-others-panel.is-open {
+  display: block;
+}
+.business-others-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .8rem;
+  margin-bottom: .8rem;
+}
+.business-others-title {
+  font-family: var(--mono);
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.business-others-subtitle {
+  margin-top: .25rem;
+  color: var(--pale);
+  font-size: .8rem;
+}
+.business-others-list {
+  display: grid;
+  gap: .55rem;
+}
+.business-others-item {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .8rem;
+  padding: .72rem .8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  color: var(--snow);
+  cursor: pointer;
+  transition: all .18s ease;
+  text-align: left;
+}
+.business-others-item:hover {
+  border-color: rgba(245,183,64,.35);
+  background: rgba(245,183,64,.08);
+}
+.business-others-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+.business-others-item-label {
+  font-weight: 700;
+  color: var(--snow);
+}
+.business-others-item-meta {
+  color: var(--dust);
+  font-size: .72rem;
+  font-family: var(--mono);
+}
+.business-others-item-value {
+  color: var(--gold);
+  font-weight: 700;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
 .business-drill-head {
   display: flex;
   justify-content: space-between;
