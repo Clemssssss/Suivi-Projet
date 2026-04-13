@@ -714,7 +714,9 @@ window.DashboardPDF = (() => {
       }
 
       if (inst && inst.data && Array.isArray(inst.data.datasets) && inst.data.datasets.length > 1) {
-        const series = inst.data.datasets.slice(0, cell.w < 100 ? 3 : 4);
+        const slotW = cell.w < 100 ? 24 : 42;
+        const maxItems = Math.max(1, Math.floor((imgW - 4) / slotW));
+        const series = inst.data.datasets.slice(0, Math.min(cell.w < 100 ? 3 : 4, maxItems));
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5.8);
         series.forEach(function(ds, idx) {
@@ -725,7 +727,7 @@ window.DashboardPDF = (() => {
           let r = 0, g = 153, b = 255;
           const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
           if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
-          const lx = cell.x + pad + (idx * (cell.w < 100 ? 24 : 42));
+          const lx = cell.x + pad + (idx * slotW);
           const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7);
           doc.setFillColor(r, g, b);
           doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
@@ -734,6 +736,8 @@ window.DashboardPDF = (() => {
         });
       } else if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
         const labels = inst.data.labels.slice(0, cell.w < 100 ? 4 : 6);
+        const showCategoryLegend = labels.length <= (cell.w < 100 ? 3 : 4);
+        if (!showCategoryLegend) return;
         const ds = inst.data.datasets[0] || {};
         const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(function() { return ds.backgroundColor || '#0099ff'; });
         doc.setFont('helvetica', 'normal');
@@ -745,7 +749,7 @@ window.DashboardPDF = (() => {
           if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
           const cols = cell.w < 100 ? 1 : 2;
           const lx = cell.x + pad + ((idx % cols) * ((imgW - 6) / cols));
-          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 4.2);
+          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 5.2);
           doc.setFillColor(r, g, b);
           doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
           doc.setTextColor(...C.pale);
