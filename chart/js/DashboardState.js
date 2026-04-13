@@ -76,6 +76,7 @@ window.DashboardState = (() => {
 
   function _yearExists(yearValue) {
     var year = String(yearValue || '').trim();
+    if (!/^\d{4}$/.test(year)) return false;
     if (!year) return false;
     return _getRawProjects().some(function(project) {
       var rawYear = project && project._annee != null ? String(project._annee).trim() : '';

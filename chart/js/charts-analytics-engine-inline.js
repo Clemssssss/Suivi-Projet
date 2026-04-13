@@ -2176,6 +2176,36 @@ function rebuildYearSelectFromData(data) {
   if (current && yrs.includes(parseInt(current, 10))) {
     ys.value = current;
   }
+
+  sanitizeYearSelectOptions(ys);
+}
+
+function sanitizeYearSelectOptions(selectEl) {
+  const ys = selectEl || document.getElementById('year-filter');
+  if (!ys) return;
+
+  const current = String(ys.value || '').trim();
+  const years = Array.from(new Set(Array.from(ys.options || []).map(function(opt) {
+    return String(opt.value || '').trim();
+  }).filter(function(value) {
+    return /^\d{4}$/.test(value);
+  }))).sort(function(a, b) {
+    return parseInt(b, 10) - parseInt(a, 10);
+  });
+
+  ys.innerHTML = '<option value="">Toutes les années</option>';
+  years.forEach(function(year) {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    ys.appendChild(option);
+  });
+
+  if (current && years.indexOf(current) !== -1) {
+    ys.value = current;
+  } else {
+    ys.value = '';
+  }
 }
 
 function sanitizeDashboardSelectionState() {
@@ -2482,6 +2512,7 @@ function update() {
     AE.setYear(this.value);
     notify('Filtre année', this.value || 'Toutes', 'info', 1800);
   });
+  sanitizeYearSelectOptions(ys);
 
   // ── MODULE 8 : Sélecteur de date global ─────────────────────────
   var dateFieldSel = document.getElementById('date-field-selector');
