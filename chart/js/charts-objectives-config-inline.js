@@ -28,6 +28,8 @@
   var REMOTE_SCOPE = 'chart';
   var REMOTE_DOC_TYPE = 'objective-config';
   var REMOTE_DOC_KEY = 'shared';
+  var YEARS_VISIBILITY_STORAGE_KEY = 'dashboard.objectives.showAllYears';
+  var SHOW_ALL_YEARS = false;
 
   /* ── Helpers ─────────────────────────────────────────── */
   function _raw() {
@@ -40,6 +42,44 @@
     if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(2) + 'M€';
     if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + 'k€';
     return v + '€';
+  }
+
+  function _readShowAllYears() {
+    try {
+      if (!window.localStorage) return false;
+      return localStorage.getItem(YEARS_VISIBILITY_STORAGE_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function _persistShowAllYears() {
+    try {
+      if (!window.localStorage) return;
+      localStorage.setItem(YEARS_VISIBILITY_STORAGE_KEY, SHOW_ALL_YEARS ? '1' : '0');
+    } catch (_) {}
+  }
+
+  function _currentYear() {
+    return String(new Date().getFullYear());
+  }
+
+  function _resolveVisibleYears(allYears, cmpEnabled, cmpYearA, cmpYearB) {
+    var years = (allYears || []).map(String);
+    if (!years.length) return [];
+    if (SHOW_ALL_YEARS) return years;
+
+    var current = _currentYear();
+    var visible = [];
+    if (years.indexOf(current) !== -1) {
+      visible.push(current);
+    } else {
+      visible.push(years[years.length - 1]);
+    }
+
+    if (cmpEnabled && cmpYearA && years.indexOf(cmpYearA) !== -1 && visible.indexOf(cmpYearA) === -1) visible.push(cmpYearA);
+    if (cmpEnabled && cmpYearB && years.indexOf(cmpYearB) !== -1 && visible.indexOf(cmpYearB) === -1) visible.push(cmpYearB);
+    return visible;
   }
 
   function _syncObjective() {
@@ -155,6 +195,7 @@
       var cmpYearA     = String(cmpState.yearA || '');
       var cmpYearB     = String(cmpState.yearB || '');
       var positiveOnly = !!(typeof Analytics !== 'undefined' && Analytics.compareConfig && Analytics.compareConfig.positiveOnly);
+      var visibleYears = _resolveVisibleYears(allYears, cmpEnabled, cmpYearA, cmpYearB);
 
       // Vider le container (supprime "Chargement…")
       container.innerHTML = '';
@@ -163,6 +204,7 @@
 
       trend.forEach(function (entry) {
         var yr          = String(entry.year);
+        if (visibleYears.indexOf(yr) === -1) return;
         var pct         = (entry.completion !== null && !isNaN(entry.completion)) ? entry.completion : null;
         var pctDisplay  = pct !== null ? Math.min(pct, 100) : 0;
         var delta       = entry.deltaVsPrevious; // null pour la 1re année
@@ -366,7 +408,7 @@
       }
 
       // Résumé chips
-      _renderSummaryChips(trend, cmpEnabled, cmpYearA, cmpYearB, positiveOnly);
+      _renderSummaryChips(trend, cmpEnabled, cmpYearA, cmpYearB, positiveOnly, visibleYears.length, allYears.length);
 
       // Delta row comparaison
       _renderDeltaRow(trend, cmpYearA, cmpYearB);
@@ -381,7 +423,7 @@
   };
 
   /* ── Chips résumé dans l'en-tête ─────────────────────── */
-  function _renderSummaryChips(trend, cmpEnabled, cmpYearA, cmpYearB, positiveOnly) {
+  function _renderSummaryChips(trend, cmpEnabled, cmpYearA, cmpYearB, positiveOnly, visibleCount, totalCount) {
     var el = document.getElementById('obj-summary-chips');
     if (!el) return;
 
@@ -403,12 +445,34 @@
       color: '#8b78f8'
     });
     if (positiveOnly) chips.push({ text: '✦ Positif uniquement', color: '#00d4aa' });
+    if (!SHOW_ALL_YEARS) chips.push({
+      text: '📅 ' + _currentYear() + ' uniquement',
+      color: '#9fb3c8'
+    });
+    if (SHOW_ALL_YEARS && totalCount > 1) chips.push({
+      text: '📅 ' + visibleCount + '/' + totalCount + ' années',
+      color: '#9fb3c8'
+    });
 
     el.innerHTML = chips.map(function (c) {
       return '<span style="font-family:var(--mono);font-size:.62rem;font-weight:600;color:' + c.color
         + ';background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);'
         + 'padding:.18rem .6rem;border-radius:99px;">' + c.text + '</span>';
-    }).join('');
+    }).join('')
+      + '<button id="obj-toggle-years-visibility" type="button" style="font-family:var(--mono);font-size:.62rem;font-weight:600;'
+      + 'color:var(--snow);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);'
+      + 'padding:.18rem .6rem;border-radius:99px;cursor:pointer;">'
+      + (SHOW_ALL_YEARS ? 'Année en cours seulement' : 'Afficher toutes les années')
+      + '</button>';
+
+    var toggleBtn = document.getElementById('obj-toggle-years-visibility');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        SHOW_ALL_YEARS = !SHOW_ALL_YEARS;
+        _persistShowAllYears();
+        window.renderObjectiveBars && window.renderObjectiveBars();
+      });
+    }
   }
 
   /* ── Rangée delta pour le mode comparaison ───────────── */
@@ -463,6 +527,8 @@
 
   /* ── Wiring DOM ──────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function () {
+    SHOW_ALL_YEARS = _readShowAllYears();
+
     if (typeof DashboardSharedStore !== 'undefined') {
       DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
         .then(function(doc) {
@@ -519,8 +585,12 @@
     },
     getObjectives:   function () { return OBJECTIVES_CONFIG; },
     setForcedYears:  function (arr) { FORCED_YEARS = arr.map(String); },
-    getForcedYears:  function () { return FORCED_YEARS.slice(); }
+    getForcedYears:  function () { return FORCED_YEARS.slice(); },
+    showAllYears:    function (on) {
+      SHOW_ALL_YEARS = !!on;
+      _persistShowAllYears();
+      window.renderObjectiveBars && window.renderObjectiveBars();
+    }
   };
 
 })();
-
