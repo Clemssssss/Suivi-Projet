@@ -1962,7 +1962,8 @@
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
       createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
-        maxBarThickness: 18
+        maxBarThickness: 18,
+        minBarLength: 8
       });
       createComparisonChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createComparisonAggregateEntries(scopeProjects, 'zone', displayMode, 10), displayMode, {
         indexAxis: 'y'
@@ -1988,7 +1989,8 @@
 
     createChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', monthlyEntries, displayMode, {
       type: (displayMode === 'won_rate_amount' || displayMode === 'won_rate_count') ? 'line' : 'bar',
-      maxBarThickness: 24
+      maxBarThickness: 24,
+      minBarLength: 8
     });
     createChart('biz-chart-perf-zone', modeLabel(displayMode) + ' par zone', createAggregateEntries(scopeProjects, 'zone', displayMode, 10), displayMode, {
       indexAxis: 'y'
