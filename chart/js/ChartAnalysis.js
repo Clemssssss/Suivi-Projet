@@ -942,8 +942,17 @@ window.ChartAnalysis = (() => {
     const summary = _summarizeChartData(chartId);
     if (!summary || !summary.categories.length) return null;
 
-    const top = summary.topCategory;
-    const second = summary.secondCategory;
+    const categories = (summary.categories || []).filter(function(item) {
+      return item
+        && String(item.label || '').trim() !== ''
+        && isFinite(Number(item.value));
+    });
+    if (!categories.length) return null;
+
+    const top = categories[0];
+    const second = categories[1] || null;
+    if (!top || String(top.label || '').trim() === '' || !isFinite(Number(top.value))) return null;
+
     const topShare = summary.total > 0 ? Math.round(top.value / summary.total * 100) : null;
     const lines = [];
 
@@ -971,7 +980,7 @@ window.ChartAnalysis = (() => {
       lines.push(
         topShare >= 45
           ? `⚠️ Concentration marquée : <strong>${top.label}</strong> pèse ${topShare}% du total affiché.`
-          : `🧭 Répartition sur <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} avec un leader à ${topShare}%.`
+          : `🧭 Répartition sur <strong>${categories.length}</strong> catégorie${_s(categories.length)} avec un leader à ${topShare}%.`
       );
     }
 
