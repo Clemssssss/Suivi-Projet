@@ -11,11 +11,52 @@
     'Graphiques interactifs — cliquez pour filtrer'
   ];
   var INLINE_DRILL_STATE = {};
-  var OFFER_UI_LABEL = 'Offre (Remis / Non Chiffré / Avant Projet / En Etude)';
+  var BUSINESS_DRILL_STATE = { filters: {} };
+  var BUSINESS_RENDER_TICKET = null;
+  var BUSINESS_CHART_SUMMARIES = {};
+  var OFFER_UI_LABEL = 'Offres en cours';
+  var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+  var BUSINESS_FILTER_LABELS = {
+    '_mois': 'Mois',
+    'Zone Géographique': 'Zone',
+    'Client': 'Client',
+    'Type de projet (Activité)': 'Type',
+    '_businessStatus': 'Statut'
+  };
+  var BUSINESS_STATUS_LABELS = {
+    won: 'Gagne',
+    lost: 'Perdu',
+    offer: 'Offre',
+    decided: 'Decide',
+    pipe: 'Pipe actif'
+  };
 
   function cleanLabel(value) {
     var raw = value == null ? '' : String(value).trim();
     return raw || 'Non renseigne';
+  }
+
+  function storeTablePayload(payload) {
+    try {
+      if (window.localStorage) localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {}
+  }
+
+  function storeTablePayloadWithToken(payload) {
+    var token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    try {
+      if (window.localStorage) {
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+      }
+    } catch (e) {}
+    return token;
+  }
+
+  function openTablePage(payload) {
+    var finalPayload = Object.assign({ generatedAt: new Date().toISOString(), source: 'business-drill' }, payload);
+    var token = storeTablePayloadWithToken(finalPayload);
+    window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
   }
 
   function bucketKey(value) {
@@ -25,6 +66,171 @@
       .toLowerCase()
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function filterKey(value) {
+    if (value == null) return '';
+    var raw = String(value).trim();
+    if (!raw) return '';
+    return raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function businessDrillKeys() {
+    return ['_mois', 'Zone Géographique', 'Client', 'Type de projet (Activité)', '_businessStatus'];
+  }
+
+  function normalizeBusinessDrillFilters(filters) {
+    var normalized = {};
+    businessDrillKeys().forEach(function(key) {
+      if (!filters || filters[key] == null) return;
+      var value = String(filters[key]).trim();
+      if (!value) return;
+      normalized[key] = value;
+    });
+    return normalized;
+  }
+
+  function getBusinessDrillFilters() {
+    return normalizeBusinessDrillFilters(BUSINESS_DRILL_STATE.filters || {});
+  }
+
+  function hasBusinessDrillFilters() {
+    return Object.keys(getBusinessDrillFilters()).length > 0;
+  }
+
+  function formatBusinessDrillValue(key, value) {
+    if (key === '_businessStatus') return BUSINESS_STATUS_LABELS[value] || value;
+    return value;
+  }
+
+  function scheduleBusinessRender() {
+    if (BUSINESS_RENDER_TICKET != null) return;
+    var runner = function() {
+      BUSINESS_RENDER_TICKET = null;
+      render();
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      BUSINESS_RENDER_TICKET = window.requestAnimationFrame(runner);
+      return;
+    }
+    BUSINESS_RENDER_TICKET = window.setTimeout(runner, 0);
+  }
+
+  function ensureBusinessDrillBar() {
+    var root = document.getElementById('business-dashboard-root');
+    if (!root) return null;
+    var bar = document.getElementById('business-drill-bar');
+    if (bar) return bar;
+
+    bar = document.createElement('div');
+    bar.id = 'business-drill-bar';
+    bar.className = 'business-drill-bar';
+    bar.innerHTML =
+      '<div class="business-drill-bar-label">Filtres graphiques</div>' +
+      '<div class="business-drill-bar-tags" data-role="tags"></div>' +
+      '<button type="button" class="business-drill-bar-clear" data-role="clear">Tout effacer</button>';
+
+    var collapse = root.querySelector('.business-section-collapsible');
+    if (collapse) root.insertBefore(bar, collapse);
+    else root.appendChild(bar);
+
+    bar.querySelector('[data-role="clear"]').addEventListener('click', function() {
+      clearBusinessDrillFilters();
+    });
+    return bar;
+  }
+
+  function renderBusinessDrillBar() {
+    var bar = ensureBusinessDrillBar();
+    if (!bar) return;
+    var filters = getBusinessDrillFilters();
+    var tags = bar.querySelector('[data-role="tags"]');
+    if (!tags) return;
+
+    if (!Object.keys(filters).length) {
+      bar.classList.remove('is-active');
+      tags.innerHTML = '<span class="business-drill-empty">Aucun filtre de graphique actif</span>';
+      if (typeof FloatingFilterBar !== 'undefined' && FloatingFilterBar.render) {
+        try { FloatingFilterBar.render(); } catch (_) {}
+      }
+      return;
+    }
+
+    bar.classList.add('is-active');
+    tags.innerHTML = businessDrillKeys().filter(function(key) {
+      return filters[key] != null;
+    }).map(function(key) {
+      return '<button type="button" class="business-drill-tag" data-key="' + escapeHtml(key) + '">' +
+        '<span class="business-drill-tag-label">' + escapeHtml(BUSINESS_FILTER_LABELS[key] || key) + '</span>' +
+        '<span class="business-drill-tag-value">' + escapeHtml(formatBusinessDrillValue(key, filters[key])) + '</span>' +
+        '<span class="business-drill-tag-close">✕</span>' +
+      '</button>';
+    }).join('');
+
+    tags.querySelectorAll('.business-drill-tag').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var key = this.getAttribute('data-key');
+        if (!key) return;
+        var next = getBusinessDrillFilters();
+        delete next[key];
+        BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(next);
+        renderBusinessDrillBar();
+        scheduleBusinessRender();
+      });
+    });
+    if (typeof FloatingFilterBar !== 'undefined' && FloatingFilterBar.render) {
+      try { FloatingFilterBar.render(); } catch (_) {}
+    }
+  }
+
+  function clearBusinessDrillFilters() {
+    if (!hasBusinessDrillFilters()) return false;
+    BUSINESS_DRILL_STATE.filters = {};
+    renderBusinessDrillBar();
+    scheduleBusinessRender();
+    return true;
+  }
+
+  function removeBusinessDrillFilter(key) {
+    if (!key) return false;
+    var current = getBusinessDrillFilters();
+    if (current[key] == null) return false;
+    delete current[key];
+    BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(current);
+    renderBusinessDrillBar();
+    scheduleBusinessRender();
+    return true;
+  }
+
+  function toggleBusinessDrillFilters(partialFilters) {
+    var partial = normalizeBusinessDrillFilters(partialFilters);
+    var keys = Object.keys(partial);
+    if (!keys.length) return false;
+
+    var current = getBusinessDrillFilters();
+    var shouldClear = keys.every(function(key) {
+      return String(current[key] || '') === String(partial[key] || '');
+    });
+
+    if (shouldClear) {
+      keys.forEach(function(key) {
+        delete current[key];
+      });
+    } else {
+      keys.forEach(function(key) {
+        current[key] = partial[key];
+      });
+    }
+
+    BUSINESS_DRILL_STATE.filters = normalizeBusinessDrillFilters(current);
+    renderBusinessDrillBar();
+    scheduleBusinessRender();
+    return true;
   }
 
   function getRawStatus(project) {
@@ -79,6 +285,68 @@
     return null;
   }
 
+  function cloneBusinessEntry(entry) {
+    var cloned = {
+      label: entry && entry.label != null ? String(entry.label) : '',
+      value: Number(entry && entry.value) || 0
+    };
+    if (entry && entry.values && typeof entry.values === 'object') {
+      cloned.values = Object.assign({}, entry.values);
+    }
+    if (Array.isArray(entry && entry._othersEntries)) {
+      cloned._othersEntries = entry._othersEntries.map(cloneBusinessEntry);
+    }
+    return cloned;
+  }
+
+  function registerBusinessChartSummary(id, payload) {
+    if (!id) return;
+    BUSINESS_CHART_SUMMARIES[id] = Object.assign({ chartId: id }, payload || {});
+  }
+
+  function getBusinessChartSummary(id) {
+    return id && BUSINESS_CHART_SUMMARIES[id] ? BUSINESS_CHART_SUMMARIES[id] : null;
+  }
+
+  function normalizeMonthLabel(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function getProjectMonthTokens(project) {
+    var dt = getDate(project);
+    if (!(dt instanceof Date) || !isFinite(dt.getTime())) return null;
+    var month = MONTHS[dt.getMonth()];
+    if (!month) return null;
+    return {
+      month: normalizeMonthLabel(month),
+      monthYear: normalizeMonthLabel(month + ' ' + dt.getFullYear())
+    };
+  }
+
+  function matchesMonthFilter(project, value) {
+    var tokens = getProjectMonthTokens(project);
+    if (!tokens) return false;
+    var target = normalizeMonthLabel(value);
+    if (!target) return true;
+    return target === tokens.month || target === tokens.monthYear;
+  }
+
+  function matchesBusinessStatus(project, value) {
+    var target = String(value == null ? '' : value).trim().toLowerCase();
+    if (!target) return true;
+    if (target === 'won') return isWon(project);
+    if (target === 'lost') return isLost(project);
+    if (target === 'offer') return isOffer(project);
+    if (target === 'decided') return isDecided(project);
+    if (target === 'pipe') return isPipeCommercialStatus(project);
+    return true;
+  }
+
   function isValidYear(value) {
     return typeof value === 'number' && isFinite(value);
   }
@@ -103,7 +371,7 @@
   }
 
   function resolveBusinessScope(projects, mode) {
-    var baseVisible = applyEngineLikeFilters(projects, { respectYear: false, includeEngineFilters: false });
+    var baseVisible = applyEngineLikeFilters(projects, { respectYear: false, includeEngineFilters: true });
     var explicitYear = explicitSelectedYear();
     var hasExplicitYear = isValidYear(explicitYear);
     var referenceYear = resolveReferenceYear(baseVisible, mode);
@@ -203,6 +471,20 @@
       if (v == null) return;
       data = data.filter(function(p) {
         if (k === 'Statut') return getStatus(p) === v || (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseStatusKey && ProjectUtils.parseStatusKey(v) === getStatus(p));
+        if (k === '_mois') return matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return matchesBusinessStatus(p, v);
+        var pv = nv(p[k]);
+        return pv != null && pv === v;
+      });
+    });
+
+    var businessFilters = getBusinessDrillFilters();
+    Object.keys(businessFilters).forEach(function(k) {
+      var v = businessFilters[k];
+      if (v == null) return;
+      data = data.filter(function(p) {
+        if (k === '_mois') return matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return matchesBusinessStatus(p, v);
         var pv = nv(p[k]);
         return pv != null && pv === v;
       });
@@ -286,12 +568,12 @@
       won_amount: '€ gagnés',
       lost_amount: '€ perdus',
       decided_amount: '€ gagnés + perdus',
-      compare_status_amount: '€ gagnés / perdus / ' + OFFER_UI_LABEL,
+      compare_status_amount: 'Comparatif €',
       won_rate_amount: 'Taux de transfo €',
       won_count: 'Nb gagnés',
       lost_count: 'Nb perdus',
       decided_count: 'Nb gagnés + perdus',
-      compare_status_count: 'Dossiers gagnés / perdus / ' + OFFER_UI_LABEL,
+      compare_status_count: 'Comparatif dossiers',
       won_rate_count: 'Taux de transfo dossiers',
       pipe_bud: '€ Remis + En étude',
       pipe_weighted: '€ Remis + En étude',
@@ -354,6 +636,11 @@
       var bucket = buckets[key];
       return {
         label: bucket.label,
+        filters: dimension === 'zone'
+          ? { 'Zone Géographique': bucket.label }
+          : (dimension === 'client'
+              ? { 'Client': bucket.label }
+              : { 'Type de projet (Activité)': bucket.label }),
         value: computeValue(bucket.projects, mode),
         projects: bucket.projects
       };
@@ -376,7 +663,8 @@
     top.push({
       label: 'Autres',
       value: rest.reduce(function(sum, entry) { return sum + (Number(entry.value) || 0); }, 0),
-      projects: othersProjects
+      projects: othersProjects,
+      _othersEntries: rest
     });
     return top;
   }
@@ -391,6 +679,7 @@
     });
     buckets.forEach(function(bucket) {
       bucket.value = computeValue(bucket.projects, mode);
+      bucket.filters = { _mois: bucket.label };
     });
     return buckets;
   }
@@ -415,6 +704,7 @@
         year: monthCursor.getFullYear(),
         month: monthCursor.getMonth(),
         label: MONTHS[monthCursor.getMonth()] + (spansMultipleYears ? (' ' + monthCursor.getFullYear()) : ''),
+        filters: { _mois: MONTHS[monthCursor.getMonth()] + (spansMultipleYears ? (' ' + monthCursor.getFullYear()) : '') },
         value: 0,
         projects: []
       });
@@ -463,6 +753,13 @@
     }), limit || 12);
   }
 
+  function dimensionValue(project, dimension) {
+    if (dimension === 'zone') return project['Zone Géographique'];
+    if (dimension === 'client') return project['Client'];
+    if (dimension === 'type') return project['Type de projet (Activité)'];
+    return '';
+  }
+
   function comparisonSeriesForMode(mode) {
     return mode === 'compare_status_count'
       ? [
@@ -478,21 +775,47 @@
   }
 
   function createComparisonAggregateEntries(projects, dimension, mode, limit) {
-    var baseEntries = createAggregateEntries(projects, dimension, 'decided_amount', limit);
     var series = comparisonSeriesForMode(mode);
-    return baseEntries.map(function(entry) {
+    var relevantProjects = modeScopeProjects(projects, mode);
+    var mapped = {};
+
+    relevantProjects.forEach(function(project) {
+      var rawLabel = dimensionValue(project, dimension);
+      var label = cleanLabel(rawLabel);
+      var key = bucketKey(label);
+      if (!mapped[key]) {
+        mapped[key] = {
+          label: label,
+          filters: dimension === 'zone'
+            ? { 'Zone Géographique': label }
+            : (dimension === 'client'
+                ? { 'Client': label }
+                : { 'Type de projet (Activité)': label }),
+          projects: []
+        };
+      }
+      mapped[key].projects.push(project);
+    });
+
+    return Object.keys(mapped).map(function(key) {
+      var entry = mapped[key];
       var values = {};
       series.forEach(function(serie) {
         values[serie.key] = computeValue(entry.projects, serie.key);
       });
       return {
         label: entry.label,
+        filters: entry.filters,
         values: values,
         projects: entry.projects
       };
     }).filter(function(entry) {
       return series.some(function(serie) { return entry.values[serie.key] > 0; });
-    });
+    }).sort(function(a, b) {
+      var totalA = series.reduce(function(sum, serie) { return sum + (Number(a.values[serie.key]) || 0); }, 0);
+      var totalB = series.reduce(function(sum, serie) { return sum + (Number(b.values[serie.key]) || 0); }, 0);
+      return totalB - totalA;
+    }).slice(0, limit || 10);
   }
 
   function createComparisonMonthlyEntries(projects, mode, year) {
@@ -510,9 +833,12 @@
       });
       return {
         label: MONTHS[idx],
+        filters: { _mois: MONTHS[idx] },
         values: values,
         projects: bucketProjects
       };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
     });
   }
 
@@ -526,38 +852,97 @@
       });
       return {
         label: bucket.label,
+        filters: bucket.filters,
         values: values,
         projects: bucket.projects
-      };
-    });
-  }
-
-  function createComparisonComboEntries(projects, keyA, keyB, mode, limit) {
-    var baseEntries = createComboEntries(projects, keyA, keyB, 'decided_amount', limit);
-    var series = comparisonSeriesForMode(mode);
-    return baseEntries.map(function(entry) {
-      var values = {};
-      series.forEach(function(serie) {
-        values[serie.key] = computeValue(entry.projects, serie.key);
-      });
-      return {
-        label: entry.label,
-        values: values,
-        projects: entry.projects
       };
     }).filter(function(entry) {
       return series.some(function(serie) { return entry.values[serie.key] > 0; });
     });
   }
 
-  function paletteFor(mode, count) {
-    var base = (mode === 'lost_amount' || mode === 'lost_count') ? 'rgba(255,77,109,.86)' :
-      (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') ? 'rgba(245,183,64,.9)' :
-      (mode.indexOf('pipe_') === 0 || mode === 'offer_count') ? 'rgba(0,153,255,.86)' :
-      'rgba(0,212,170,.86)';
+  function createComparisonComboEntries(projects, keyA, keyB, mode, limit) {
+    var series = comparisonSeriesForMode(mode);
+    var relevantProjects = modeScopeProjects(projects, mode);
+    var mapped = {};
+
+    relevantProjects.forEach(function(project) {
+      var a = cleanLabel(project[keyA]);
+      var b = cleanLabel(project[keyB]);
+      var key = bucketKey(a) + ' • ' + bucketKey(b);
+      if (!mapped[key]) {
+        mapped[key] = {
+          label: a + ' • ' + b,
+          filters: {},
+          projects: []
+        };
+        mapped[key].filters[keyA] = a;
+        mapped[key].filters[keyB] = b;
+      }
+      mapped[key].projects.push(project);
+    });
+
+    return Object.keys(mapped).map(function(key) {
+      var entry = mapped[key];
+      var values = {};
+      series.forEach(function(serie) {
+        values[serie.key] = computeValue(entry.projects, serie.key);
+      });
+      return {
+        label: entry.label,
+        filters: entry.filters,
+        values: values,
+        projects: entry.projects
+      };
+    }).filter(function(entry) {
+      return series.some(function(serie) { return entry.values[serie.key] > 0; });
+    }).sort(function(a, b) {
+      var totalA = series.reduce(function(sum, serie) { return sum + (Number(a.values[serie.key]) || 0); }, 0);
+      var totalB = series.reduce(function(sum, serie) { return sum + (Number(b.values[serie.key]) || 0); }, 0);
+      return totalB - totalA;
+    }).slice(0, limit || 12);
+  }
+
+  function paletteFor(mode, count, entries) {
+    var defaultPalette = [
+      'rgba(37,99,235,.88)',
+      'rgba(249,115,22,.88)',
+      'rgba(16,185,129,.88)',
+      'rgba(225,29,72,.88)',
+      'rgba(168,85,247,.88)',
+      'rgba(234,179,8,.88)',
+      'rgba(20,184,166,.88)',
+      'rgba(239,68,68,.88)',
+      'rgba(14,165,233,.88)',
+      'rgba(132,204,22,.88)'
+    ];
+    var pipePalette = [
+      'rgba(0,102,204,.96)',
+      'rgba(230,81,0,.96)',
+      'rgba(0,153,102,.96)',
+      'rgba(200,30,80,.96)',
+      'rgba(107,70,193,.96)',
+      'rgba(191,144,0,.96)',
+      'rgba(0,151,167,.96)',
+      'rgba(149,56,54,.96)',
+      'rgba(82,109,130,.96)',
+      'rgba(46,125,50,.96)'
+    ];
+    var palette = mode.indexOf('pipe_') === 0 ? pipePalette : defaultPalette;
+    function hashLabel(value) {
+      var key = bucketKey(value);
+      var hash = 0;
+      for (var i = 0; i < key.length; i++) hash = ((hash << 5) - hash) + key.charCodeAt(i);
+      return Math.abs(hash);
+    }
     var arr = [];
     for (var i = 0; i < count; i++) {
-      arr.push(base);
+      var entry = Array.isArray(entries) ? entries[i] : null;
+      if (entry && entry.label === 'Autres') {
+        arr.push('rgba(148,163,184,.82)');
+      } else {
+        arr.push(palette[hashLabel(entry && entry.label ? entry.label : String(i)) % palette.length]);
+      }
     }
     return arr;
   }
@@ -710,6 +1095,20 @@
     return document.querySelector('.chart-card[data-chart-id="' + chartId + '"]');
   }
 
+  function openInlinePanelInFullPage(chartId) {
+    var state = INLINE_DRILL_STATE[chartId];
+    if (!state || !state.allProjects || !state.allProjects.length) return;
+
+    var panel = getInlinePanel(chartId);
+    if (!panel || !panel.classList.contains('is-open') || !panel._businessDrillState) {
+      renderInlineDetails(chartId, state.allProjects, state.title);
+      panel = getInlinePanel(chartId);
+    }
+
+    var payload = buildInlineTablePayload(panel, state.title);
+    if (payload) openTablePage(payload);
+  }
+
   function getInlineActions(chartId) {
     var card = getInlineCard(chartId);
     if (!card) return null;
@@ -720,7 +1119,8 @@
     actions.className = 'business-drill-actions';
     actions.innerHTML =
       '<button type="button" class="business-drill-btn" data-role="show-all">Voir toutes les données du graphique</button>' +
-      '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="hide">Masquer les données</button>';
+      '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="hide">Masquer les données</button>' +
+      '<button type="button" class="business-drill-btn business-drill-btn-tertiary" data-role="open-page">↗ Ouvrir en pleine page</button>';
     card.appendChild(actions);
 
     actions.querySelector('[data-role="show-all"]').addEventListener('click', function() {
@@ -730,6 +1130,9 @@
     });
     actions.querySelector('[data-role="hide"]').addEventListener('click', function() {
       closeInlineDetails(chartId);
+    });
+    actions.querySelector('[data-role="open-page"]').addEventListener('click', function() {
+      openInlinePanelInFullPage(chartId);
     });
     return actions;
   }
@@ -744,6 +1147,101 @@
     panel.className = 'business-drill-panel';
     card.appendChild(panel);
     return panel;
+  }
+
+  function getOthersPanel(chartId) {
+    var card = getInlineCard(chartId);
+    if (!card) return null;
+    var panel = card.querySelector('.business-others-panel');
+    if (panel) return panel;
+
+    panel = document.createElement('div');
+    panel.className = 'business-others-panel';
+    card.appendChild(panel);
+    return panel;
+  }
+
+  function closeOthersPanel(chartId) {
+    var panel = getOthersPanel(chartId);
+    if (!panel) return;
+    panel.classList.remove('is-open');
+    panel.innerHTML = '';
+    panel._businessOthersState = null;
+  }
+
+  function bindOthersPanel(chartId, panel, title, mode) {
+    if (!panel || panel._businessOthersBound) return;
+    panel._businessOthersBound = true;
+    panel.addEventListener('click', function(event) {
+      var closeBtn = event.target.closest('[data-role="close-others"]');
+      if (closeBtn) {
+        closeOthersPanel(chartId);
+        return;
+      }
+      var rowBtn = event.target.closest('[data-role="open-other-entry"]');
+      if (!rowBtn || !panel._businessOthersState) return;
+      var idx = parseInt(rowBtn.getAttribute('data-entry-index') || '-1', 10);
+      var entry = panel._businessOthersState.entries[idx];
+      if (!entry) return;
+      applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: chartId, useInline: true });
+    });
+  }
+
+  function renderOthersPanel(chartId, title, mode, aggregateEntry) {
+    var panel = getOthersPanel(chartId);
+    if (!panel) return;
+
+    var hiddenEntries = Array.isArray(aggregateEntry && aggregateEntry._othersEntries)
+      ? aggregateEntry._othersEntries.slice()
+      : [];
+
+    if (!hiddenEntries.length) {
+      closeOthersPanel(chartId);
+      return;
+    }
+
+    panel._businessOthersState = {
+      title: title,
+      mode: mode,
+      entries: hiddenEntries
+    };
+
+    panel.innerHTML =
+      '<div class="business-others-head">' +
+        '<div>' +
+          '<div class="business-others-title">Autres valeurs masquees</div>' +
+          '<div class="business-others-subtitle">' + escapeHtml(title) + '</div>' +
+        '</div>' +
+        '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="close-others">Masquer</button>' +
+      '</div>' +
+      '<div class="business-others-list">' +
+        hiddenEntries.map(function(entry, index) {
+          var count = Array.isArray(entry.projects) ? entry.projects.length : 0;
+          return (
+            '<button type="button" class="business-others-item" data-role="open-other-entry" data-entry-index="' + index + '">' +
+              '<span class="business-others-item-main">' +
+                '<span class="business-others-item-label">' + escapeHtml(entry.label) + '</span>' +
+                '<span class="business-others-item-meta">' + escapeHtml(String(count)) + ' projet' + (count > 1 ? 's' : '') + '</span>' +
+              '</span>' +
+              '<span class="business-others-item-value">' + escapeHtml(formatValue(entry.value, mode)) + '</span>' +
+            '</button>'
+          );
+        }).join('') +
+      '</div>';
+
+    bindOthersPanel(chartId, panel, title, mode);
+    panel.classList.add('is-open');
+  }
+
+  function toggleOthersPanel(chartId, title, mode, aggregateEntry) {
+    var panel = getOthersPanel(chartId);
+    var current = panel && panel._businessOthersState;
+    var sameGroup = !!(current && current.title === title);
+    if (panel && panel.classList.contains('is-open') && sameGroup) {
+      closeOthersPanel(chartId);
+      return;
+    }
+    renderOthersPanel(chartId, title, mode, aggregateEntry);
   }
 
   var BUSINESS_DRILL_COLUMNS = [
@@ -797,14 +1295,14 @@
     var state = panel && panel._businessDrillState;
     if (!panel || !state) return;
 
-    var search = bucketKey(state.query || '');
+    var search = filterKey(state.query || '');
     var filtered = state.rows.filter(function(row) {
       var searchMatch = !search || BUSINESS_DRILL_COLUMNS.some(function(col) {
         return bucketKey(row[col.key].display || '').indexOf(search) !== -1;
       });
       if (!searchMatch) return false;
       return BUSINESS_DRILL_COLUMNS.every(function(col) {
-        var filterValue = bucketKey(state.filters[col.key] || '');
+        var filterValue = filterKey(state.filters[col.key] || '');
         if (!filterValue) return true;
         return String(row[col.key].filter || '').indexOf(filterValue) !== -1;
       });
@@ -890,6 +1388,16 @@
         renderBusinessDrillTable(panel);
         return;
       }
+      var openPageBtn = event.target.closest('[data-role="open-page-inline"]');
+      if (openPageBtn) {
+        var currentState = panel._businessDrillState;
+        if (!currentState) return;
+        var chartCard = panel.closest('.chart-card');
+        var chartId = chartCard ? chartCard.getAttribute('data-chart-id') : '';
+        if (!chartId) return;
+        openInlinePanelInFullPage(chartId);
+        return;
+      }
       var th = event.target.closest('th[data-sort-key]');
       if (!th) return;
       var currentState = panel._businessDrillState;
@@ -925,6 +1433,54 @@
     });
   }
 
+  function buildInlineTablePayload(panel, title) {
+    var state = panel && panel._businessDrillState;
+    if (!state) return null;
+    var rowSource = Array.isArray(state.filteredRows) ? state.filteredRows : (state.rows || []);
+    var rows = rowSource.map(function(row) {
+      return BUSINESS_DRILL_COLUMNS.map(function(col) {
+        return row[col.key] ? String(row[col.key].display || '—') : '—';
+      });
+    });
+    return {
+      title: title,
+      subtitle: 'Détail complet du graphique',
+      headers: BUSINESS_DRILL_COLUMNS.map(function(col) { return col.label; }),
+      rows: rows,
+      meta: Array.from(panel.querySelectorAll('.business-drill-pill')).map(function(pill) {
+        return pill.textContent.replace(/\s+/g, ' ').trim();
+      }).filter(Boolean)
+    };
+  }
+
+  function buildProjectTableView(projects, title, subtitle, meta, selectorLabel) {
+    var rows = normalizeInlineDrillRows(uniqueProjects(projects || []));
+    return {
+      id: bucketKey(selectorLabel || title || ('view-' + Date.now())),
+      selectorLabel: selectorLabel || title,
+      title: title,
+      subtitle: subtitle || 'Détail KPI',
+      headers: BUSINESS_DRILL_COLUMNS.map(function(col) { return col.label; }),
+      rows: rows.map(function(row) {
+        return BUSINESS_DRILL_COLUMNS.map(function(col) {
+          return row[col.key] ? String(row[col.key].display || '—') : '—';
+        });
+      }),
+      meta: Array.isArray(meta) ? meta.slice() : []
+    };
+  }
+
+  function openKpiTablePage(config) {
+    if (!config || !Array.isArray(config.views) || !config.views.length) return;
+    openTablePage({
+      title: config.title || 'Tableau KPI',
+      subtitle: config.subtitle || 'Sélectionnez une vue KPI pour afficher le tableau correspondant',
+      meta: Array.isArray(config.meta) ? config.meta.slice() : [],
+      views: config.views,
+      selectedViewId: config.selectedViewId || config.views[0].id
+    });
+  }
+
   function renderInlineDetails(chartId, projects, title) {
     var panel = getInlinePanel(chartId);
     if (!panel) return;
@@ -955,6 +1511,7 @@
       '<div class="business-drill-toolbar">' +
         '<input class="business-drill-search" type="text" placeholder="Rechercher dans toutes les colonnes...">' +
         '<button type="button" class="business-drill-btn business-drill-btn-secondary" data-role="reset-filters">Reinitialiser filtres</button>' +
+        '<button type="button" class="business-drill-btn business-drill-btn-tertiary" data-role="open-page-inline">↗ Ouvrir en pleine page</button>' +
       '</div>' +
       '<div class="business-drill-wrap">' +
         '<table class="business-drill-table">' +
@@ -969,6 +1526,19 @@
     panel.classList.add('is-open');
     var globalSection = document.getElementById('detail-section');
     if (globalSection) globalSection.classList.remove('active');
+
+    var actions = getInlineActions(chartId);
+    if (actions) {
+      var showAllBtn = actions.querySelector('[data-role="show-all"]');
+      var hideBtn = actions.querySelector('[data-role="hide"]');
+      var openPageBtn = actions.querySelector('[data-role="open-page"]');
+      if (showAllBtn) showAllBtn.classList.add('is-active');
+      if (hideBtn) {
+        hideBtn.disabled = false;
+        hideBtn.classList.add('is-active');
+      }
+      if (openPageBtn) openPageBtn.disabled = !rows.length;
+    }
   }
 
   function closeInlineDetails(chartId) {
@@ -978,8 +1548,11 @@
     panel.innerHTML = '';
     var actions = getInlineActions(chartId);
     if (actions) {
+      var showAllBtn = actions.querySelector('[data-role="show-all"]');
       var hideBtn = actions.querySelector('[data-role="hide"]');
+      if (showAllBtn) showAllBtn.classList.remove('is-active');
       if (hideBtn) hideBtn.disabled = true;
+      if (hideBtn) hideBtn.classList.remove('is-active');
     }
   }
 
@@ -995,6 +1568,7 @@
     if (!actions || !panel) return;
     panel.classList.remove('is-open');
     panel.innerHTML = '';
+    closeOthersPanel(chartId);
 
     var showAllBtn = actions.querySelector('[data-role="show-all"]');
     var hideBtn = actions.querySelector('[data-role="hide"]');
@@ -1003,9 +1577,15 @@
       showAllBtn.textContent = allProjects.length
         ? 'Voir toutes les données du graphique'
         : 'Aucune donnée sur ce graphique';
+      showAllBtn.classList.remove('is-active');
     }
     if (hideBtn) {
       hideBtn.disabled = !panel.classList.contains('is-open');
+      hideBtn.classList.remove('is-active');
+    }
+    var openPageBtn = actions.querySelector('[data-role="open-page"]');
+    if (openPageBtn) {
+      openPageBtn.disabled = !allProjects.length;
     }
   }
 
@@ -1014,10 +1594,18 @@
     var rows = Array.isArray(projects) ? projects.slice() : [];
     if (options.useInline && options.chartId) {
       renderInlineDetails(options.chartId, rows, title);
+      if (options.openInPage) {
+        var inlinePanel = getInlinePanel(options.chartId);
+        var payload = buildInlineTablePayload(inlinePanel, title);
+        if (payload) openTablePage(payload);
+      }
       var actions = getInlineActions(options.chartId);
       if (actions) {
         var hideBtn = actions.querySelector('[data-role="hide"]');
-        if (hideBtn) hideBtn.disabled = false;
+        if (hideBtn) {
+          hideBtn.disabled = false;
+          hideBtn.classList.add('is-active');
+        }
       }
       return;
     }
@@ -1028,7 +1616,24 @@
     console.warn('[BusinessDashboard] showDetailTable indisponible pour', title);
   }
 
-  function renderKpi(id, label, value, sub, projects, title, mode) {
+  function applyDashboardSelection(projects, title, fallbackOptions) {
+    if (typeof AE !== 'undefined' && typeof AE.setSelection === 'function') {
+      AE.setSelection(projects, title);
+      return true;
+    }
+    openDetails(projects, title, fallbackOptions || {});
+    return false;
+  }
+
+  function comparisonStatusFilter(serieKey) {
+    if (serieKey === 'won_amount' || serieKey === 'won_count') return 'won';
+    if (serieKey === 'lost_amount' || serieKey === 'lost_count') return 'lost';
+    if (serieKey === 'offer_count' || serieKey === 'pipe_bud') return 'offer';
+    return '';
+  }
+
+  function renderKpi(id, label, value, sub, projects, title, mode, options) {
+    options = options || {};
     var el = document.getElementById(id);
     if (!el) return;
     el.innerHTML =
@@ -1036,15 +1641,25 @@
       '<span class="business-kpi-value">' + formatValue(value, mode) + '</span>' +
       '<span class="business-kpi-sub">' + sub + '</span>';
     el.onclick = function() {
+      if (options.tablePageConfig) {
+        openKpiTablePage(options.tablePageConfig);
+        return;
+      }
       openDetails(projects, title);
     };
   }
 
   function createChart(id, title, entries, mode, opts) {
     opts = opts || {};
+    registerBusinessChartSummary(id, {
+      kind: 'single',
+      title: title,
+      mode: mode,
+      entries: (entries || []).map(cloneBusinessEntry)
+    });
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
-    var colors = paletteFor(mode, values.length);
+    var colors = paletteFor(mode, values.length, entries);
     var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
     var primaryColor = colors[0] || 'rgba(0,212,170,.82)';
     var dataset = {
@@ -1121,7 +1736,14 @@
           var idx = elements[0].index;
           var entry = entries[idx];
           if (!entry) return;
-          openDetails(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          if (Array.isArray(entry._othersEntries) && entry._othersEntries.length) {
+            toggleOthersPanel(id, title, mode, entry);
+            return;
+          }
+          closeOthersPanel(id);
+          if (!toggleBusinessDrillFilters(entry.filters || {})) {
+            applyDashboardSelection(entry.projects || [], title + ' — ' + entry.label, { chartId: id, useInline: true });
+          }
         }
       }
     });
@@ -1131,6 +1753,15 @@
   function createComparisonChart(id, title, entries, mode, opts) {
     opts = opts || {};
     var series = comparisonSeriesForMode(mode);
+    registerBusinessChartSummary(id, {
+      kind: 'comparison',
+      title: title,
+      mode: mode,
+      series: series.map(function(serie) {
+        return { key: serie.key, label: serie.label };
+      }),
+      entries: (entries || []).map(cloneBusinessEntry)
+    });
     var labels = entries.map(function(e) { return e.label; });
     var isHorizontal = opts.indexAxis === 'y';
     var modeForTicks = mode === 'compare_status_count' ? 'won_count' : 'won_amount';
@@ -1209,7 +1840,12 @@
             if (serie.key === 'pipe_bud' || serie.key === 'offer_count') return isOffer(project);
             return true;
           });
-          openDetails(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          var nextFilters = Object.assign({}, entry.filters || {});
+          var statusFilter = comparisonStatusFilter(serie.key);
+          if (statusFilter) nextFilters._businessStatus = statusFilter;
+          if (!toggleBusinessDrillFilters(nextFilters)) {
+            applyDashboardSelection(filteredProjects, title + ' — ' + entry.label + ' — ' + serie.label, { chartId: id, useInline: true });
+          }
         }
       }
     });
@@ -1220,11 +1856,11 @@
     var label = modeLabel(mode);
     var mappings = {
       month: 'par mois',
-      zone: 'par zone geographique',
+      zone: 'par zone géographique',
       client: 'par client',
       type: 'par type de projet',
-      'zone-client': 'par couple zone geographique / client',
-      'client-type': 'client / type de projet'
+      'zone-client': 'par zone × client',
+      'client-type': 'par client × type de projet'
     };
 
     Object.keys(mappings).forEach(function(key) {
@@ -1237,6 +1873,8 @@
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
     var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'block';
     var statusFilter = (document.getElementById('biz-performance-status-filter') || {}).value || 'all';
+    var metricFamily = performanceMetricFamily(view);
+    var isCountFamily = metricFamily === 'count';
     var displayMode = resolvePerformanceDisplayMode(view, statusFilter);
     var scope = resolveBusinessScope(rawAll, displayMode);
     var baseVisible = scope.baseVisible;
@@ -1270,11 +1908,41 @@
       ? ('Top couples zone geographique + client depuis tout le fichier filtre • ' + filterContextSummary())
       : ('Top couples zone geographique + client sur le meme perimetre que le bloc • ' + filterContextSummary());
 
-    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(scopeProjects, 'won_amount'), 'Base Bud, statut obtenu', scopeProjects.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount');
-    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(scopeProjects, 'lost_amount'), 'Base Bud, statut perdu', scopeProjects.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount');
-    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(scopeProjects, 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount');
-    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(scopeProjects, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount');
-    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count');
+    var performanceMeta = [
+      'Bloc KPI : Prise d’affaires / Performance',
+      scopeLabel,
+      isCountFamily ? 'Mode volume (nombre de dossiers)' : 'Mode valeur (€)',
+      filterContextSummary()
+    ];
+    var performanceViews = [
+      buildProjectTableView(scopeProjects.filter(isWon), isCountFamily ? 'Nb gagnés' : '€ gagnés', 'Détail KPI — projets gagnés', performanceMeta, isCountFamily ? 'Nb gagnés' : '€ gagnés'),
+      buildProjectTableView(scopeProjects.filter(isLost), isCountFamily ? 'Nb perdus' : '€ perdus', 'Détail KPI — projets perdus', performanceMeta, isCountFamily ? 'Nb perdus' : '€ perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), isCountFamily ? 'Nb gagnés + perdus' : '€ gagnés + perdus', 'Détail KPI — projets décidés', performanceMeta, isCountFamily ? 'Nb gagnés + perdus' : '€ gagnés + perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €', 'Détail KPI — base des projets décidés', performanceMeta.concat([isCountFamily ? 'Base KPI : nb gagnés / (nb gagnés + nb perdus)' : 'Base KPI : € gagnés / (€ gagnés + € perdus)']), isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €'),
+      buildProjectTableView(scopeProjects.filter(isDecided), 'Nb dossiers décidés', 'Détail KPI — projets décidés', performanceMeta, 'Nb dossiers décidés')
+    ];
+    var performanceTableConfigBase = {
+      title: 'KPI Prise d’affaires / Performance',
+      subtitle: 'Choisissez un KPI pour afficher le tableau correspondant',
+      meta: performanceMeta,
+      views: performanceViews
+    };
+
+    renderKpi('biz-kpi-won-year', isCountFamily ? 'Nb gagnés' : '€ gagnes', computeValue(scopeProjects, isCountFamily ? 'won_count' : 'won_amount'), isCountFamily ? 'Nombre de dossiers gagnés' : 'Base Bud, statut obtenu', scopeProjects.filter(isWon), (isCountFamily ? 'Nb gagnés' : '€ gagnes') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'won_count' : 'won_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[0].id })
+    });
+    renderKpi('biz-kpi-lost-year', isCountFamily ? 'Nb perdus' : '€ perdus', computeValue(scopeProjects, isCountFamily ? 'lost_count' : 'lost_amount'), isCountFamily ? 'Nombre de dossiers perdus' : 'Base Bud, statut perdu', scopeProjects.filter(isLost), (isCountFamily ? 'Nb perdus' : '€ perdus') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'lost_count' : 'lost_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[1].id })
+    });
+    renderKpi('biz-kpi-decided-year', isCountFamily ? 'Nb gagnés + perdus' : '€ gagnes + perdus', computeValue(scopeProjects, isCountFamily ? 'decided_count' : 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), (isCountFamily ? 'Nb gagnés + perdus' : '€ gagnes + perdus') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'decided_count' : 'decided_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[2].id })
+    });
+    renderKpi('biz-kpi-rate-year', isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €', computeValue(scopeProjects, isCountFamily ? 'won_rate_count' : 'won_rate_amount'), isCountFamily ? 'Nb gagnés / (nb gagnés + nb perdus)' : '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), (isCountFamily ? 'Taux de transformation dossiers' : 'Taux de transformation €') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'won_rate_count' : 'won_rate_amount', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[3].id })
+    });
+    renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count', {
+      tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[4].id })
+    });
 
     if (displayMode === 'compare_status_amount' || displayMode === 'compare_status_count') {
       createComparisonChart('biz-chart-perf-month', modeLabel(displayMode) + ' par mois', comparisonMonthlyEntries, displayMode, {
@@ -1291,12 +1959,12 @@
       });
       createComparisonChart(
         'biz-chart-perf-zone-client',
-        modeLabel(displayMode) + ' par couple zone geographique / client',
+        modeLabel(displayMode) + ' par zone × client',
         createComparisonComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
         displayMode,
         { indexAxis: 'y' }
       );
-      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComparisonComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+      createComparisonChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' par client × type de projet', createComparisonComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
         indexAxis: 'y'
       });
       return;
@@ -1317,12 +1985,12 @@
     });
     createChart(
       'biz-chart-perf-zone-client',
-      modeLabel(displayMode) + ' par couple zone geographique / client',
+      modeLabel(displayMode) + ' par zone × client',
       createComboEntries(comboScope === 'all' ? filteredAll : scopeProjects, 'Zone Géographique', 'Client', displayMode, 12),
       displayMode,
       { indexAxis: 'y' }
     );
-    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
+    createChart('biz-chart-perf-client-type', modeLabel(displayMode) + ' par client × type de projet', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', displayMode, 12), displayMode, {
       indexAxis: 'y'
     });
   }
@@ -1334,15 +2002,38 @@
     var offers = scopeProjects.filter(isPipeCommercialStatus);
     var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
     var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
-    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de chantier' : 'Remis + En étude par type de chantier';
-    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par couple client / zone géographique' : 'Remis + En étude par couple client / zone géographique';
-    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client / type de chantier' : 'Remis + En étude par client / type de chantier';
+    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de projet' : 'Remis + En étude par type de projet';
+    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone × client' : 'Remis + En étude par zone × client';
+    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client × type de projet' : 'Remis + En étude par client × type de projet';
 
     updateTitles('biz-title-pipe-', view);
 
-    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(scopeProjects, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud');
-    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(scopeProjects, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted');
-    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio');
+    var pipelineMeta = [
+      'Bloc KPI : Pipe commercial',
+      describeScopeLabel(scope),
+      filterContextSummary()
+    ];
+    var pipelineViews = [
+      buildProjectTableView(offers, '€ Remis + En étude total', 'Détail KPI — pipe commercial Bud', pipelineMeta.concat(['Base KPI : colonne Bud']), '€ Remis + En étude total'),
+      buildProjectTableView(offers, '€ Remis + En étude pondéré', 'Détail KPI — pipe commercial pondéré', pipelineMeta.concat(['Base KPI : colonne CA win proba']), '€ Remis + En étude pondéré'),
+      buildProjectTableView(offers, '% CA win proba / Bud', 'Détail KPI — pipe commercial', pipelineMeta.concat(['Base KPI : pondération globale du pipe actif']), '% CA win proba / Bud')
+    ];
+    var pipelineTableConfigBase = {
+      title: 'KPI Pipe commercial',
+      subtitle: 'Choisissez un KPI pour afficher le tableau correspondant',
+      meta: pipelineMeta,
+      views: pipelineViews
+    };
+
+    renderKpi('biz-kpi-pipe-bud', '€ Remis + En étude total', computeValue(scopeProjects, 'pipe_bud'), 'Colonne Bud', offers, 'Pipe commercial Bud total — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_bud', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[0].id })
+    });
+    renderKpi('biz-kpi-pipe-weighted', '€ Remis + En étude pondéré', computeValue(scopeProjects, 'pipe_weighted'), 'Colonne CA win proba', offers, 'Pipe commercial CA win proba — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[1].id })
+    });
+    renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[2].id })
+    });
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(scopeProjects, 'zone', view, 10), view, {
       indexAxis: 'y'
@@ -1350,13 +2041,13 @@
     createChart('biz-chart-pipe-client', modeLabel(view) + ' par client', createAggregateEntries(scopeProjects, 'client', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type', createAggregateEntries(scopeProjects, 'type', view, 10), view, {
+    createChart('biz-chart-pipe-type', modeLabel(view) + ' par type de projet', createAggregateEntries(scopeProjects, 'type', view, 10), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par couple zone geographique / client', createComboEntries(scopeProjects, 'Zone Géographique', 'Client', view, 12), view, {
+    createChart('biz-chart-pipe-zone-client', modeLabel(view) + ' par zone × client', createComboEntries(scopeProjects, 'Zone Géographique', 'Client', view, 12), view, {
       indexAxis: 'y'
     });
-    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' client / type', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', view, 12), view, {
+    createChart('biz-chart-pipe-client-type', modeLabel(view) + ' par client × type de projet', createComboEntries(scopeProjects, 'Client', 'Type de projet (Activité)', view, 12), view, {
       indexAxis: 'y'
     });
 
@@ -1459,6 +2150,8 @@
 
   function init() {
     archiveLegacyCharts();
+    ensureBusinessDrillBar();
+    renderBusinessDrillBar();
     bindControls();
     syncPerformanceControls();
     render();
@@ -1468,7 +2161,15 @@
     }
   }
 
-  window.BusinessChartsDashboard = { init: init, render: render, hideLegacy: archiveLegacyCharts };
+  window.BusinessChartsDashboard = {
+    init: init,
+    render: render,
+    hideLegacy: archiveLegacyCharts,
+    getDrillFilters: getBusinessDrillFilters,
+    clearDrillFilters: clearBusinessDrillFilters,
+    removeDrillFilter: removeBusinessDrillFilter,
+    getChartSummary: getBusinessChartSummary
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });
