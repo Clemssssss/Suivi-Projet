@@ -8,7 +8,8 @@ if (!window.AE) {
   const st = {
     raw: [], filters: {}, year: '', search: '',
     caMode: 'Bud', subs: [],  // [CORRIGÉ v2] 'Bud' = source unique de vérité (data.js)
-    energyType: ''  // '' = tous | 'eolien' | 'photovoltaique'
+    energyType: '',  // '' = tous | 'eolien' | 'photovoltaique'
+    selection: null
   };
 
   const EMPTY = new Set([
@@ -22,6 +23,18 @@ if (!window.AE) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
     return EMPTY.has(s.toLowerCase()) ? null : s;
+  }
+
+  function projectKey(p) {
+    if (!p || typeof p !== 'object') return '';
+    return [
+      p['N°- AO'] || '',
+      p['Date réception'] || '',
+      p['Client'] || '',
+      p['Dénomination'] || '',
+      p['Type de projet (Activité)'] || '',
+      p['Zone Géographique'] || ''
+    ].join('||');
   }
 
   function init(d) {
@@ -63,6 +76,58 @@ if (!window.AE) {
     return EOLIEN.test(nom) || EOLIEN.test(type);
   }
 
+  const MONTHS_SHORT = ['jan', 'fev', 'mar', 'avr', 'mai', 'juin', 'juil', 'aout', 'sep', 'oct', 'nov', 'dec'];
+
+  function _normalizeMonthLabel(value) {
+    return String(value == null ? '' : value)
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function _getProjectMonthTokens(project) {
+    let dt = null;
+    if (typeof Analytics !== 'undefined' && typeof Analytics.getProjectDate === 'function') {
+      dt = Analytics.getProjectDate(project);
+    }
+    if (!(dt instanceof Date) || !isFinite(dt.getTime())) return null;
+    const month = MONTHS_SHORT[dt.getMonth()];
+    if (!month) return null;
+    return {
+      month,
+      monthYear: month + ' ' + dt.getFullYear()
+    };
+  }
+
+  function _matchesMonthFilter(project, filterValue) {
+    const target = _normalizeMonthLabel(filterValue);
+    if (!target) return true;
+    const tokens = _getProjectMonthTokens(project);
+    if (!tokens) return false;
+    return target === tokens.month || target === tokens.monthYear;
+  }
+
+  function _matchesBusinessStatus(project, filterValue) {
+    const target = String(filterValue == null ? '' : filterValue).trim().toLowerCase();
+    const status = typeof ProjectUtils !== 'undefined' && ProjectUtils.getStatus ? ProjectUtils.getStatus(project) : '';
+    if (target === 'won') return status === 'obtenu';
+    if (target === 'lost') return status === 'perdu';
+    if (target === 'offer') return status === 'offre';
+    if (target === 'decided') return status === 'obtenu' || status === 'perdu';
+    if (target === 'pipe') {
+      const raw = String((project && (project['Statut'] || project['MG Statut Odoo MG'])) || '')
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+      return raw === 'remis' || raw === 'en etude';
+    }
+    return true;
+  }
+
   function getFiltered() {
     let d = st.raw;
     if (st.year) {
@@ -88,10 +153,15 @@ if (!window.AE) {
           const py = p._annee ? String(p._annee) : '';
           return py === String(v);
         }
+        if (k === '_mois') return _matchesMonthFilter(p, v);
+        if (k === '_businessStatus') return _matchesBusinessStatus(p, v);
         const pv = nv(p[k]);
         if (v === EMPTY_LBL) return pv === null;
         return pv !== null && pv === v;
       });
+    }
+    if (st.selection && st.selection.keys && st.selection.keys.size) {
+      d = d.filter(p => st.selection.keys.has(projectKey(p)));
     }
     return d;
   }
@@ -108,8 +178,38 @@ if (!window.AE) {
   }
 
   function removeFilter(k) { if (k in st.filters) { delete st.filters[k]; push(); } }
-  function clearAll()      { st.filters = {}; push(); notify('Filtres effacés', 'Tous les projets', 'info', 1800); }
+  function clearSelection(silent = false) {
+    if (!st.selection) return;
+    st.selection = null;
+    push();
+    if (!silent) notify('Sélection effacée', 'Retour au périmètre complet', 'info', 1800);
+  }
+  function setSelection(projects, label = '') {
+    const items = Array.isArray(projects) ? projects : [];
+    const keys = new Set(items.map(projectKey).filter(Boolean));
+    if (!keys.size) {
+      clearSelection(true);
+      notify('Sélection impossible', 'Aucune donnée exploitable sur ce graphique', 'warning', 2200);
+      return;
+    }
+    const token = Array.from(keys).sort().join('##');
+    if (st.selection && st.selection.token === token) {
+      clearSelection(true);
+      notify('Sélection effacée', label || 'Retour au périmètre complet', 'info', 1800);
+      return;
+    }
+    st.selection = {
+      token,
+      keys,
+      label: label || 'Sélection graphique',
+      count: items.length
+    };
+    push();
+    notify('Filtre graphique appliqué', (label || 'Sélection graphique') + ' • ' + items.length + ' projet(s)', 'success', 2200);
+  }
+  function clearAll()      { st.filters = {}; st.selection = null; push(); notify('Filtres effacés', 'Tous les projets', 'info', 1800); }
   function setYear(y)      { st.year = y; st.filters = {}; push(); }
+  function getSelection()  { return st.selection ? { label: st.selection.label, count: st.selection.count } : null; }
   function setSearch(q)    { st.search = q.trim(); push(); }
   function setCAMode(m)    { st.caMode = m; push(); }
   function getCAMode()     { return st.caMode; }
@@ -145,16 +245,185 @@ if (!window.AE) {
   }
 
   return { init, getFiltered, getRaw: () => st.raw, toggleFilter, removeFilter, clearAll,
-           setYear, setSearch, setCAMode, getCAMode, getFilters,
+           setYear, setSearch, setCAMode, getCAMode, getFilters, setSelection, clearSelection, getSelection,
            setEnergyType, getEnergyType,
            subscribe, nv, loadFromURL, getURL, EMPTY_LBL };
 })();
 }
 
+if (typeof Chart !== 'undefined' && !window.__dashboardValueLabelsRegistered) {
+  (function registerDashboardValueLabelsPlugin() {
+    const VALUE_LABELS_STORAGE_KEY = 'dashboard.chart.valueLabels.visible';
+
+    function _readVisibleState() {
+      try {
+        const raw = window.localStorage ? localStorage.getItem(VALUE_LABELS_STORAGE_KEY) : null;
+        return raw === '1';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function _writeVisibleState(value) {
+      try {
+        if (window.localStorage) localStorage.setItem(VALUE_LABELS_STORAGE_KEY, value ? '1' : '0');
+      } catch (e) {}
+    }
+
+    function _getVisibleState() {
+      if (typeof window.__dashboardValueLabelsVisible === 'boolean') return window.__dashboardValueLabelsVisible;
+      window.__dashboardValueLabelsVisible = _readVisibleState();
+      return window.__dashboardValueLabelsVisible;
+    }
+
+    function _updateToggleButton() {
+      const btn = document.getElementById('btn-toggle-values');
+      if (!btn) return;
+      const visible = _getVisibleState();
+      btn.textContent = visible ? '🔢 Valeurs : on' : '🔢 Valeurs : off';
+      btn.style.borderColor = visible ? 'rgba(0,212,170,.45)' : '';
+      btn.style.color = visible ? '#9ff3e1' : '';
+      btn.style.background = visible ? 'rgba(0,212,170,.12)' : '';
+    }
+
+    function _refreshAllCharts() {
+      if (typeof Chart === 'undefined') return;
+      try {
+        if (typeof Chart.instances !== 'undefined') {
+          Object.values(Chart.instances).forEach(function(instance) {
+            if (instance && typeof instance.update === 'function') instance.update('none');
+          });
+        }
+      } catch (e) {}
+    }
+
+    window.setDashboardValueLabelsVisible = function(value) {
+      window.__dashboardValueLabelsVisible = !!value;
+      _writeVisibleState(window.__dashboardValueLabelsVisible);
+      _updateToggleButton();
+      _refreshAllCharts();
+    };
+
+    window.toggleDashboardValueLabels = function() {
+      window.setDashboardValueLabelsVisible(!_getVisibleState());
+    };
+
+    function _labelFont(opts) {
+      const font = opts && opts.font ? opts.font : {};
+      return [
+        font.weight || '600',
+        (font.size || 11) + 'px',
+        font.family || "'DM Mono', monospace"
+      ].join(' ');
+    }
+
+    function _formatValue(raw) {
+      const value = typeof raw === 'object' && raw !== null
+        ? Number(raw.y != null ? raw.y : (raw.x != null ? raw.x : raw.r))
+        : Number(raw);
+      if (!isFinite(value)) return '';
+      const abs = Math.abs(value);
+      if (abs >= 1000000) return (value / 1000000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + 'M€';
+      if (abs >= 1000) return (value / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + 'k';
+      if (Math.round(value) === value) return value.toLocaleString('fr-FR');
+      return value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+    }
+
+    function _drawLabel(ctx, text, x, y, opts) {
+      if (!text) return;
+      ctx.save();
+      ctx.font = _labelFont(opts);
+      ctx.textAlign = opts.align || 'center';
+      ctx.textBaseline = opts.baseline || 'middle';
+      if (opts.textStrokeWidth > 0) {
+        ctx.lineWidth = opts.textStrokeWidth;
+        ctx.strokeStyle = opts.textStrokeColor || 'rgba(6,12,20,.92)';
+        ctx.strokeText(text, x, y);
+      }
+      ctx.fillStyle = opts.color || '#dce8f5';
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    const plugin = {
+      id: 'dashboardValueLabels',
+      afterDatasetsDraw(chart, args, pluginOptions) {
+        const opts = Object.assign({}, Chart.defaults.plugins.dashboardValueLabels || {}, pluginOptions || {});
+        if (opts.display === false || !_getVisibleState()) return;
+        const datasets = (chart.data && chart.data.datasets) ? chart.data.datasets : [];
+        const visibleMetas = datasets.map(function(_, index) { return chart.getDatasetMeta(index); })
+          .filter(function(meta) { return meta && !meta.hidden && Array.isArray(meta.data); });
+        const labelCount = visibleMetas.reduce(function(sum, meta) { return sum + meta.data.length; }, 0);
+        if (!labelCount || labelCount > (opts.maxLabels || 60)) return;
+
+        const ctx = chart.ctx;
+        const isHorizontal = chart.options && chart.options.indexAxis === 'y';
+
+        visibleMetas.forEach(function(meta) {
+          const dataset = datasets[meta.index] || {};
+          meta.data.forEach(function(element, dataIndex) {
+            const raw = Array.isArray(dataset.data) ? dataset.data[dataIndex] : null;
+            const numeric = typeof raw === 'object' && raw !== null
+              ? Number(raw.y != null ? raw.y : (raw.x != null ? raw.x : raw.r))
+              : Number(raw);
+            if (!isFinite(numeric)) return;
+            if (opts.hideZero !== false && numeric === 0) return;
+
+            const text = (typeof opts.formatter === 'function' ? opts.formatter(raw, chart, meta.index, dataIndex) : '') || _formatValue(raw);
+            if (!text) return;
+
+            const elType = element && element.constructor && element.constructor.id ? element.constructor.id : '';
+            if (elType === 'arc' && isFinite(element.x) && isFinite(element.y)) {
+              const angle = ((element.startAngle || 0) + (element.endAngle || 0)) / 2;
+              const radius = ((element.innerRadius || 0) + (element.outerRadius || 0)) / 2;
+              const x = element.x + Math.cos(angle) * radius;
+              const y = element.y + Math.sin(angle) * radius;
+              _drawLabel(ctx, text, x, y, opts);
+              return;
+            }
+
+            const pos = typeof element.tooltipPosition === 'function' ? element.tooltipPosition() : element.getProps(['x', 'y'], true);
+            if (!pos || !isFinite(pos.x) || !isFinite(pos.y)) return;
+
+            if (isHorizontal) {
+              _drawLabel(ctx, text, pos.x + (opts.offsetX || 8), pos.y, Object.assign({}, opts, { align: 'left' }));
+            } else {
+              _drawLabel(ctx, text, pos.x, pos.y - (opts.offsetY || 8), Object.assign({}, opts, { align: 'center', baseline: 'bottom' }));
+            }
+          });
+        });
+      }
+    };
+
+    Chart.defaults.plugins.dashboardValueLabels = {
+      display: true,
+      color: '#dce8f5',
+      font: { size: 11, weight: '600', family: "'DM Mono', monospace" },
+      textStrokeColor: 'rgba(6,12,20,.94)',
+      textStrokeWidth: 3,
+      maxLabels: 60,
+      hideZero: true,
+      offsetX: 8,
+      offsetY: 8
+    };
+    Chart.register(plugin);
+    window.__dashboardValueLabelsRegistered = true;
+    _updateToggleButton();
+    const toggleBtn = document.getElementById('btn-toggle-values');
+    if (toggleBtn && !toggleBtn._valueLabelsBound) {
+      toggleBtn._valueLabelsBound = true;
+      toggleBtn.addEventListener('click', function() {
+        window.toggleDashboardValueLabels();
+      });
+    }
+  })();
+}
+
 /* ─── Labels & couleurs ─── */
 const FL = {
   'Client': 'Client', 'Zone Géographique': 'Zone', 'Statut': 'Statut',
-  'Type de projet (Activité)': 'Type projet', '_annee': 'Année'
+  'Type de projet (Activité)': 'Type projet', '_annee': 'Année',
+  '_mois': 'Mois', '_businessStatus': 'Vue'
 };
 const PAL = [
   'rgba(0,212,170,.82)',  'rgba(0,153,255,.82)',  'rgba(245,183,64,.82)',
@@ -288,7 +557,12 @@ const CM = (() => {
     cfg.options.plugins = cfg.options.plugins || {};
     cfg.options.plugins.tooltip = Object.assign({}, TT, cfg.options.plugins.tooltip || {});
     const _reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    cfg.options.animation  = _reducedMotion ? false : (cfg.options.animation || { duration: 420 });
+    cfg.options.animation  = _reducedMotion ? false : Object.assign({ duration: 280 }, cfg.options.animation || {});
+    cfg.options.transitions = Object.assign({}, cfg.options.transitions || {});
+    cfg.options.transitions.active = Object.assign(
+      { animation: { duration: 0 } },
+      cfg.options.transitions.active || {}
+    );
     cfg.options.responsive = true;
     cfg.options.maintainAspectRatio = false;
 
@@ -469,6 +743,7 @@ const CFM = {
 
 function updateBadges() {
   const f = AE.getFilters();
+  const selection = (typeof AE !== 'undefined' && AE.getSelection) ? AE.getSelection() : null;
   for (const [id, fk] of Object.entries(CFM)) {
     const b    = document.getElementById(`badge-${id}`);
     const card = document.querySelector(`[data-chart-id="${id}"]`);
@@ -478,7 +753,7 @@ function updateBadges() {
   }
   const pill = document.getElementById('project-count');
   const hasEnergyFilter = !!(typeof AE !== 'undefined' && AE.getEnergyType && AE.getEnergyType());
-  if (pill) pill.classList.toggle('filtered', Object.keys(f).length > 0 || hasEnergyFilter);
+  if (pill) pill.classList.toggle('filtered', Object.keys(f).length > 0 || hasEnergyFilter || !!selection);
   // Refléter l'état du filtre énergie sur le select
   const energySel = document.getElementById('energy-type-filter');
   if (energySel && typeof AE !== 'undefined' && AE.getEnergyType) {
@@ -502,7 +777,8 @@ function renderFilterPanel() {
   const tags  = document.getElementById('filter-tags');
   const e     = Object.entries(f);
   const energyType = (typeof AE !== 'undefined' && AE.getEnergyType) ? AE.getEnergyType() : '';
-  const hasFilters = e.length > 0 || !!energyType;
+  const selection = (typeof AE !== 'undefined' && AE.getSelection) ? AE.getSelection() : null;
+  const hasFilters = e.length > 0 || !!energyType || !!selection;
 
   if (!hasFilters) { panel.classList.remove('active'); return; }
   panel.classList.add('active');
@@ -515,6 +791,15 @@ function renderFilterPanel() {
     t.addEventListener('click', () => AE.removeFilter(k));
     tags.appendChild(t);
   });
+
+  if (selection) {
+    const t = document.createElement('span');
+    t.className = 'ftag';
+    t.style.cssText = 'border-color:rgba(0,212,170,.4);background:rgba(0,212,170,.08);color:#9af3e0;';
+    t.innerHTML = `<span class="ftag-key" style="color:#9af3e0;">Graphique</span> ${selection.label} (${selection.count}) ✕`;
+    t.addEventListener('click', () => AE.clearSelection());
+    tags.appendChild(t);
+  }
 
   // Badge filtre énergie
   if (energyType) {
@@ -742,9 +1027,129 @@ function renderVelocity(data) {
    TABLEAU DÉTAILS
 ═══════════════════════════════════════════════════════════ */
 let tsort = { field: 'echeance', asc: true };
+var detailTableState = { query: '', filters: {} };
+
+function normalizeDetailFilterValue(value) {
+  if (value == null) return '';
+  var raw = String(value).trim();
+  if (!raw) return '';
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeDetailHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getDetailColumnValue(p, col, cm) {
+  switch (col.key) {
+    case 'projet':
+      return p['Dénomination'] || '';
+    case 'ao':
+      return p['N°- AO'] || '';
+    case 'client':
+      return p['Client'] || '';
+    case 'statut':
+      return (p['Statut'] || p['MG Statut Odoo MG'] || '') + ' ' + ProjectUtils.getStatus(p);
+    case 'zone':
+      return p['Zone Géographique'] || '';
+    case 'ca': {
+      var ca = getCAValue(p, cm);
+      return ca > 0 ? fmt(ca) : '—';
+    }
+    case 'echeance': {
+      var parsed = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      var isValid = parsed && !isNaN(parsed.getTime());
+      return isValid ? parsed.toLocaleDateString('fr-FR') : (p['Date de retour demandée'] || '');
+    }
+    case 'puissance':
+      return p['Puissance (MWc)'] ? parseFloat(p['Puissance (MWc)']).toFixed(1) + ' MW' : '';
+    case 'type':
+      return p['Type de projet (Activité)'] || '';
+    case 'emetteur':
+      return p['Emetteur'] || '';
+    case 'winproba':
+      return p['Win proba'] || '';
+    case 'annee':
+      return p._annee || '';
+    case 'gonogo':
+      return p['GoNogo'] || '';
+    case 'commentaires':
+      return p['Commentaires'] || '';
+    default:
+      return '';
+  }
+}
+
+function getDetailSearchText(p, cols, cm) {
+  return normalizeDetailFilterValue(cols.map(function(col) {
+    return getDetailColumnValue(p, col, cm);
+  }).join(' '));
+}
+
+function getDetailSortValue(p, field, cm) {
+  switch (field) {
+    case 'ca':
+      return pCA(p[cm]);
+    case 'statut':
+      return ProjectUtils.getStatus(p);
+    case 'echeance': {
+      var parsed = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseDate)
+        ? ProjectUtils.parseDate(p['Date de retour demandée'])
+        : (p['Date de retour demandée'] ? new Date(p['Date de retour demandée']) : null);
+      return parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+    }
+    case 'Puissance (MWc)':
+      return parseFloat(p['Puissance (MWc)']) || 0;
+    case 'projet':
+      return p['Dénomination'] || '';
+    case 'Client':
+      return p['Client'] || '';
+    case 'Zone Géographique':
+      return p['Zone Géographique'] || '';
+    case 'N°- AO':
+      return p['N°- AO'] || '';
+    case 'Type de projet (Activité)':
+      return p['Type de projet (Activité)'] || '';
+    case 'Emetteur':
+      return p['Emetteur'] || '';
+    case 'Win proba':
+      return p['Win proba'] || '';
+    case '_annee':
+      return p._annee || '';
+    case 'GoNogo':
+      return p['GoNogo'] || '';
+    case 'Commentaires':
+      return p['Commentaires'] || '';
+    default:
+      return p[field];
+  }
+}
+
+function resetDetailTableFilters() {
+  detailTableState.query = '';
+  detailTableState.filters = {};
+  var search = document.getElementById('detail-search');
+  if (search) search.value = '';
+  document.querySelectorAll('#dtable .dtable-filter').forEach(function(input) {
+    input.value = '';
+  });
+}
 
 function showDetailTable(data, title = 'Projets filtrés') {
   document.getElementById('detail-title').textContent = `📋 ${title}`;
+  resetDetailTableFilters();
   renderRows(data);
   const sec = document.getElementById('detail-section');
   sec.classList.add('active');
@@ -857,15 +1262,41 @@ var TABLE_COLUMNS = [
 
 /* Mettre à jour le thead dynamiquement selon les colonnes visibles */
 function _updateThead() {
-  var thead = document.querySelector('#dtable thead tr');
-  if (!thead) return;
-  thead.innerHTML = TABLE_COLUMNS.filter(function(c) { return c.visible; }).map(function(c) {
+  var rows = document.querySelectorAll('#dtable thead tr');
+  if (!rows || rows.length < 2) return;
+  var headerRow = rows[0];
+  var filterRow = rows[1];
+  var visibleCols = TABLE_COLUMNS.filter(function(c) { return c.visible; });
+
+  headerRow.innerHTML = visibleCols.map(function(c) {
     var sorted = tsort.field === c.sort;
     var arrow  = sorted ? (tsort.asc ? '↑' : '↓') : '↕';
     return `<th data-sort="${c.sort}" ${sorted ? 'class="sorted"' : ''}>${c.label} ${arrow}</th>`;
   }).join('');
-  // Rebrancher les listeners de tri
-  thead.querySelectorAll('th[data-sort]').forEach(function(th) {
+
+  var currentData = Array.isArray(_currentTableData) ? _currentTableData : [];
+  filterRow.innerHTML = visibleCols.map(function(c) {
+    var values = currentData.map(function(p) {
+      return getDetailColumnValue(p, c, AE.getCAMode());
+    }).filter(function(v) { return String(v || '').trim(); });
+    var uniqueValues = Array.from(new Set(values)).sort(function(a, b) {
+      return String(a).localeCompare(String(b), 'fr', { sensitivity: 'base' });
+    });
+    var currentValue = detailTableState.filters[c.key] || '';
+    var shouldSelect = uniqueValues.length > 0 && uniqueValues.length <= 12 &&
+      ['statut', 'zone', 'type', 'emetteur', 'gonogo', 'annee'].indexOf(c.key) !== -1;
+
+    if (shouldSelect) {
+      return `<th><select class="dtable-filter" data-filter-key="${c.key}"><option value="">Tous</option>${uniqueValues.map(function(option) {
+        var selected = currentValue === option ? ' selected' : '';
+        return `<option value="${escapeDetailHtml(option)}"${selected}>${escapeDetailHtml(option)}</option>`;
+      }).join('')}</select></th>`;
+    }
+
+    return `<th><input class="dtable-filter" data-filter-key="${c.key}" type="text" placeholder="Filtrer" value="${escapeDetailHtml(currentValue)}"></th>`;
+  }).join('');
+
+  headerRow.querySelectorAll('th[data-sort]').forEach(function(th) {
     th.addEventListener('click', function() {
       var f = this.dataset.sort;
       tsort.asc   = tsort.field === f ? !tsort.asc : true;
@@ -875,6 +1306,14 @@ function _updateThead() {
       renderRows(data);
     });
   });
+
+  filterRow.querySelectorAll('.dtable-filter').forEach(function(input) {
+    var eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+    input.addEventListener(eventName, function() {
+      detailTableState.filters[this.dataset.filterKey] = this.value || '';
+      renderRows(_currentTableData || []);
+    });
+  });
 }
 
 var _currentTableData = null;
@@ -882,16 +1321,31 @@ var _currentTableData = null;
 function renderRows(data) {
   _currentTableData = data;
   const cm = AE.getCAMode();
-  document.getElementById('detail-count').textContent =
-    `${data.length} projet${data.length !== 1 ? 's' : ''}`;
-
   const visibleCols = TABLE_COLUMNS.filter(function(c) { return c.visible; });
   _updateThead();
+  const search = normalizeDetailFilterValue(detailTableState.query || '');
+  const filtered = data.filter(function(p) {
+    if (search && getDetailSearchText(p, visibleCols, cm).indexOf(search) === -1) {
+      return false;
+    }
 
-  const sorted = [...data].sort((a, b) => {
-    let av = a[tsort.field], bv = b[tsort.field];
-    if (tsort.field === 'ca')     { av = pCA(a[cm]); bv = pCA(b[cm]); }
-    if (tsort.field === 'statut') { av = ProjectUtils.getStatus(a); bv = ProjectUtils.getStatus(b); }
+    return visibleCols.every(function(col) {
+      var filterValue = normalizeDetailFilterValue(detailTableState.filters[col.key] || '');
+      if (!filterValue) return true;
+      return normalizeDetailFilterValue(getDetailColumnValue(p, col, cm)).indexOf(filterValue) !== -1;
+    });
+  });
+
+  document.getElementById('detail-count').textContent =
+    `${filtered.length} / ${data.length} projet${data.length !== 1 ? 's' : ''}`;
+  var resultsCount = document.getElementById('detail-results-count');
+  if (resultsCount) {
+    resultsCount.textContent = `${filtered.length} ligne${filtered.length > 1 ? 's' : ''} affichée${filtered.length > 1 ? 's' : ''}`;
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    let av = getDetailSortValue(a, tsort.field, cm);
+    let bv = getDetailSortValue(b, tsort.field, cm);
     if (typeof av === 'string') av = av.toLowerCase();
     if (typeof bv === 'string') bv = bv.toLowerCase();
     if (av < bv) return tsort.asc ? -1 : 1;
@@ -899,9 +1353,11 @@ function renderRows(data) {
     return 0;
   });
 
-  document.getElementById('dtable-body').innerHTML = sorted.map(function(p) {
+  document.getElementById('dtable-body').innerHTML = sorted.length
+    ? sorted.map(function(p) {
     return `<tr>${visibleCols.map(function(col) { return col.render(p, cm); }).join('')}</tr>`;
-  }).join('');
+  }).join('')
+    : `<tr><td colspan="${visibleCols.length || 1}" class="dtable-empty">Aucune ligne ne correspond aux filtres en cours.</td></tr>`;
 }
 
 
@@ -952,9 +1408,16 @@ function updateKPIs(data) {
   const pipeline = Math.round(offerCA * (conv / 100));
 
   // Top société
-  const sc  = {};
-  data.forEach(p => { const s = AE.nv(p['Client']); if (s) sc[s] = (sc[s]||0)+1; });
-  const top = Object.entries(sc).sort((a,b)=>b[1]-a[1])[0];
+  const topSociete = (typeof Analytics !== 'undefined' && typeof Analytics.topSocieteScore === 'function')
+    ? (Analytics.topSocieteScore(data, {}, 1)[0] || null)
+    : null;
+  const topSocieteSub = topSociete
+    ? (
+        topSociete.obtenu + '/' + topSociete.total + ' gagnes'
+        + ' · ' + topSociete.taux_reussite + '% reussite'
+        + ' · CA gagne ' + fmt(topSociete.ca_gagne || 0)
+      )
+    : '';
 
   // Taux réponse
   const ofArr = data.filter(p => ProjectUtils.getStatus(p) === 'offre');
@@ -980,8 +1443,8 @@ function updateKPIs(data) {
   setEl('k-offers-pct',total > 0 ? Math.round(offers/total*100)+'% du total' : '');
   setEl('k-ca-avg',   won > 0 ? 'moy. '+fmt(Math.round(wonCA/won)) : 'moy. —');
   setEl('k-power-avg',total > 0 ? 'moy. '+(totPow/total).toFixed(1)+' MW' : '');
-  setEl('k-top',      top ? top[0] : '—');
-  setEl('k-top-sub',  top ? top[1]+' projet'+(top[1]>1?'s':'') : '');
+  setEl('k-top',      topSociete ? topSociete.client : '—');
+  setEl('k-top-sub',  topSociete ? topSocieteSub : '');
   setEl('project-count', total + ' projets');
 
   // GoNogo dashboard
@@ -1383,6 +1846,7 @@ function createAllCharts(data) {
     { key:'Zone Géographique',                    type:'text'    },
     { key:'Type de projet (Activité)',            type:'text'    },
     { key:'Bud',                                  type:'number'  },
+    { key:'MB (€)',                               type:'number'  },
     { key:'Puissance (MWc)',                      type:'number'  },
     { key:'Win proba',                            type:'percent' },
     { key:'CA win proba',                         type:'number'  },
@@ -1398,6 +1862,85 @@ function createAllCharts(data) {
     { key:'Date de MSI prévisionnelle',           type:'date'    },
     { key:'Commentaires',                         type:'text'    },
   ];
+
+var TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
+
+function formatTableCellValue(project, column) {
+  if (!column) return '';
+  var raw = project && project[column.key] !== undefined ? project[column.key] : (project ? project[column.key + ' '] : undefined);
+  if (raw === undefined || raw === null) return '';
+  return String(raw);
+}
+
+function buildVisibleTableViewPayload(data) {
+  var rows = Array.isArray(data) ? data : [];
+  var meta = [];
+  var datasetMeta = (typeof DashboardDataTransparency !== 'undefined' && DashboardDataTransparency.getDatasetMeta)
+    ? DashboardDataTransparency.getDatasetMeta()
+    : null;
+  var sourceName = datasetMeta && datasetMeta.sourceName ? datasetMeta.sourceName : 'Dataset actif';
+  var yearEl = document.getElementById('year-filter');
+  var dateFieldEl = document.getElementById('date-field-selector');
+  var energyEl = document.getElementById('energy-type-filter');
+  var activeFilters = (typeof AE !== 'undefined' && AE.getFilters) ? (AE.getFilters() || {}) : {};
+  var filterParts = [];
+
+  if (yearEl && yearEl.value) filterParts.push('Année ' + yearEl.value);
+  if (energyEl && energyEl.value && energyEl.options[energyEl.selectedIndex]) {
+    filterParts.push('Énergie ' + energyEl.options[energyEl.selectedIndex].textContent.trim());
+  }
+  Object.keys(activeFilters).forEach(function(key) {
+    if (!activeFilters[key]) return;
+    filterParts.push(key + ' = ' + activeFilters[key]);
+  });
+
+  meta.push('Source: ' + sourceName);
+  meta.push(rows.length + ' projet(s) visible(s)');
+  meta.push(filterParts.length ? ('Filtres: ' + filterParts.join(' • ')) : 'Filtres: aucun filtre fort');
+  meta.push('Champ date: ' + (dateFieldEl && dateFieldEl.value ? dateFieldEl.value : 'Date réception'));
+
+  return {
+    title: 'Projets visibles du dashboard',
+    subtitle: 'Vue plein écran des données actuellement visibles dans le tableau de bord',
+    meta: meta,
+    datasetKey: datasetMeta && datasetMeta.datasetKey ? datasetMeta.datasetKey : 'saip-main',
+    sourceName: sourceName,
+    editableColumns: EXPORT_COLUMNS.map(function(c) {
+      return { key: c.key, type: c.type || 'text' };
+    }),
+    editableRows: rows.map(function(project) {
+      var raw = {};
+      EXPORT_COLUMNS.forEach(function(column) {
+        var value = project && project[column.key] !== undefined ? project[column.key] : (project ? project[column.key + ' '] : undefined);
+        raw[column.key] = value == null ? '' : String(value);
+      });
+      return raw;
+    }),
+    headers: EXPORT_COLUMNS.map(function(c) { return c.key; }),
+    rows: rows.map(function(project) {
+      return EXPORT_COLUMNS.map(function(column) {
+        return formatTableCellValue(project, column);
+      });
+    })
+  };
+}
+
+function openVisibleDataTablePage(data) {
+  var rows = Array.isArray(data) ? data : [];
+  if (!rows.length) {
+    notify('Tableau', 'Aucune donnée visible à ouvrir', 'warning', 2200);
+    return;
+  }
+  var payload = buildVisibleTableViewPayload(rows);
+  var token = 'tv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  try {
+    if (window.localStorage) {
+      localStorage.setItem(TABLE_VIEW_STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(TABLE_VIEW_STORAGE_KEY + '.' + token, JSON.stringify(payload));
+    }
+  } catch (e) {}
+  window.open('table-view.html?ts=' + Date.now() + '&key=' + encodeURIComponent(token), '_blank', 'noopener');
+}
 
 function exportExcel(data, filename, sheetTitle) {
   if (typeof XLSX === 'undefined') { notify('Export Excel', 'SheetJS non chargé', 'error'); return; }
@@ -1441,10 +1984,12 @@ function exportExcel(data, filename, sheetTitle) {
   });
   // Ligne total
   var budI = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='Bud'; });
+  var mbI  = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='MB (€)'; });
   var pwI  = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='Puissance (MWc)'; });
   var tot  = EXPORT_COLUMNS.map(function(c,i){
     if (i===0) return 'TOTAL ('+data.length+' projets)';
     if (i===budI) return data.reduce(function(s,p){ return s+(_num(p['Bud'])||0); },0);
+    if (i===mbI)  return data.reduce(function(s,p){ return s+(_num(p['MB (€)'])||0); },0);
     if (i===pwI)  return data.reduce(function(s,p){ var n=parseFloat(p['Puissance (MWc)']||0); return s+(isNaN(n)?0:n); },0);
     return '';
   });
@@ -1476,7 +2021,7 @@ function exportExcel(data, filename, sheetTitle) {
       var col=EXPORT_COLUMNS[c];
       var s={font:dF,fill:alt?{patternType:'solid',fgColor:{rgb:'0F1E2E'}}:{},alignment:{vertical:'center'}};
       if (col.type==='date'&&cl.v instanceof Date){ cl.t='d'; s.numFmt='DD/MM/YYYY'; s.alignment.horizontal='center'; }
-      else if ((col.key==='Bud'||col.key==='CA win proba')&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='# ##0.00 €'; s.alignment.horizontal='right'; }
+      else if ((col.key==='Bud'||col.key==='MB (€)'||col.key==='CA win proba')&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='# ##0.00 €'; s.alignment.horizontal='right'; }
       else if (col.key==='Puissance (MWc)'&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='0.0'; s.alignment.horizontal='right'; }
       else if (col.type==='percent'&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='0%'; s.alignment.horizontal='center'; }
       else { s.alignment.horizontal='left'; }
@@ -1494,12 +2039,12 @@ function exportExcel(data, filename, sheetTitle) {
     var cl=ws[ref(tr,c)]; if (!cl) ws[ref(tr,c)]={t:'s',v:''};
     var ts={font:tF,fill:tFill,alignment:{vertical:'center'}};
     var col=EXPORT_COLUMNS[c];
-    if ((col.key==='Bud'||col.key==='CA win proba')&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='# ##0.00 €'; ts.alignment.horizontal='right'; }
+    if ((col.key==='Bud'||col.key==='MB (€)'||col.key==='CA win proba')&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='# ##0.00 €'; ts.alignment.horizontal='right'; }
     else if (col.key==='Puissance (MWc)'&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='0.0'; ts.alignment.horizontal='right'; }
     ws[ref(tr,c)].s=ts;
   }
 
-  var widths={'Date réception':14,'Client':22,'Dénomination':34,'Emetteur':16,'Receveur':14,'Zone Géographique':16,'Type de projet (Activité)':22,'Bud':14,'Puissance (MWc)':12,'Win proba':10,'CA win proba':14,'Statut':14,'MG Statut Odoo MG':16,'Date de retour demandée':14,'GoNogo':8,'N°- AO':12,'Carte Planner oui/non':14,'Décidé le':12,'Date de démarrage VRD prévisionnelle':20,'Date de démarrage GE prévisionnelle':20,'Date de MSI prévisionnelle':18,'Commentaires':40};
+  var widths={'Date réception':14,'Client':22,'Dénomination':34,'Emetteur':16,'Receveur':14,'Zone Géographique':16,'Type de projet (Activité)':22,'Bud':14,'MB (€)':14,'Puissance (MWc)':12,'Win proba':10,'CA win proba':14,'Statut':14,'MG Statut Odoo MG':16,'Date de retour demandée':14,'GoNogo':8,'N°- AO':12,'Carte Planner oui/non':14,'Décidé le':12,'Date de démarrage VRD prévisionnelle':20,'Date de démarrage GE prévisionnelle':20,'Date de MSI prévisionnelle':18,'Commentaires':40};
   ws['!cols']=EXPORT_COLUMNS.map(function(c){ return {wch:widths[c.key]||14}; });
   ws['!rows']=[{hpt:32}];
   ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nRows-1,c:nCols-1}})};
@@ -1512,12 +2057,12 @@ function exportExcel(data, filename, sheetTitle) {
 
 function exportCSV(data) {
   const cm = AE.getCAMode();
-  const h  = ['Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique','Type de projet (Activité)','Bud','Puissance (MWc)','Win proba','CA win proba','Statut','MG Statut Odoo MG','Date de retour demandée','GoNogo','N°- AO','Carte Planner oui/non','Décidé le','Date démarrage VRD','Date démarrage GE','Date MSI','Commentaires'];
+  const h  = ['Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique','Type de projet (Activité)','Bud','MB (€)','Puissance (MWc)','Win proba','CA win proba','Statut','MG Statut Odoo MG','Date de retour demandée','GoNogo','N°- AO','Carte Planner oui/non','Décidé le','Date démarrage VRD','Date démarrage GE','Date MSI','Commentaires'];
   function esc(v) { return '"' + String(v||'').replace(/"/g,'""') + '"'; }
   const rows = data.map(p => [
     p['Date réception']||'', esc(p['Client']), esc(p['Dénomination']),
     esc(p['Emetteur']), esc(p['Receveur']), p['Zone Géographique']||'',
-    p['Type de projet (Activité)']||'', p['Bud']||'', p['Puissance (MWc)']||'',
+    p['Type de projet (Activité)']||'', p['Bud']||'', p['MB (€)']||'', p['Puissance (MWc)']||'',
     p['Win proba']||'', p['CA win proba']||'', p['Statut']||'',
     p['MG Statut Odoo MG']||'', p['Date de retour demandée']||'', p['GoNogo']||'',
     p['N°- AO']||'', p['Carte Planner oui/non']||'',
@@ -2020,6 +2565,11 @@ function update() {
     exportExcel(AE.getFiltered(), 'analytics_' + new Date().toISOString().slice(0,10) + '.xlsx', 'Projets filtres');
   });
 
+  var _btnTableView = document.getElementById('btn-open-table-view');
+  if (_btnTableView) _btnTableView.addEventListener('click', function() {
+    openVisibleDataTablePage(AE.getFiltered());
+  });
+
   document.querySelectorAll('[data-ce]').forEach(btn => {
     btn.addEventListener('click', e => { e.stopPropagation(); exportChart(btn.dataset.ce); });
   });
@@ -2039,6 +2589,22 @@ function update() {
   document.getElementById('btn-close-table')
     .addEventListener('click', () =>
       document.getElementById('detail-section').classList.remove('active'));
+
+  var detailSearch = document.getElementById('detail-search');
+  if (detailSearch) {
+    detailSearch.addEventListener('input', function() {
+      detailTableState.query = this.value || '';
+      renderRows(_currentTableData || []);
+    });
+  }
+
+  var detailReset = document.getElementById('btn-detail-reset-filters');
+  if (detailReset) {
+    detailReset.addEventListener('click', function() {
+      resetDetailTableFilters();
+      renderRows(_currentTableData || []);
+    });
+  }
 
   // ── Bouton "Tout afficher" / "Filtrés seulement" ──────────────────────────
   (function() {

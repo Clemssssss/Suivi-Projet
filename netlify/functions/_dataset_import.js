@@ -4,17 +4,18 @@ const ExcelJS = require('exceljs');
 
 const EXPECTED_SCHEMA = [
   'Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique',
-  'Type de projet (Activité)','Bud','Puissance (MWc)','Win proba','CA win proba',
+  'Type de projet (Activité)','Bud','MB (€)','Puissance (MWc)','Win proba','CA win proba',
   'Statut','MG Statut Odoo MG','Date de retour demandée','GoNogo','N°- AO',
   'Carte Planner oui/non','Décidé le','Date de démarrage VRD prévisionnelle',
   'Date de démarrage GE prévisionnelle','Date de MSI prévisionnelle','Commentaires'
 ];
+const EXPECTED_SCHEMA_NORMALIZED = new Set(EXPECTED_SCHEMA.map((header) => headerNorm(header)));
 
 const DATE_FIELDS = new Set([
   'Date réception','Date de retour demandée','Décidé le','Décidé le ',
   'Date de démarrage VRD prévisionnelle','Date de démarrage GE prévisionnelle','Date de MSI prévisionnelle'
 ]);
-const MONTANT_FIELDS = new Set(['Bud', 'CA win proba']);
+const MONTANT_FIELDS = new Set(['Bud', 'MB (€)', 'CA win proba']);
 const WINPROBA_FIELDS = new Set(['Win proba']);
 const NUM_FIELDS = new Set(['Puissance (MWc)', '_annee', 'id']);
 const HEADER_ALIAS_MAP = { 'Décidé le': 'Décidé le ', 'Décidé le ': 'Décidé le ' };
@@ -272,6 +273,7 @@ function normalizeImportedRowObjects(list) {
   const rows = Array.isArray(list) ? list : [];
   return rows.reduce((acc, item, rowIndex) => {
     const normalizedMap = normalizeObjectKeys(item);
+    const source = item && typeof item === 'object' ? item : {};
     const row = {};
 
     EXPECTED_SCHEMA.forEach((header) => {
@@ -287,6 +289,24 @@ function normalizeImportedRowObjects(list) {
       } else {
         row[header] = sanitizeImportedText(raw);
       }
+    });
+
+    // Preserve additional columns coming from upstream payloads (Power Automate, future schema updates).
+    Object.keys(source).forEach((sourceKey) => {
+      const canonical = sanitizeHeader(sourceKey);
+      if (!canonical) return;
+      if (EXPECTED_SCHEMA_NORMALIZED.has(headerNorm(canonical))) return;
+      if (canonical === 'id' || canonical === 'notes') return;
+
+      const raw = source[sourceKey];
+      if (DATE_FIELDS.has(canonical) || DATE_FIELDS.has(canonical.trim())) row[canonical] = parseDate(raw);
+      else if (MONTANT_FIELDS.has(canonical)) row[canonical] = parseMontant(raw);
+      else if (WINPROBA_FIELDS.has(canonical)) row[canonical] = parseWinProba(raw);
+      else if (canonical === 'Zone Géographique') row[canonical] = normalizeZone(raw) || sanitizeImportedText(raw);
+      else if (NUM_FIELDS.has(canonical)) {
+        const n = parseFloat(raw);
+        row[canonical] = Number.isNaN(n) ? nvClean(raw) : n;
+      } else row[canonical] = sanitizeImportedText(raw);
     });
 
     const hasMeaningfulValue = Object.values(row).some((value) => String(value == null ? '' : value).trim() !== '');

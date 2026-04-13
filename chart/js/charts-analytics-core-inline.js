@@ -96,7 +96,7 @@
                         'Date de MSI prévisionnelle',
                         'creation','echeance','date_reception_ao','date_remise_offre',
                         'date_ouverture_prix','fin_prevue_chantier'];
-  var MONTANT_FIELDS = ['Bud','CA win proba'];
+  var MONTANT_FIELDS = ['Bud','MB (€)','CA win proba'];
   var WINPROBA_FIELDS= ['Win proba'];
   var NUM_FIELDS     = ['Puissance (MWc)','_annee','id'];
   var HEADER_ALIAS_MAP = {
@@ -314,7 +314,7 @@
   ════════════════════════════════════════════════════════════════ */
   var EXPECTED_SCHEMA = [
     'Date réception','Client','Dénomination','Emetteur','Receveur',
-    'Zone Géographique','Type de projet (Activité)','Bud','Puissance (MWc)',
+    'Zone Géographique','Type de projet (Activité)','Bud','MB (€)','Puissance (MWc)',
     'Win proba','CA win proba','Statut','MG Statut Odoo MG',
     'Date de retour demandée','GoNogo','N°- AO',
     'Carte Planner oui/non','Décidé le',
