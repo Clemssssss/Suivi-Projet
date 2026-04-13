@@ -1931,9 +1931,12 @@ window.ChartAnalysis = (() => {
       .chart-analysis-block.ca-collapsed .ca-block-meta { display: none; }
       .chart-analysis-block.ca-collapsed .ca-block-text { padding-bottom: .45rem; }
       .chart-analysis-block.ca-collapsed .ca-analysis-lead {
-        max-height: 3.7em;
-        overflow: hidden;
+        display: block;
+        line-height: 1.55;
+        max-height: none;
+        overflow: visible;
       }
+      .chart-analysis-block.ca-collapsed .ca-analysis-lead-kicker { display: none; }
 
       /* ── TABLE WRAPPER ── */
       .ca-table-view { display: none; }
