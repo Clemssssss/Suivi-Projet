@@ -1846,6 +1846,7 @@ function createAllCharts(data) {
     { key:'Zone Géographique',                    type:'text'    },
     { key:'Type de projet (Activité)',            type:'text'    },
     { key:'Bud',                                  type:'number'  },
+    { key:'MB (€)',                               type:'number'  },
     { key:'Puissance (MWc)',                      type:'number'  },
     { key:'Win proba',                            type:'percent' },
     { key:'CA win proba',                         type:'number'  },
@@ -1983,10 +1984,12 @@ function exportExcel(data, filename, sheetTitle) {
   });
   // Ligne total
   var budI = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='Bud'; });
+  var mbI  = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='MB (€)'; });
   var pwI  = EXPORT_COLUMNS.findIndex(function(c){ return c.key==='Puissance (MWc)'; });
   var tot  = EXPORT_COLUMNS.map(function(c,i){
     if (i===0) return 'TOTAL ('+data.length+' projets)';
     if (i===budI) return data.reduce(function(s,p){ return s+(_num(p['Bud'])||0); },0);
+    if (i===mbI)  return data.reduce(function(s,p){ return s+(_num(p['MB (€)'])||0); },0);
     if (i===pwI)  return data.reduce(function(s,p){ var n=parseFloat(p['Puissance (MWc)']||0); return s+(isNaN(n)?0:n); },0);
     return '';
   });
@@ -2018,7 +2021,7 @@ function exportExcel(data, filename, sheetTitle) {
       var col=EXPORT_COLUMNS[c];
       var s={font:dF,fill:alt?{patternType:'solid',fgColor:{rgb:'0F1E2E'}}:{},alignment:{vertical:'center'}};
       if (col.type==='date'&&cl.v instanceof Date){ cl.t='d'; s.numFmt='DD/MM/YYYY'; s.alignment.horizontal='center'; }
-      else if ((col.key==='Bud'||col.key==='CA win proba')&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='# ##0.00 €'; s.alignment.horizontal='right'; }
+      else if ((col.key==='Bud'||col.key==='MB (€)'||col.key==='CA win proba')&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='# ##0.00 €'; s.alignment.horizontal='right'; }
       else if (col.key==='Puissance (MWc)'&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='0.0'; s.alignment.horizontal='right'; }
       else if (col.type==='percent'&&typeof cl.v==='number'){ cl.t='n'; s.numFmt='0%'; s.alignment.horizontal='center'; }
       else { s.alignment.horizontal='left'; }
@@ -2036,12 +2039,12 @@ function exportExcel(data, filename, sheetTitle) {
     var cl=ws[ref(tr,c)]; if (!cl) ws[ref(tr,c)]={t:'s',v:''};
     var ts={font:tF,fill:tFill,alignment:{vertical:'center'}};
     var col=EXPORT_COLUMNS[c];
-    if ((col.key==='Bud'||col.key==='CA win proba')&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='# ##0.00 €'; ts.alignment.horizontal='right'; }
+    if ((col.key==='Bud'||col.key==='MB (€)'||col.key==='CA win proba')&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='# ##0.00 €'; ts.alignment.horizontal='right'; }
     else if (col.key==='Puissance (MWc)'&&typeof ws[ref(tr,c)].v==='number'){ ws[ref(tr,c)].t='n'; ts.numFmt='0.0'; ts.alignment.horizontal='right'; }
     ws[ref(tr,c)].s=ts;
   }
 
-  var widths={'Date réception':14,'Client':22,'Dénomination':34,'Emetteur':16,'Receveur':14,'Zone Géographique':16,'Type de projet (Activité)':22,'Bud':14,'Puissance (MWc)':12,'Win proba':10,'CA win proba':14,'Statut':14,'MG Statut Odoo MG':16,'Date de retour demandée':14,'GoNogo':8,'N°- AO':12,'Carte Planner oui/non':14,'Décidé le':12,'Date de démarrage VRD prévisionnelle':20,'Date de démarrage GE prévisionnelle':20,'Date de MSI prévisionnelle':18,'Commentaires':40};
+  var widths={'Date réception':14,'Client':22,'Dénomination':34,'Emetteur':16,'Receveur':14,'Zone Géographique':16,'Type de projet (Activité)':22,'Bud':14,'MB (€)':14,'Puissance (MWc)':12,'Win proba':10,'CA win proba':14,'Statut':14,'MG Statut Odoo MG':16,'Date de retour demandée':14,'GoNogo':8,'N°- AO':12,'Carte Planner oui/non':14,'Décidé le':12,'Date de démarrage VRD prévisionnelle':20,'Date de démarrage GE prévisionnelle':20,'Date de MSI prévisionnelle':18,'Commentaires':40};
   ws['!cols']=EXPORT_COLUMNS.map(function(c){ return {wch:widths[c.key]||14}; });
   ws['!rows']=[{hpt:32}];
   ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nRows-1,c:nCols-1}})};
@@ -2054,12 +2057,12 @@ function exportExcel(data, filename, sheetTitle) {
 
 function exportCSV(data) {
   const cm = AE.getCAMode();
-  const h  = ['Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique','Type de projet (Activité)','Bud','Puissance (MWc)','Win proba','CA win proba','Statut','MG Statut Odoo MG','Date de retour demandée','GoNogo','N°- AO','Carte Planner oui/non','Décidé le','Date démarrage VRD','Date démarrage GE','Date MSI','Commentaires'];
+  const h  = ['Date réception','Client','Dénomination','Emetteur','Receveur','Zone Géographique','Type de projet (Activité)','Bud','MB (€)','Puissance (MWc)','Win proba','CA win proba','Statut','MG Statut Odoo MG','Date de retour demandée','GoNogo','N°- AO','Carte Planner oui/non','Décidé le','Date démarrage VRD','Date démarrage GE','Date MSI','Commentaires'];
   function esc(v) { return '"' + String(v||'').replace(/"/g,'""') + '"'; }
   const rows = data.map(p => [
     p['Date réception']||'', esc(p['Client']), esc(p['Dénomination']),
     esc(p['Emetteur']), esc(p['Receveur']), p['Zone Géographique']||'',
-    p['Type de projet (Activité)']||'', p['Bud']||'', p['Puissance (MWc)']||'',
+    p['Type de projet (Activité)']||'', p['Bud']||'', p['MB (€)']||'', p['Puissance (MWc)']||'',
     p['Win proba']||'', p['CA win proba']||'', p['Statut']||'',
     p['MG Statut Odoo MG']||'', p['Date de retour demandée']||'', p['GoNogo']||'',
     p['N°- AO']||'', p['Carte Planner oui/non']||'',
