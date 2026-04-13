@@ -1873,6 +1873,8 @@
     var view = (document.getElementById('biz-performance-view') || {}).value || 'won_amount';
     var comboScope = (document.getElementById('biz-performance-combo-scope') || {}).value || 'block';
     var statusFilter = (document.getElementById('biz-performance-status-filter') || {}).value || 'all';
+    var metricFamily = performanceMetricFamily(view);
+    var isCountFamily = metricFamily === 'count';
     var displayMode = resolvePerformanceDisplayMode(view, statusFilter);
     var scope = resolveBusinessScope(rawAll, displayMode);
     var baseVisible = scope.baseVisible;
@@ -1909,13 +1911,14 @@
     var performanceMeta = [
       'Bloc KPI : Prise d’affaires / Performance',
       scopeLabel,
+      isCountFamily ? 'Mode volume (nombre de dossiers)' : 'Mode valeur (€)',
       filterContextSummary()
     ];
     var performanceViews = [
-      buildProjectTableView(scopeProjects.filter(isWon), '€ gagnés', 'Détail KPI — projets gagnés', performanceMeta, '€ gagnés'),
-      buildProjectTableView(scopeProjects.filter(isLost), '€ perdus', 'Détail KPI — projets perdus', performanceMeta, '€ perdus'),
-      buildProjectTableView(scopeProjects.filter(isDecided), '€ gagnés + perdus', 'Détail KPI — projets décidés', performanceMeta, '€ gagnés + perdus'),
-      buildProjectTableView(scopeProjects.filter(isDecided), 'Taux de transfo €', 'Détail KPI — base des projets décidés', performanceMeta.concat(['Base KPI : € gagnés / (€ gagnés + € perdus)']), 'Taux de transfo €'),
+      buildProjectTableView(scopeProjects.filter(isWon), isCountFamily ? 'Nb gagnés' : '€ gagnés', 'Détail KPI — projets gagnés', performanceMeta, isCountFamily ? 'Nb gagnés' : '€ gagnés'),
+      buildProjectTableView(scopeProjects.filter(isLost), isCountFamily ? 'Nb perdus' : '€ perdus', 'Détail KPI — projets perdus', performanceMeta, isCountFamily ? 'Nb perdus' : '€ perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), isCountFamily ? 'Nb gagnés + perdus' : '€ gagnés + perdus', 'Détail KPI — projets décidés', performanceMeta, isCountFamily ? 'Nb gagnés + perdus' : '€ gagnés + perdus'),
+      buildProjectTableView(scopeProjects.filter(isDecided), isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €', 'Détail KPI — base des projets décidés', performanceMeta.concat([isCountFamily ? 'Base KPI : nb gagnés / (nb gagnés + nb perdus)' : 'Base KPI : € gagnés / (€ gagnés + € perdus)']), isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €'),
       buildProjectTableView(scopeProjects.filter(isDecided), 'Nb dossiers décidés', 'Détail KPI — projets décidés', performanceMeta, 'Nb dossiers décidés')
     ];
     var performanceTableConfigBase = {
@@ -1925,16 +1928,16 @@
       views: performanceViews
     };
 
-    renderKpi('biz-kpi-won-year', '€ gagnes', computeValue(scopeProjects, 'won_amount'), 'Base Bud, statut obtenu', scopeProjects.filter(isWon), '€ gagnes — ' + scopeLabel.toLowerCase(), 'won_amount', {
+    renderKpi('biz-kpi-won-year', isCountFamily ? 'Nb gagnés' : '€ gagnes', computeValue(scopeProjects, isCountFamily ? 'won_count' : 'won_amount'), isCountFamily ? 'Nombre de dossiers gagnés' : 'Base Bud, statut obtenu', scopeProjects.filter(isWon), (isCountFamily ? 'Nb gagnés' : '€ gagnes') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'won_count' : 'won_amount', {
       tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[0].id })
     });
-    renderKpi('biz-kpi-lost-year', '€ perdus', computeValue(scopeProjects, 'lost_amount'), 'Base Bud, statut perdu', scopeProjects.filter(isLost), '€ perdus — ' + scopeLabel.toLowerCase(), 'lost_amount', {
+    renderKpi('biz-kpi-lost-year', isCountFamily ? 'Nb perdus' : '€ perdus', computeValue(scopeProjects, isCountFamily ? 'lost_count' : 'lost_amount'), isCountFamily ? 'Nombre de dossiers perdus' : 'Base Bud, statut perdu', scopeProjects.filter(isLost), (isCountFamily ? 'Nb perdus' : '€ perdus') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'lost_count' : 'lost_amount', {
       tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[1].id })
     });
-    renderKpi('biz-kpi-decided-year', '€ gagnes + perdus', computeValue(scopeProjects, 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), '€ gagnes + perdus — ' + scopeLabel.toLowerCase(), 'decided_amount', {
+    renderKpi('biz-kpi-decided-year', isCountFamily ? 'Nb gagnés + perdus' : '€ gagnes + perdus', computeValue(scopeProjects, isCountFamily ? 'decided_count' : 'decided_amount'), 'Projets decides sur le perimetre courant', scopeProjects.filter(isDecided), (isCountFamily ? 'Nb gagnés + perdus' : '€ gagnes + perdus') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'decided_count' : 'decided_amount', {
       tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[2].id })
     });
-    renderKpi('biz-kpi-rate-year', 'Taux de transfo €', computeValue(scopeProjects, 'won_rate_amount'), '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), 'Taux de transformation € — ' + scopeLabel.toLowerCase(), 'won_rate_amount', {
+    renderKpi('biz-kpi-rate-year', isCountFamily ? 'Taux de transfo dossiers' : 'Taux de transfo €', computeValue(scopeProjects, isCountFamily ? 'won_rate_count' : 'won_rate_amount'), isCountFamily ? 'Nb gagnés / (nb gagnés + nb perdus)' : '€ gagnes / (€ gagnes + € perdus)', scopeProjects.filter(isDecided), (isCountFamily ? 'Taux de transformation dossiers' : 'Taux de transformation €') + ' — ' + scopeLabel.toLowerCase(), isCountFamily ? 'won_rate_count' : 'won_rate_amount', {
       tablePageConfig: Object.assign({}, performanceTableConfigBase, { selectedViewId: performanceViews[3].id })
     });
     renderKpi('biz-kpi-count-year', 'Nb dossiers decides', computeValue(scopeProjects, 'decided_count'), 'Nombre de dossiers gagnes + perdus', scopeProjects.filter(isDecided), 'Dossiers decides — ' + scopeLabel.toLowerCase(), 'decided_count', {

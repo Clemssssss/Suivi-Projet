@@ -28,8 +28,11 @@
   var REMOTE_SCOPE = 'chart';
   var REMOTE_DOC_TYPE = 'objective-config';
   var REMOTE_DOC_KEY = 'shared';
-  var YEARS_VISIBILITY_STORAGE_KEY = 'dashboard.objectives.showAllYears';
-  var SHOW_ALL_YEARS = false;
+  var PREF_REMOTE_DOC_TYPE = 'objective-config-preferences';
+  var PREF_REMOTE_DOC_KEY_LEGACY = 'shared';
+  var STORAGE_PREFIX = 'dashboard.objectives.preferences.v1';
+  var YEAR_DISPLAY_MODE = 'current'; // 'current' | 'last_n' | 'all'
+  var LAST_N_YEARS = 3;
 
   /* ── Helpers ─────────────────────────────────────────── */
   function _raw() {
@@ -44,32 +47,111 @@
     return v + '€';
   }
 
-  function _readShowAllYears() {
+  function _userKey() {
+    if (window.AuthClient && typeof window.AuthClient.getCurrentUser === 'function') {
+      return window.AuthClient.getCurrentUser() || 'anonymous';
+    }
+    return 'anonymous';
+  }
+
+  function _storageKey() {
+    return STORAGE_PREFIX + '::' + _userKey();
+  }
+
+  function _prefRemoteDocKey() {
+    return 'user::' + _userKey();
+  }
+
+  function _readDisplayPrefsLocal() {
     try {
-      if (!window.localStorage) return false;
-      return localStorage.getItem(YEARS_VISIBILITY_STORAGE_KEY) === '1';
+      if (!window.localStorage) return null;
+      var raw = localStorage.getItem(_storageKey());
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
-  function _persistShowAllYears() {
+  function _setDisplayPrefs(prefs) {
+    if (!prefs || typeof prefs !== 'object') return;
+    var mode = String(prefs.mode || '').toLowerCase();
+    if (mode === 'current' || mode === 'last_n' || mode === 'all') {
+      YEAR_DISPLAY_MODE = mode;
+    }
+    var n = parseInt(prefs.lastN, 10);
+    if (Number.isFinite(n) && n > 0) LAST_N_YEARS = Math.min(n, 15);
+  }
+
+  function _persistDisplayPrefsLocal() {
     try {
       if (!window.localStorage) return;
-      localStorage.setItem(YEARS_VISIBILITY_STORAGE_KEY, SHOW_ALL_YEARS ? '1' : '0');
+      localStorage.setItem(_storageKey(), JSON.stringify({
+        mode: YEAR_DISPLAY_MODE,
+        lastN: LAST_N_YEARS
+      }));
     } catch (_) {}
   }
 
-  function _currentYear() {
+  function _persistDisplayPrefsRemote() {
+    if (typeof DashboardSharedStore === 'undefined') return;
+    DashboardSharedStore.upsert(PREF_REMOTE_DOC_TYPE, _prefRemoteDocKey(), {
+      mode: YEAR_DISPLAY_MODE,
+      lastN: LAST_N_YEARS
+    }, REMOTE_SCOPE).catch(function(err) {
+      console.warn('[Objectives] Sync preferences DB impossible', err);
+    });
+  }
+
+  function _persistDisplayPrefs() {
+    _persistDisplayPrefsLocal();
+    _persistDisplayPrefsRemote();
+  }
+
+  function _loadDisplayPrefsRemote() {
+    if (typeof DashboardSharedStore === 'undefined') return Promise.resolve();
+    return DashboardSharedStore.get(PREF_REMOTE_DOC_TYPE, _prefRemoteDocKey(), REMOTE_SCOPE)
+      .then(function(doc) {
+        if (doc && doc.payload) {
+          _setDisplayPrefs(doc.payload);
+          _persistDisplayPrefsLocal();
+          return;
+        }
+        return DashboardSharedStore.get(PREF_REMOTE_DOC_TYPE, PREF_REMOTE_DOC_KEY_LEGACY, REMOTE_SCOPE)
+          .then(function(legacyDoc) {
+            if (legacyDoc && legacyDoc.payload) _setDisplayPrefs(legacyDoc.payload);
+          });
+      })
+      .catch(function(err) {
+        console.warn('[Objectives] Chargement preferences DB indisponible, fallback local', err);
+      });
+  }
+
+  function _currentYearStr() {
     return String(new Date().getFullYear());
   }
 
-  function _resolveVisibleYears(allYears, cmpEnabled, cmpYearA, cmpYearB) {
-    var years = (allYears || []).map(String);
-    if (!years.length) return [];
-    if (SHOW_ALL_YEARS) return years;
+  function _sortYearsAsc(years) {
+    return (years || []).map(String).sort(function(a, b) {
+      return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0);
+    });
+  }
 
-    var current = _currentYear();
+  function _resolveVisibleYears(allYears, cmpEnabled, cmpYearA, cmpYearB) {
+    var years = _sortYearsAsc(allYears);
+    if (!years.length) return [];
+    if (YEAR_DISPLAY_MODE === 'all') return years;
+
+    if (YEAR_DISPLAY_MODE === 'last_n') {
+      var lastN = Math.max(1, parseInt(LAST_N_YEARS, 10) || 1);
+      var picked = years.slice(-lastN);
+      if (cmpEnabled && cmpYearA && years.indexOf(cmpYearA) !== -1 && picked.indexOf(cmpYearA) === -1) picked.push(cmpYearA);
+      if (cmpEnabled && cmpYearB && years.indexOf(cmpYearB) !== -1 && picked.indexOf(cmpYearB) === -1) picked.push(cmpYearB);
+      return _sortYearsAsc(picked);
+    }
+
+    var current = _currentYearStr();
     var visible = [];
     if (years.indexOf(current) !== -1) {
       visible.push(current);
@@ -79,7 +161,24 @@
 
     if (cmpEnabled && cmpYearA && years.indexOf(cmpYearA) !== -1 && visible.indexOf(cmpYearA) === -1) visible.push(cmpYearA);
     if (cmpEnabled && cmpYearB && years.indexOf(cmpYearB) !== -1 && visible.indexOf(cmpYearB) === -1) visible.push(cmpYearB);
-    return visible;
+    return _sortYearsAsc(visible);
+  }
+
+  function _renderTitle(visibleYears, allYears) {
+    var titleEl = document.querySelector('.obj-title');
+    if (!titleEl) return;
+
+    var base = '🎯 Objectif CA — Facturation Réelle';
+    if (YEAR_DISPLAY_MODE === 'all') {
+      titleEl.textContent = base + ' (toutes années)';
+      return;
+    }
+    if (YEAR_DISPLAY_MODE === 'last_n') {
+      titleEl.textContent = base + ' (' + visibleYears.length + '/' + allYears.length + ' années)';
+      return;
+    }
+    var y = (visibleYears && visibleYears.length) ? visibleYears[visibleYears.length - 1] : _currentYearStr();
+    titleEl.textContent = base + ' (' + y + ')';
   }
 
   function _syncObjective() {
@@ -161,6 +260,18 @@
       });
 
       var allYears = FORCED_YEARS.length ? FORCED_YEARS : Object.keys(caByYear).sort();
+      var yearsFromData = Object.keys(caByYear || {});
+      var currentYear = _currentYearStr();
+      if (yearsFromData.indexOf(currentYear) === -1) yearsFromData.push(currentYear);
+      var autoYears = [];
+      var from = (parseInt(currentYear, 10) || 0) - 2;
+      var to = (parseInt(currentYear, 10) || 0) + 1;
+      for (var y = from; y <= to; y += 1) autoYears.push(String(y));
+      allYears = _sortYearsAsc(Array.from(new Set([]
+        .concat(allYears || [])
+        .concat(yearsFromData)
+        .concat(Object.keys(mergedConfig || {}))
+        .concat(autoYears))));
 
       var trend = allYears.map(function(yr, i) {
         var y       = String(yr);
@@ -196,6 +307,7 @@
       var cmpYearB     = String(cmpState.yearB || '');
       var positiveOnly = !!(typeof Analytics !== 'undefined' && Analytics.compareConfig && Analytics.compareConfig.positiveOnly);
       var visibleYears = _resolveVisibleYears(allYears, cmpEnabled, cmpYearA, cmpYearB);
+      _renderTitle(visibleYears, allYears);
 
       // Vider le container (supprime "Chargement…")
       container.innerHTML = '';
@@ -445,11 +557,15 @@
       color: '#8b78f8'
     });
     if (positiveOnly) chips.push({ text: '✦ Positif uniquement', color: '#00d4aa' });
-    if (!SHOW_ALL_YEARS) chips.push({
-      text: '📅 ' + _currentYear() + ' uniquement',
+    if (YEAR_DISPLAY_MODE === 'current') chips.push({
+      text: '📅 ' + _currentYearStr() + ' uniquement',
       color: '#9fb3c8'
     });
-    if (SHOW_ALL_YEARS && totalCount > 1) chips.push({
+    if (YEAR_DISPLAY_MODE === 'last_n' && totalCount > 1) chips.push({
+      text: '📅 ' + visibleCount + '/' + totalCount + ' années (N=' + LAST_N_YEARS + ')',
+      color: '#9fb3c8'
+    });
+    if (YEAR_DISPLAY_MODE === 'all' && totalCount > 1) chips.push({
       text: '📅 ' + visibleCount + '/' + totalCount + ' années',
       color: '#9fb3c8'
     });
@@ -459,17 +575,49 @@
         + ';background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);'
         + 'padding:.18rem .6rem;border-radius:99px;">' + c.text + '</span>';
     }).join('')
+      + '<span style="display:inline-flex;gap:.35rem;align-items:center;">'
+      + '<select id="obj-years-mode" style="font-family:var(--mono);font-size:.62rem;background:rgba(255,255,255,.04);'
+      + 'border:1px solid rgba(255,255,255,.12);color:var(--snow);border-radius:99px;padding:.18rem .55rem;cursor:pointer;">'
+      + '<option value="current"' + (YEAR_DISPLAY_MODE === 'current' ? ' selected' : '') + '>Année en cours</option>'
+      + '<option value="last_n"' + (YEAR_DISPLAY_MODE === 'last_n' ? ' selected' : '') + '>N dernières années</option>'
+      + '<option value="all"' + (YEAR_DISPLAY_MODE === 'all' ? ' selected' : '') + '>Toutes les années</option>'
+      + '</select>'
+      + '<input id="obj-years-count" type="number" min="1" max="15" value="' + LAST_N_YEARS + '" style="'
+      + 'width:56px;font-family:var(--mono);font-size:.62rem;background:rgba(255,255,255,.04);'
+      + 'border:1px solid rgba(255,255,255,.12);color:var(--snow);border-radius:99px;padding:.18rem .45rem;'
+      + (YEAR_DISPLAY_MODE === 'last_n' ? '' : 'display:none;')
+      + '">'
+      + '</span>'
       + '<button id="obj-toggle-years-visibility" type="button" style="font-family:var(--mono);font-size:.62rem;font-weight:600;'
       + 'color:var(--snow);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);'
       + 'padding:.18rem .6rem;border-radius:99px;cursor:pointer;">'
-      + (SHOW_ALL_YEARS ? 'Année en cours seulement' : 'Afficher toutes les années')
+      + (YEAR_DISPLAY_MODE === 'all' ? 'Année en cours seulement' : 'Afficher toutes les années')
       + '</button>';
+
+    var modeSelect = document.getElementById('obj-years-mode');
+    var countInput = document.getElementById('obj-years-count');
+    if (modeSelect) {
+      modeSelect.addEventListener('change', function() {
+        YEAR_DISPLAY_MODE = this.value === 'all' ? 'all' : this.value === 'last_n' ? 'last_n' : 'current';
+        _persistDisplayPrefs();
+        window.renderObjectiveBars && window.renderObjectiveBars();
+      });
+    }
+    if (countInput) {
+      countInput.addEventListener('change', function() {
+        var n = parseInt(this.value, 10);
+        LAST_N_YEARS = Number.isFinite(n) && n > 0 ? Math.min(n, 15) : 3;
+        this.value = LAST_N_YEARS;
+        _persistDisplayPrefs();
+        if (YEAR_DISPLAY_MODE === 'last_n') window.renderObjectiveBars && window.renderObjectiveBars();
+      });
+    }
 
     var toggleBtn = document.getElementById('obj-toggle-years-visibility');
     if (toggleBtn) {
       toggleBtn.addEventListener('click', function () {
-        SHOW_ALL_YEARS = !SHOW_ALL_YEARS;
-        _persistShowAllYears();
+        YEAR_DISPLAY_MODE = YEAR_DISPLAY_MODE === 'all' ? 'current' : 'all';
+        _persistDisplayPrefs();
         window.renderObjectiveBars && window.renderObjectiveBars();
       });
     }
@@ -527,7 +675,7 @@
 
   /* ── Wiring DOM ──────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', function () {
-    SHOW_ALL_YEARS = _readShowAllYears();
+    _setDisplayPrefs(_readDisplayPrefsLocal());
 
     if (typeof DashboardSharedStore !== 'undefined') {
       DashboardSharedStore.get(REMOTE_DOC_TYPE, REMOTE_DOC_KEY, REMOTE_SCOPE)
@@ -549,6 +697,14 @@
           console.warn('[Objectives] Chargement DB indisponible, fallback local', err);
         });
     }
+    _loadDisplayPrefsRemote().then(function() {
+      if (window.renderObjectiveBars) setTimeout(window.renderObjectiveBars, 120);
+    });
+    document.addEventListener('dashboard-auth-ready', function () {
+      _loadDisplayPrefsRemote().then(function() {
+        if (window.renderObjectiveBars) window.renderObjectiveBars();
+      });
+    });
 
     // Resync objectif quand le champ change
     var tgtInput = document.getElementById('target-amount');
@@ -587,8 +743,14 @@
     setForcedYears:  function (arr) { FORCED_YEARS = arr.map(String); },
     getForcedYears:  function () { return FORCED_YEARS.slice(); },
     showAllYears:    function (on) {
-      SHOW_ALL_YEARS = !!on;
-      _persistShowAllYears();
+      YEAR_DISPLAY_MODE = on ? 'all' : 'current';
+      _persistDisplayPrefs();
+      window.renderObjectiveBars && window.renderObjectiveBars();
+    },
+    setYearDisplayMode: function(mode, n) {
+      YEAR_DISPLAY_MODE = (mode === 'all' || mode === 'last_n') ? mode : 'current';
+      if (Number.isFinite(parseInt(n, 10)) && parseInt(n, 10) > 0) LAST_N_YEARS = Math.min(parseInt(n, 10), 15);
+      _persistDisplayPrefs();
       window.renderObjectiveBars && window.renderObjectiveBars();
     }
   };
