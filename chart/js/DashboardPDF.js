@@ -291,7 +291,7 @@ window.DashboardPDF = (() => {
     doc.setTextColor(...C.pale);
     _docText(doc, `Champ date : ${activeField}`, w / 2, 65, { align: 'center' });
 
-    // Filtres actifs
+    // Filtres actifs (présentation lisible avec retour à la ligne)
     let y = 92;
     if (filters.length > 0) {
       doc.setFont('helvetica', 'bold');
@@ -300,17 +300,33 @@ window.DashboardPDF = (() => {
       _docText(doc, 'Filtres actifs', 14, y);
       y += 7;
 
-      filters.forEach(f => {
+      const maxShown = 10;
+      const shown = filters.slice(0, maxShown);
+      shown.forEach(f => {
+        const type = _safeText(String(f.type || 'Filtre'));
+        const value = _safeText(String(f.label || f.value || '—'));
+        const wrapped = doc.splitTextToSize(value, 146);
+        const cardH = Math.max(8, 4 + (wrapped.length * 3.6));
+        if (y + cardH > 124) return;
+
         doc.setFillColor(...C.card);
-        doc.roundedRect(14, y - 4, 80, 7, 1.5, 1.5, 'F');
+        doc.roundedRect(14, y - 4, 182, cardH, 1.8, 1.8, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...C.brand);
+        _docText(doc, type, 17, y);
+        doc.setTextColor(...C.snow);
+        doc.setFontSize(8);
+        _docText(doc, wrapped.join(' '), 48, y);
+        y += cardH + 2;
+      });
+      if (filters.length > maxShown) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(...C.pale);
-        _docText(doc, `${f.type}`, 17, y);
-        doc.setTextColor(...C.snow);
-        _docText(doc, String(f.label || f.value), 50, y);
-        y += 9;
-      });
+        doc.setTextColor(...C.dust);
+        _docText(doc, `+${filters.length - maxShown} filtre(s) supplémentaire(s)`, 14, y + 2);
+        y += 8;
+      }
     } else {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -697,10 +713,29 @@ window.DashboardPDF = (() => {
         _docText(doc, '[Graphique non rendu]', cell.x + (cell.w / 2), imgTop + 20, { align: 'center' });
       }
 
-      if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
+      if (inst && inst.data && Array.isArray(inst.data.datasets) && inst.data.datasets.length > 1) {
+        const series = inst.data.datasets.slice(0, cell.w < 100 ? 3 : 4);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        series.forEach(function(ds, idx) {
+          const rawColor = String(
+            (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor)
+            || ds.borderColor || '#0099ff'
+          );
+          let r = 0, g = 153, b = 255;
+          const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+          if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
+          const lx = cell.x + pad + (idx * (cell.w < 100 ? 24 : 42));
+          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7);
+          doc.setFillColor(r, g, b);
+          doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
+          doc.setTextColor(...C.pale);
+          _docText(doc, _safeText(String(ds.label || 'Serie')).substring(0, cell.w < 100 ? 10 : 16), lx + 3.2, ly);
+        });
+      } else if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
         const labels = inst.data.labels.slice(0, cell.w < 100 ? 4 : 6);
         const ds = inst.data.datasets[0] || {};
-        const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(() => ds.backgroundColor || '#0099ff');
+        const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(function() { return ds.backgroundColor || '#0099ff'; });
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5.8);
         labels.forEach(function(lbl, idx) {
@@ -756,7 +791,27 @@ window.DashboardPDF = (() => {
     let pageNum  = startPage + 1;
 
     y = _drawSectionHeader(doc, y, '📋  Tableau des Projets');
-    y += 4;
+    y += 2;
+
+    const wonCount = data.filter(p => _getStatus(p) === 'obtenu').length;
+    const lostCount = data.filter(p => _getStatus(p) === 'perdu').length;
+    const offerCount = data.filter(p => _getStatus(p) === 'offre').length;
+    const totalCA = data.reduce((sum, p) => sum + _getCA(p, 'ca_etudie'), 0);
+
+    const summary = [
+      `Projets: ${data.length}`,
+      `Gagnes: ${wonCount}`,
+      `Perdus: ${lostCount}`,
+      `En cours: ${offerCount}`,
+      `CA total: ${_fmt(totalCA)}`
+    ];
+    doc.setFillColor(...C.card);
+    doc.roundedRect(14, y, w - 28, 9, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(...C.pale);
+    _docText(doc, summary.join('   |   '), 17, y + 5.6);
+    y += 14;
 
     const cols = [
       { header: 'Projet',    key: 'projet',     w: 52 },
@@ -796,6 +851,7 @@ window.DashboardPDF = (() => {
       return _getCA(b, 'ca_etudie') - _getCA(a, 'ca_etudie');
     });
 
+    let rowIndex = 0;
     for (const p of sorted) {
       if (y + rowH > pageH - 15) {
         _drawFooter(doc, pageNum);
@@ -819,6 +875,10 @@ window.DashboardPDF = (() => {
 
       const st = _getStatus(p);
       cx = 14;
+      if (rowIndex % 2 === 1) {
+        doc.setFillColor(10, 18, 30);
+        doc.rect(14, y - 4.5, w - 28, rowH, 'F');
+      }
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
 
@@ -857,6 +917,7 @@ window.DashboardPDF = (() => {
       doc.line(14, y + 2, w - 14, y + 2);
 
       y += rowH;
+      rowIndex += 1;
     }
 
     _drawFooter(doc, pageNum);
