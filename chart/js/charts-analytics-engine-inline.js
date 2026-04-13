@@ -2494,20 +2494,7 @@ function update() {
         setTimeout(function() {
           var yrSel = document.getElementById('year-filter');
           if (yrSel && window.DATA) {
-            var currentVal = yrSel.value;
-            var yrs = [...new Set(window.DATA.map(function(p) {
-              return resolveProjectYearValue(p);
-            }).filter(Boolean))].sort().reverse();
-            yrSel.innerHTML = '<option value="">Toutes les années</option>';
-            yrs.forEach(function(y) {
-              var o = document.createElement('option');
-              o.value = y; o.textContent = y;
-              yrSel.appendChild(o);
-            });
-            // Restaurer la sélection si encore valide
-            if (currentVal && yrs.includes(parseInt(currentVal))) {
-              yrSel.value = currentVal;
-            }
+            rebuildYearSelectFromData(window.DATA);
           }
         }, 150);
       } else {
