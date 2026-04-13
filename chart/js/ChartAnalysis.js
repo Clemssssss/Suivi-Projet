@@ -1891,7 +1891,8 @@ window.ChartAnalysis = (() => {
       .ca-toggle-btn.is-table { background: rgba(0,212,170,.12); border-color: rgba(0,212,170,.3); color: #34d399; }
       .ca-open-btn,
       .ca-style-btn,
-      .ca-mode-btn {
+      .ca-mode-btn,
+      .ca-collapse-btn {
         flex-shrink: 0;
         border-radius: 5px;
         cursor: pointer;
