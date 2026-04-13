@@ -1233,20 +1233,20 @@ button, a, select, input, canvas,
    CONTRÔLES — barre fixe hors du shell
 ───────────────────────────────────────────── */
 .ctrl-bar {
-  padding: .7rem .65rem;
+  padding: .55rem 0;
   background: transparent;
   border: none;
   border-radius: 0;
   margin: 0;
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: .65rem .8rem;
+  align-items: stretch;
   box-shadow: none;
 }
 .ctrl-bar + .ctrl-bar {
   border-top: 1px solid rgba(255,255,255,.07);
-  padding-top: .6rem;
+  padding-top: .7rem;
   margin-top: 0;
 }
 #ctrl-bars-sticky {
@@ -1311,30 +1311,66 @@ button, a, select, input, canvas,
 #ctrl-bars-sticky.is-minimized .ctrl-bars-head {
   padding-bottom: 0;
 }
-.ctrl-grp { display: flex; gap: .6rem; align-items: center; }
+.ctrl-grp {
+  display: flex;
+  flex-direction: column;
+  gap: .34rem;
+  align-items: flex-start;
+  min-width: 0;
+  padding: .48rem .56rem;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+}
+.ctrl-grp:focus-within {
+  border-color: rgba(0,212,170,.35);
+  box-shadow: 0 0 0 2px rgba(0,212,170,.08);
+}
 .ctrl-lbl {
   font-family: var(--mono);
-  font-size: .7rem;
+  font-size: .62rem;
   text-transform: uppercase;
   color: var(--dust);
   letter-spacing: .06em;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.35;
 }
 .ctrl-inp {
   background: var(--paper);
   border: 1px solid var(--rim2);
   border-radius: var(--r2);
-  padding: .48rem .9rem;
+  padding: .52rem .82rem;
   color: var(--snow);
   font-family: var(--sans);
-  font-size: .88rem;
+  font-size: .84rem;
   cursor: pointer;
   transition: all .2s;
   outline: none;
+  min-height: 40px;
+  width: 100%;
+  min-width: 0;
 }
 .ctrl-inp:hover  { border-color: rgba(0,212,170,.35); }
 .ctrl-inp:focus  { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,212,170,.12); }
-.ctrl-div { width: 1px; height: 26px; background: var(--rim2); flex-shrink: 0; }
+.ctrl-div { display: none; }
+
+#timeline-custom-range {
+  flex-direction: row;
+  align-items: center;
+  gap: .45rem;
+}
+#timeline-custom-range .ctrl-lbl {
+  white-space: nowrap;
+  font-size: .58rem;
+}
+#timeline-filter-bar .ctrl-grp[style*="margin-left:auto"] {
+  grid-column: 1 / -1;
+  margin-left: 0 !important;
+  align-items: flex-start;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
 
 #ctrl-bars-sticky::after {
   content: '';
