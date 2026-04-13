@@ -560,12 +560,30 @@ window.ChartAnalysis = (() => {
     document.body.appendChild(modal);
   }
 
-  function _toggleGlobalMode() {
+  function _toggleGlobalMode(preferredChartId) {
     if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
     const current = AE.getCAMode();
     const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
     AE.setCAMode(next);
-    if (typeof update === 'function') update();
+
+    const refreshNow = function() {
+      if (typeof window.BusinessChartsDashboard !== 'undefined'
+          && typeof window.BusinessChartsDashboard.render === 'function') {
+        try { window.BusinessChartsDashboard.render(); } catch (_) {}
+      }
+      const refreshedData = typeof AE.getFiltered === 'function' ? AE.getFiltered() : (window.DATA || []);
+      if (typeof ChartAnalysis !== 'undefined' && typeof ChartAnalysis.renderAll === 'function') {
+        try { ChartAnalysis.renderAll(refreshedData); } catch (_) {}
+      } else if (preferredChartId) {
+        try { renderForChart(preferredChartId, refreshedData); } catch (_) {}
+      }
+    };
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(refreshNow);
+    } else {
+      setTimeout(refreshNow, 0);
+    }
   }
 
   function _formatAnalysisMarkup(text) {
@@ -2056,7 +2074,7 @@ window.ChartAnalysis = (() => {
       });
 
       if (styleBtn) styleBtn.addEventListener('click', () => _openStyleEditor(chartId));
-      if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode());
+      if (modeBtn) modeBtn.addEventListener('click', () => _toggleGlobalMode(chartId));
       block.dataset.bound = '1';
     }
     return block;
@@ -2102,7 +2120,7 @@ window.ChartAnalysis = (() => {
     }
     var modeBtn = block.querySelector('.ca-mode-btn');
     if (modeBtn && typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
-      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '💰 Passer en valeur' : '📈 Passer en volume';
+      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
     }
 
     // Invalider le tableau en cache si les données ont changé
