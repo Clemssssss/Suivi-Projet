@@ -77,61 +77,6 @@ window.ChartAnalysis = (() => {
     return _fmt(num);
   }
 
-  function _isCountMode(mode) {
-    const m = String(mode || '').toLowerCase();
-    return m.indexOf('_count') !== -1 || m === 'count' || m === 'offer_count';
-  }
-
-  function _isRatioMode(mode) {
-    const m = String(mode || '').toLowerCase();
-    return m === 'pipe_ratio' || m.indexOf('won_rate_') === 0;
-  }
-
-  function _formatByMode(value, mode) {
-    const num = Number(value);
-    if (!isFinite(num)) return null;
-    if (_isRatioMode(mode)) return Math.round(num * 100) + '%';
-    if (_isCountMode(mode)) return Math.round(num).toLocaleString('fr-FR');
-    return _fmt(num);
-  }
-
-  function _getBusinessSummary(chartId) {
-    if (typeof window.BusinessChartsDashboard === 'undefined'
-        || typeof window.BusinessChartsDashboard.getChartSummary !== 'function') return null;
-    return window.BusinessChartsDashboard.getChartSummary(chartId);
-  }
-
-  function _setSelectValue(selectEl, candidates) {
-    if (!selectEl || !Array.isArray(candidates)) return false;
-    const available = Array.from(selectEl.options || []).map(function(opt) { return String(opt.value); });
-    const next = candidates.find(function(candidate) { return available.includes(String(candidate)); });
-    if (!next) return false;
-    if (String(selectEl.value) === String(next)) return true;
-    selectEl.value = next;
-    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  function _toggleBusinessDisplayMode(chartId) {
-    if (!chartId || chartId.indexOf('biz-chart-perf-') !== 0) return false;
-
-    const summary = _getBusinessSummary(chartId);
-    if (!summary || !summary.mode) return false;
-    const perfView = document.getElementById('biz-performance-view');
-    if (!perfView) return false;
-
-    const mode = String(summary.mode);
-    const toCount = !_isCountMode(mode);
-
-    if (mode === 'won_rate_amount' || mode === 'won_rate_count') {
-      return _setSelectValue(perfView, [toCount ? 'won_rate_count' : 'won_rate_amount']);
-    }
-
-    return toCount
-      ? _setSelectValue(perfView, ['count', 'won_count', 'compare_status_count', 'decided_count', 'lost_count'])
-      : _setSelectValue(perfView, ['amount', 'won_amount', 'compare_status_amount', 'decided_amount', 'lost_amount']);
-  }
-
   function _storageGet(key, fallback) {
     try {
       const raw = window.localStorage ? localStorage.getItem(key) : null;
@@ -201,24 +146,17 @@ window.ChartAnalysis = (() => {
     const datasets = (chart.data.datasets || []).filter(ds => ds && Array.isArray(ds.data));
     if (!labels.length && !datasets.length) return null;
 
-    const businessSummary = _getBusinessSummary(chartId);
-    const fallbackMode = businessSummary && businessSummary.mode ? businessSummary.mode : '';
-    const seriesModes = businessSummary && businessSummary.kind === 'comparison' && Array.isArray(businessSummary.series)
-      ? businessSummary.series.map(function(serie) { return serie && serie.key ? String(serie.key) : fallbackMode; })
-      : [];
-
     const isMulti = datasets.length > 1;
     let rows = [];
 
     if (isMulti) {
       rows = labels.map((label, i) => {
-        const cells = datasets.map((ds, dsIndex) => {
-          const mode = seriesModes[dsIndex] || fallbackMode;
+        const cells = datasets.map(ds => {
           const raw = ds.data[i];
           const num = typeof raw === 'object' && raw !== null
             ? Number(raw.y != null ? raw.y : raw.x)
             : Number(raw);
-          return _formatByMode(num, mode) || _formatVal(num) || '—';
+          return _formatVal(num) || '—';
         });
         return { label: String(label || ''), cells };
       }).filter(r => r.label);
@@ -232,7 +170,7 @@ window.ChartAnalysis = (() => {
         return { label: String(label || ''), val: isFinite(num) ? num : null };
       }).filter(r => r.label && r.val !== null);
       combined.sort((a, b) => b.val - a.val);
-      rows = combined.map(r => ({ label: r.label, cells: [_formatByMode(r.val, fallbackMode) || _formatVal(r.val) || '—'] }));
+      rows = combined.map(r => ({ label: r.label, cells: [_formatVal(r.val) || '—'] }));
     }
 
     if (!rows.length) return null;
@@ -623,13 +561,10 @@ window.ChartAnalysis = (() => {
   }
 
   function _toggleGlobalMode(preferredChartId) {
-    const businessModeHandled = _toggleBusinessDisplayMode(preferredChartId);
-    if (!businessModeHandled) {
-      if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
-      const current = AE.getCAMode();
-      const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
-      AE.setCAMode(next);
-    }
+    if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
+    const current = AE.getCAMode();
+    const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
+    AE.setCAMode(next);
 
     const refreshNow = function() {
       if (typeof window.BusinessChartsDashboard !== 'undefined'
@@ -912,28 +847,25 @@ window.ChartAnalysis = (() => {
     const second = summary.secondCategory;
     const topShare = summary.total > 0 ? Math.round(top.value / summary.total * 100) : null;
     const lines = [];
-    const fmt = function(value) {
-      return _formatByMode(value, summary.mode) || _formatVal(value) || _fmt(value);
-    };
 
     if (options.emphasis === 'time') {
-      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${fmt(top.value)}).`);
+      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
       if (second) {
         const delta = second.value !== 0 ? _pct(top.value, second.value) : null;
         lines.push(delta !== null
           ? `📈 Écart avec le 2e point : <strong>${delta >= 0 ? '+' : ''}${delta}%</strong> face à <strong>${second.label}</strong>.`
-          : `📊 2e point : <strong>${second.label}</strong> (${fmt(second.value)}).`);
+          : `📊 2e point : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}).`);
       }
     } else {
-      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${fmt(top.value)}).`);
+      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
       if (second) {
         const gap = top.value - second.value;
-        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${fmt(second.value)}) — écart ${fmt(gap)}.`);
+        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}) — écart ${_formatVal(gap) || _fmt(gap)}.`);
       }
     }
 
     if (summary.datasets.length > 1 && summary.topDataset) {
-      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${fmt(summary.topDataset.total)}).`);
+      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
     }
 
     if (topShare !== null) {
@@ -2187,13 +2119,8 @@ window.ChartAnalysis = (() => {
       }
     }
     var modeBtn = block.querySelector('.ca-mode-btn');
-    if (modeBtn) {
-      var businessSummary = _getBusinessSummary(chartId);
-      if (businessSummary && businessSummary.mode) {
-        modeBtn.textContent = _isCountMode(businessSummary.mode) ? '💰 Passer en valeur' : '📈 Passer en volume';
-      } else if (typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
-        modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
-      }
+    if (modeBtn && typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
+      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
     }
 
     // Invalider le tableau en cache si les données ont changé
