@@ -2,6 +2,7 @@
   'use strict';
 
   const STORAGE_KEY = 'dashboard.chart.tableView';
+  const DENSITY_KEY = 'dashboard.chart.tableView.dense';
   const titleEl = document.getElementById('title');
   const subtitleEl = document.getElementById('subtitle');
   const metaEl = document.getElementById('meta');
@@ -23,6 +24,7 @@
   const addRowBtn = document.getElementById('add-row');
   const cancelEditBtn = document.getElementById('cancel-edit');
   const saveDbBtn = document.getElementById('save-db');
+  const densityToggleBtn = document.getElementById('density-toggle');
   const exportBtn = document.getElementById('export-csv');
   const printBtn = document.getElementById('print-page');
   const resetBtn = document.getElementById('reset-filters');
@@ -108,8 +110,32 @@
     editMode: false,
     drafts: {},
     deletedRows: {},
-    localEditable: {}
+    localEditable: {},
+    denseView: true
   };
+
+  function loadDensityPreference() {
+    try {
+      const raw = localStorage.getItem(DENSITY_KEY);
+      if (raw == null) return true;
+      return raw !== '0';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function applyDensityView() {
+    document.body.classList.toggle('dense-view', !!state.denseView);
+    if (densityToggleBtn) {
+      densityToggleBtn.textContent = state.denseView ? '🧾 Vue confort' : '🗜 Vue compacte';
+      densityToggleBtn.title = state.denseView
+        ? 'Basculer vers un affichage plus aéré'
+        : 'Basculer vers un affichage compact';
+    }
+    try {
+      localStorage.setItem(DENSITY_KEY, state.denseView ? '1' : '0');
+    } catch (_) {}
+  }
 
   function cloneRows(rows) {
     return (Array.isArray(rows) ? rows : []).map(function(row) {
@@ -652,8 +678,17 @@
     window.print();
   });
 
+  if (densityToggleBtn) {
+    densityToggleBtn.addEventListener('click', function() {
+      state.denseView = !state.denseView;
+      applyDensityView();
+    });
+  }
+
   async function init() {
     if (views.length && !activeViewId) activeViewId = views[0].id || '';
+    state.denseView = loadDensityPreference();
+    applyDensityView();
     await refreshAuth();
     render();
   }
