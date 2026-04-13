@@ -2208,7 +2208,7 @@
     _setSelectOptionText('biz-performance-combo-scope', 'all', 'Toutes les années');
     _setControlInfoText(
       'biz-performance-combo-scope',
-      'Ce réglage agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Année sélectionnée seulement</strong> : suit le filtre Année commerciale.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale pour ce graphique.'
+      'Ce filtre concerne uniquement le graphique <strong>Comparatif € par zone × client</strong>.<br><strong>Année sélectionnée seulement</strong> : le graphique montre uniquement l\'année choisie (ex : 2026).<br><strong>Toutes les années</strong> : le graphique affiche tout l\'historique visible, même si 2026 est sélectionnée.'
     );
     _setControlInfoText(
       'biz-performance-status-filter',
