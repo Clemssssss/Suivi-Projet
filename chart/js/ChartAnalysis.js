@@ -194,6 +194,8 @@ window.ChartAnalysis = (() => {
       <div class="ca-table-controls">
         <input class="ca-search-input" type="text" placeholder="🔍 Rechercher dans le tableau…" autocomplete="off">
         <span class="ca-row-count"></span>
+        <button class="ca-compact-btn" title="Afficher plus d'informations à l'écran">🗜 Compact</button>
+        <button class="ca-expand-btn" title="Afficher toutes les lignes du tableau">🧾 Tout voir</button>
         <button class="ca-open-table-btn" title="Ouvrir ce tableau dans un nouvel onglet">↗ Pleine page</button>
         <button class="ca-export-btn" title="Exporter vers Excel">⬇ Excel</button>
       </div>
@@ -217,6 +219,8 @@ window.ChartAnalysis = (() => {
     const searchInput= tableView.querySelector('.ca-search-input');
     const exportBtn  = tableView.querySelector('.ca-export-btn');
     const openBtn    = tableView.querySelector('.ca-open-table-btn');
+    const compactBtn = tableView.querySelector('.ca-compact-btn');
+    const expandBtn  = tableView.querySelector('.ca-expand-btn');
     const rowCount   = tableView.querySelector('.ca-row-count');
     const topScroll  = tableView.querySelector('.ca-top-scroll');
     const topInner   = tableView.querySelector('.ca-top-scroll-inner');
@@ -256,6 +260,34 @@ window.ChartAnalysis = (() => {
       rowCount.textContent = visible < total ? `${visible} / ${total} lignes` : `${total} lignes`;
     }
     _updateCount();
+
+    function _setCompact(enabled) {
+      tableView.classList.toggle('ca-table-compact', !!enabled);
+      if (compactBtn) compactBtn.textContent = enabled ? '📐 Standard' : '🗜 Compact';
+      _syncScrollWidth();
+    }
+
+    function _setExpanded(enabled) {
+      tableView.classList.toggle('ca-table-expanded', !!enabled);
+      if (expandBtn) expandBtn.textContent = enabled ? '📚 Vue réduite' : '🧾 Tout voir';
+      _syncScrollWidth();
+    }
+
+    if (compactBtn) {
+      compactBtn.addEventListener('click', function() {
+        _setCompact(!tableView.classList.contains('ca-table-compact'));
+      });
+    }
+
+    if (expandBtn) {
+      expandBtn.addEventListener('click', function() {
+        _setExpanded(!tableView.classList.contains('ca-table-expanded'));
+      });
+    }
+
+    if (allRows().length <= 14) {
+      _setExpanded(true);
+    }
 
     /* ── Sort on header click ── */
     const ths = Array.from(table.querySelectorAll('thead th'));
@@ -1858,6 +1890,25 @@ window.ChartAnalysis = (() => {
         transition: all .15s;
       }
       .ca-export-btn:hover { background: rgba(16,185,129,.22); color: #6ee7b7; }
+      .ca-compact-btn,
+      .ca-expand-btn {
+        flex-shrink: 0;
+        background: rgba(148,163,184,.12);
+        border: 1px solid rgba(148,163,184,.24);
+        color: #cbd5e1;
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        padding: .22rem .6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .ca-compact-btn:hover,
+      .ca-expand-btn:hover {
+        background: rgba(148,163,184,.2);
+        color: #e2e8f0;
+      }
       .ca-open-table-btn {
         flex-shrink: 0;
         background: rgba(0,153,255,.12);
@@ -1989,8 +2040,9 @@ window.ChartAnalysis = (() => {
       .ca-table-scroll {
         overflow-x: auto;
         overflow-y: auto;
-        max-height: 290px;
+        max-height: min(56vh, 560px);
       }
+      .ca-table-view.ca-table-expanded .ca-table-scroll { max-height: none; }
       .ca-table-scroll::-webkit-scrollbar { height: 5px; width: 5px; }
       .ca-table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
       .ca-table-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,170,.35); border-radius: 3px; }
@@ -2003,6 +2055,7 @@ window.ChartAnalysis = (() => {
         font-family: 'DM Mono', monospace;
         font-size: .65rem;
       }
+      .ca-table-view.ca-table-compact .ca-data-table { font-size: .58rem; }
       .ca-data-table thead th {
         background: rgba(0,30,22,.85);
         color: #9fb3c8;
@@ -2019,6 +2072,11 @@ window.ChartAnalysis = (() => {
         user-select: none;
         transition: background .12s;
       }
+      .ca-data-table thead th:first-child {
+        left: 0;
+        z-index: 3;
+        box-shadow: 1px 0 0 rgba(0,212,170,.08);
+      }
       .ca-data-table thead th:hover { background: rgba(0,212,170,.1); color: #c0d8f0; }
       .ca-data-table thead th::after { content: ''; display: inline-block; margin-left: 4px; opacity: .3; font-size: .55rem; }
       .ca-data-table thead th[data-sort="asc"]::after  { content: '▲'; opacity: 1; color: #00d4aa; }
@@ -2034,6 +2092,15 @@ window.ChartAnalysis = (() => {
         border-right: 1px solid rgba(255,255,255,.025);
         white-space: nowrap;
       }
+      .ca-table-view.ca-table-compact .ca-data-table td { padding: .18rem .5rem; }
+      .ca-data-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: rgba(4,15,11,.95);
+        box-shadow: 1px 0 0 rgba(0,212,170,.08);
+      }
+      .ca-data-table tbody tr:hover td:first-child { background: rgba(0,50,36,.95) !important; }
       .ca-dt-label { color: #c0d0e0; font-weight: 500; min-width: 120px; }
       .ca-dt-val { text-align: right; color: #9fb3c8; min-width: 80px; }
 
