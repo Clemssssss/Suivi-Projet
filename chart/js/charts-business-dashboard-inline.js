@@ -2141,6 +2141,53 @@
     delete statusEl.dataset.previousValue;
   }
 
+  function _findControlLabel(selectId) {
+    var select = document.getElementById(selectId);
+    if (!select) return null;
+    var byFor = document.querySelector('label[for="' + selectId + '"]');
+    if (byFor) return byFor;
+    var group = select.closest('.ctrl-grp, .business-control, .biz-control, .filter-group, .ctrl-group');
+    if (!group) return null;
+    return group.querySelector('label, .ctrl-lbl, .business-control-label');
+  }
+
+  function _setControlLabelText(selectId, text) {
+    var label = _findControlLabel(selectId);
+    if (!label || !text) return;
+    var textNode = null;
+    Array.prototype.forEach.call(label.childNodes || [], function(node) {
+      if (!textNode && node && node.nodeType === 3 && String(node.nodeValue || '').trim()) {
+        textNode = node;
+      }
+    });
+    if (textNode) {
+      textNode.nodeValue = text + ' ';
+    } else {
+      label.insertBefore(document.createTextNode(text + ' '), label.firstChild || null);
+    }
+  }
+
+  function _setControlInfoText(selectId, infoText) {
+    var label = _findControlLabel(selectId);
+    if (!label || !infoText) return;
+    var icon = label.querySelector('.info-icon');
+    if (!icon) return;
+    icon.setAttribute('data-info', infoText);
+    icon.setAttribute('title', '');
+  }
+
+  function refreshControlCopy() {
+    _setControlLabelText('biz-performance-combo-scope', 'Base de calcul zone × client');
+    _setControlInfoText(
+      'biz-performance-combo-scope',
+      'Ce filtre agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Même périmètre</strong> : utilise exactement les filtres du bloc Performance.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale et affiche tout l\\'historique visible.'
+    );
+    _setControlInfoText(
+      'biz-performance-status-filter',
+      'Choisit quels statuts afficher dans les graphiques de performance : <strong>Tout</strong>, <strong>Gagné</strong>, <strong>Perdu</strong>, <strong>Gagné + Perdu</strong> ou <strong>Offre</strong>. En mode <strong>taux de transfo</strong>, ce filtre est verrouillé automatiquement.'
+    );
+  }
+
   function render() {
     if (typeof AE === 'undefined' || typeof CM === 'undefined') return;
     var rawAll = (AE.getRaw && AE.getRaw()) || window.DATA || [];
@@ -2153,6 +2200,7 @@
     ensureBusinessDrillBar();
     renderBusinessDrillBar();
     bindControls();
+    refreshControlCopy();
     syncPerformanceControls();
     render();
 
