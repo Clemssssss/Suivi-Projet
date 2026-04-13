@@ -1321,6 +1321,7 @@ button, a, select, input, canvas,
   border: 1px solid rgba(255,255,255,.06);
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+  min-height: 74px;
 }
 .ctrl-grp:focus-within {
   border-color: rgba(0,212,170,.35);
@@ -1350,6 +1351,29 @@ button, a, select, input, canvas,
   width: 100%;
   min-width: 0;
 }
+.ctrl-grp-inline {
+  min-height: auto;
+}
+.ctrl-grp-inline .ctrl-inp {
+  width: auto;
+  min-width: 140px;
+}
+.ctrl-grp-actions {
+  min-height: auto;
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: .5rem;
+  padding: .45rem .56rem;
+}
+#date-field-selector,
+#timeline-start,
+#timeline-end {
+  width: 100% !important;
+  min-width: 0 !important;
+}
 .ctrl-inp:hover  { border-color: rgba(0,212,170,.35); }
 .ctrl-inp:focus  { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,212,170,.12); }
 .ctrl-div { display: none; }
@@ -1363,7 +1387,7 @@ button, a, select, input, canvas,
   white-space: nowrap;
   font-size: .58rem;
 }
-#timeline-filter-bar .ctrl-grp[style*="margin-left:auto"] {
+#timeline-filter-bar .ctrl-grp-actions {
   grid-column: 1 / -1;
   margin-left: 0 !important;
   align-items: flex-start;
@@ -2973,7 +2997,7 @@ canvas { max-width: 100%; cursor: pointer !important; }
   .ctrl-inp             { width: 100% !important; min-height: 42px; }
   .ctrl-bars-head       { align-items: flex-start; }
   .ctrl-bars-toggle     { width: 100%; min-height: 40px; }
-  #timeline-filter-bar .ctrl-grp[style*="margin-left:auto"] {
+  #timeline-filter-bar .ctrl-grp-actions {
     margin-left: 0 !important;
     justify-content: flex-start;
   }

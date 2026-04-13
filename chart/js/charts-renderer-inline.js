@@ -574,10 +574,12 @@
     var badge   = document.getElementById('timeline-active-badge');
     var badgeTxt= document.getElementById('timeline-badge-text');
     var clearBtn= document.getElementById('timeline-clear');
+    var actionsGrp = document.getElementById('timeline-actions-group');
     var hasFilter = _timeline.start || _timeline.end;
 
     if (badge)    badge.style.display    = hasFilter ? '' : 'none';
     if (clearBtn) clearBtn.style.display = hasFilter ? '' : 'none';
+    if (actionsGrp) actionsGrp.style.display = hasFilter ? '' : 'none';
 
     if (hasFilter && badgeTxt) {
       var label = _timeline.start || '';
