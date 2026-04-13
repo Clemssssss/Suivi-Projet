@@ -2210,6 +2210,18 @@ function sanitizeYearSelectOptions(selectEl) {
 }
 
 function sanitizeDashboardSelectionState() {
+  const hasURLState = (function() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      if (params.has('year') || params.has('ca')) return true;
+      for (const key of params.keys()) {
+        if (String(key || '').indexOf('f_') === 0) return true;
+      }
+    } catch (_) {}
+    return false;
+  })();
+  if (hasURLState) return;
+
   if (typeof AE === 'undefined' || typeof AE.getRaw !== 'function' || typeof AE.getFiltered !== 'function') return;
   const raw = AE.getRaw() || [];
   if (!raw.length) return;
@@ -2390,7 +2402,6 @@ function update() {
       }
     }
     AE.loadFromURL();
-    setTimeout(sanitizeDashboardSelectionState, 40);
 
   // ── Initialiser ChartFilterController ──────────────────────────
   // Doit être fait AVANT createAllCharts pour que registerChart fonctionne.
@@ -2446,12 +2457,41 @@ function update() {
   const ys  = document.getElementById('year-filter');
   rebuildYearSelectFromData(window.DATA);
 
-  // Restaurer depuis URL
-  const up = new URLSearchParams(window.location.search);
-  if (up.has('year')) ys.value = up.get('year');
-  if (up.has('ca'))   document.getElementById('ca-mode').value = up.get('ca');
-
   AE.subscribe(update);
+  function syncControlsFromURL() {
+    var up = new URLSearchParams(window.location.search || '');
+    var yearParam = up.get('year');
+    var caParam = up.get('ca');
+    var yearSel = document.getElementById('year-filter');
+    var caSel = document.getElementById('ca-mode');
+
+    if (yearSel && yearParam) {
+      var hasOption = Array.from(yearSel.options || []).some(function(option) { return option.value === yearParam; });
+      if (!hasOption && /^\d{4}$/.test(yearParam)) {
+        var missingOption = document.createElement('option');
+        missingOption.value = yearParam;
+        missingOption.textContent = yearParam;
+        yearSel.appendChild(missingOption);
+      }
+      yearSel.value = yearParam;
+    }
+
+    if (caSel && caParam) {
+      var caExists = Array.from(caSel.options || []).some(function(option) { return option.value === caParam; });
+      if (caExists) caSel.value = caParam;
+    }
+  }
+
+  function applyURLBootState() {
+    syncControlsFromURL();
+    AE.loadFromURL();
+    update();
+  }
+
+  applyURLBootState();
+  setTimeout(applyURLBootState, 220);
+  setTimeout(applyURLBootState, 900);
+  setTimeout(sanitizeDashboardSelectionState, 1200);
 
   // ── Toggles graphiques (v5 — réversible, sans destroy) ──
   function initToggleBtns() {
