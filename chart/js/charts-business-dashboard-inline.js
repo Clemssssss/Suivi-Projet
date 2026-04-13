@@ -1666,7 +1666,8 @@
       label: title,
       data: values,
       borderWidth: chartType === 'line' ? 3 : 1,
-      maxBarThickness: opts.maxBarThickness || 28
+      maxBarThickness: opts.maxBarThickness || 28,
+      minBarLength: opts.minBarLength || 3
     };
 
     if (chartType === 'line') {
@@ -1788,6 +1789,7 @@
             borderWidth: 1,
             borderRadius: isHorizontal ? 8 : 10,
             maxBarThickness: opts.maxBarThickness || 22,
+            minBarLength: opts.minBarLength || 3,
             _seriesMode: serie.key
           };
         })
