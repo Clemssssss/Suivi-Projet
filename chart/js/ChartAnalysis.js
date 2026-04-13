@@ -409,9 +409,16 @@ window.ChartAnalysis = (() => {
       (chart.data.datasets || []).forEach(function(ds, index) {
         const color = colors[index % colors.length];
         ds.borderColor = color;
-        ds.backgroundColor = Array.isArray(ds.data)
-          ? ds.data.map(function(_, idx) { return colors[idx % colors.length]; })
-          : color;
+        if (Array.isArray(ds.data)) {
+          const hasMultipleSeries = (chart.data.datasets || []).length > 1;
+          // Multi-series charts should keep one color per series.
+          // Single-series charts (pie/doughnut/single bar) can vary by point.
+          ds.backgroundColor = hasMultipleSeries
+            ? color
+            : ds.data.map(function(_, idx) { return colors[idx % colors.length]; });
+        } else {
+          ds.backgroundColor = color;
+        }
         ds.pointBackgroundColor = color;
         ds.pointBorderColor = color;
       });
