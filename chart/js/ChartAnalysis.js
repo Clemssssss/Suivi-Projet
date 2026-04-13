@@ -23,6 +23,7 @@ window.ChartAnalysis = (() => {
 
   const TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   const STYLE_STORAGE_KEY = 'dashboard.chart.styles';
+  const ANALYSIS_VIEW_STORAGE_KEY = 'dashboard.chart.analysisView';
   const _STYLE_APPLYING = new WeakSet();
   const _STYLE_SIGNATURES = new WeakMap();
 
@@ -90,6 +91,29 @@ window.ChartAnalysis = (() => {
     try {
       if (window.localStorage) localStorage.setItem(key, JSON.stringify(value));
     } catch (e) {}
+  }
+
+  function _isAnalysisCollapsed(chartId) {
+    const map = _storageGet(ANALYSIS_VIEW_STORAGE_KEY, {});
+    if (map && Object.prototype.hasOwnProperty.call(map, chartId)) {
+      return !!map[chartId];
+    }
+    return true; // default mode réduit
+  }
+
+  function _setAnalysisCollapsed(chartId, collapsed) {
+    const map = _storageGet(ANALYSIS_VIEW_STORAGE_KEY, {});
+    map[chartId] = !!collapsed;
+    _storageSet(ANALYSIS_VIEW_STORAGE_KEY, map);
+  }
+
+  function _syncCollapseButton(block) {
+    if (!block) return;
+    const collapseBtn = block.querySelector('.ca-collapse-btn');
+    if (!collapseBtn) return;
+    const isCollapsed = block.classList.contains('ca-collapsed');
+    collapseBtn.textContent = isCollapsed ? '➕ Développer' : '➖ Réduire';
+    collapseBtn.title = isCollapsed ? 'Afficher l’analyse complète' : 'Passer en vue réduite';
   }
 
   function _storeTablePayload(payload) {
@@ -1886,6 +1910,20 @@ window.ChartAnalysis = (() => {
         color: #c4b5fd;
       }
       .ca-mode-btn:hover { background: rgba(139,120,248,.18); color: #ddd6fe; }
+      .ca-collapse-btn {
+        background: rgba(56,189,248,.11);
+        border: 1px solid rgba(56,189,248,.26);
+        color: #a5f3fc;
+      }
+      .ca-collapse-btn:hover { background: rgba(56,189,248,.2); color: #cffafe; }
+
+      .chart-analysis-block.ca-collapsed .ca-analysis-grid { display: none; }
+      .chart-analysis-block.ca-collapsed .ca-block-meta { display: none; }
+      .chart-analysis-block.ca-collapsed .ca-block-text { padding-bottom: .45rem; }
+      .chart-analysis-block.ca-collapsed .ca-analysis-lead {
+        max-height: 3.7em;
+        overflow: hidden;
+      }
 
       /* ── TABLE WRAPPER ── */
       .ca-table-view { display: none; }
@@ -2182,6 +2220,7 @@ window.ChartAnalysis = (() => {
         <div class="ca-block-header">
           <span class="ca-block-kicker" style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(0,212,170,.7);">Analyse</span>
           <div class="ca-block-actions">
+            <button class="ca-collapse-btn" title="Passer en vue réduite">➕ Développer</button>
             <button class="ca-mode-btn" title="Basculer entre volume et valeur">📈 / 💰 Mode</button>
             <button class="ca-style-btn" title="Personnaliser les couleurs, axes et graduations">🎨 Style</button>
             <button class="ca-toggle-btn" title="Afficher ou masquer le tableau synthétique">📊 Afficher le tableau</button>
@@ -2202,8 +2241,23 @@ window.ChartAnalysis = (() => {
       const tableView = block.querySelector('.ca-table-view');
       const styleBtn  = block.querySelector('.ca-style-btn');
       const modeBtn   = block.querySelector('.ca-mode-btn');
+      const collapseBtn = block.querySelector('.ca-collapse-btn');
+
+      if (!block.dataset.collapseInit) {
+        block.classList.toggle('ca-collapsed', _isAnalysisCollapsed(chartId));
+        _syncCollapseButton(block);
+        block.dataset.collapseInit = '1';
+      }
 
       if (!block.dataset.bound) {
+      if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+          const next = !block.classList.contains('ca-collapsed');
+          block.classList.toggle('ca-collapsed', next);
+          _setAnalysisCollapsed(chartId, next);
+          _syncCollapseButton(block);
+        });
+      }
       btn.addEventListener('click', () => {
         const isTableNow = tableView.classList.toggle('is-visible');
         btn.textContent = isTableNow ? '📕 Masquer le tableau' : '📊 Afficher le tableau';
@@ -2251,12 +2305,9 @@ window.ChartAnalysis = (() => {
     const textEl = block.querySelector('.ca-block-text');
     const metaEl = block.querySelector('.ca-block-meta');
     if (textEl) {
-      if (!text) {
-        block.style.display = 'none';
-      } else {
-        textEl.innerHTML = _formatAnalysisMarkup(text);
-        block.style.display = '';
-      }
+      const finalText = text || '📌 Analyse disponible en vue réduite. Développez pour plus de détails.';
+      textEl.innerHTML = _formatAnalysisMarkup(finalText);
+      block.style.display = '';
     }
     if (metaEl) {
       if (typeof DashboardDataTransparency !== 'undefined'
