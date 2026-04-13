@@ -561,10 +561,38 @@ window.ChartAnalysis = (() => {
   }
 
   function _toggleGlobalMode(preferredChartId) {
-    if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
-    const current = AE.getCAMode();
-    const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
-    AE.setCAMode(next);
+    let businessModeHandled = false;
+    try {
+      if (preferredChartId && preferredChartId.indexOf('biz-chart-perf-') === 0
+          && typeof window.BusinessChartsDashboard !== 'undefined'
+          && typeof window.BusinessChartsDashboard.getChartSummary === 'function') {
+        const summary = window.BusinessChartsDashboard.getChartSummary(preferredChartId);
+        const perfView = document.getElementById('biz-performance-view');
+        if (summary && summary.mode && perfView && perfView.options) {
+          const mode = String(summary.mode);
+          const toCount = mode.indexOf('_count') === -1;
+          const available = Array.from(perfView.options).map(function(opt) { return String(opt.value); });
+          const candidates = (mode === 'won_rate_amount' || mode === 'won_rate_count')
+            ? [toCount ? 'won_rate_count' : 'won_rate_amount']
+            : (toCount
+              ? ['count', 'won_count', 'compare_status_count', 'decided_count', 'lost_count']
+              : ['amount', 'won_amount', 'compare_status_amount', 'decided_amount', 'lost_amount']);
+          const nextView = candidates.find(function(value) { return available.indexOf(String(value)) !== -1; });
+          if (nextView) {
+            perfView.value = nextView;
+            perfView.dispatchEvent(new Event('change', { bubbles: true }));
+            businessModeHandled = true;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!businessModeHandled) {
+      if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
+      const current = AE.getCAMode();
+      const next = current === 'Bud' ? 'ca_gagne' : 'Bud';
+      AE.setCAMode(next);
+    }
 
     const refreshNow = function() {
       if (typeof window.BusinessChartsDashboard !== 'undefined'
@@ -2119,8 +2147,18 @@ window.ChartAnalysis = (() => {
       }
     }
     var modeBtn = block.querySelector('.ca-mode-btn');
-    if (modeBtn && typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
-      modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
+    if (modeBtn) {
+      var businessSummary = (typeof window.BusinessChartsDashboard !== 'undefined'
+        && typeof window.BusinessChartsDashboard.getChartSummary === 'function')
+        ? window.BusinessChartsDashboard.getChartSummary(chartId)
+        : null;
+      if (businessSummary && businessSummary.mode) {
+        modeBtn.textContent = String(businessSummary.mode).indexOf('_count') !== -1
+          ? '💰 Passer en valeur'
+          : '📈 Passer en volume';
+      } else if (typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
+        modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
+      }
     }
 
     // Invalider le tableau en cache si les données ont changé
