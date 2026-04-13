@@ -2194,11 +2194,21 @@
     icon.setAttribute('title', '');
   }
 
+  function _setSelectOptionText(selectId, value, text) {
+    var select = document.getElementById(selectId);
+    if (!select || !select.options) return;
+    Array.prototype.forEach.call(select.options, function(option) {
+      if (option && option.value === value) option.textContent = text;
+    });
+  }
+
   function refreshControlCopy() {
-    _setControlLabelText('biz-performance-combo-scope', 'Base de calcul zone × client');
+    _setControlLabelText('biz-performance-combo-scope', 'Graphique zone × client');
+    _setSelectOptionText('biz-performance-combo-scope', 'block', 'Année sélectionnée seulement');
+    _setSelectOptionText('biz-performance-combo-scope', 'all', 'Toutes les années');
     _setControlInfoText(
       'biz-performance-combo-scope',
-      'Ce filtre agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Même périmètre</strong> : utilise exactement les filtres du bloc Performance.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale et affiche tout l\'historique visible.'
+      'Ce réglage agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Année sélectionnée seulement</strong> : suit le filtre Année commerciale.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale pour ce graphique.'
     );
     _setControlInfoText(
       'biz-performance-status-filter',

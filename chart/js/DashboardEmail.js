@@ -217,7 +217,7 @@ window.DashboardEmail = (() => {
       { label: 'Énergie', value: labelOfSelect('energy-type-filter') || 'Tous types' },
       { label: 'Période', value: labelOfSelect('timeline-preset') || 'Toutes les périodes' },
       { label: 'Mesure', value: labelOfSelect('biz-performance-view') || 'Montant (€ Bud)' },
-      { label: 'Base de calcul zone × client', value: labelOfSelect('biz-performance-combo-scope') || 'Même périmètre' },
+      { label: 'Graphique zone × client', value: labelOfSelect('biz-performance-combo-scope') || 'Année sélectionnée seulement' },
       { label: 'Statut affiché', value: labelOfSelect('biz-performance-status-filter') || 'Tout' },
       { label: 'Volume affiché', value: textOf('project-count') || '-- projets' }
     ];
