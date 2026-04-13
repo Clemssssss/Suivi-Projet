@@ -1659,15 +1659,22 @@
     });
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
+    var minBarLength = Number(opts.minBarLength || 0);
+    var chartValues = values.map(function(value) {
+      var numeric = Number(value);
+      if (!isFinite(numeric)) return null;
+      if (minBarLength > 0 && numeric <= 0) return null;
+      return numeric;
+    });
     var colors = paletteFor(mode, values.length, entries);
     var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
     var primaryColor = colors[0] || 'rgba(0,212,170,.82)';
     var dataset = {
       label: title,
-      data: values,
+      data: chartValues,
       borderWidth: chartType === 'line' ? 3 : 1,
       maxBarThickness: opts.maxBarThickness || 28,
-      minBarLength: opts.minBarLength || 3
+      minBarLength: minBarLength
     };
 
     if (chartType === 'line') {
@@ -1754,6 +1761,7 @@
   function createComparisonChart(id, title, entries, mode, opts) {
     opts = opts || {};
     var series = comparisonSeriesForMode(mode);
+    var minBarLength = Number(opts.minBarLength || 0);
     registerBusinessChartSummary(id, {
       kind: 'comparison',
       title: title,
@@ -1781,15 +1789,21 @@
       data: {
         labels: labels,
         datasets: series.map(function(serie) {
+          var seriesData = entries.map(function(entry) {
+            var numeric = Number(entry.values[serie.key] || 0);
+            if (!isFinite(numeric)) return null;
+            if (minBarLength > 0 && numeric <= 0) return null;
+            return numeric;
+          });
           return {
             label: serie.label,
-            data: entries.map(function(entry) { return entry.values[serie.key] || 0; }),
+            data: seriesData,
             backgroundColor: serie.color,
             borderColor: serie.border,
             borderWidth: 1,
             borderRadius: isHorizontal ? 8 : 10,
             maxBarThickness: opts.maxBarThickness || 22,
-            minBarLength: opts.minBarLength || 3,
+            minBarLength: minBarLength,
             _seriesMode: serie.key
           };
         })
