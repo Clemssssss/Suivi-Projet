@@ -556,8 +556,9 @@ const CM = (() => {
     cfg.options = cfg.options || {};
     cfg.options.plugins = cfg.options.plugins || {};
     cfg.options.plugins.tooltip = Object.assign({}, TT, cfg.options.plugins.tooltip || {});
-    const _reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    cfg.options.animation  = _reducedMotion ? false : Object.assign({ duration: 280 }, cfg.options.animation || {});
+    // Stabilise le rendu pendant les rafraîchissements multiples (chargement + survol).
+    // Evite l'effet "rebond" quand plusieurs modules déclenchent update() à la suite.
+    cfg.options.animation  = Object.assign({ duration: 0 }, cfg.options.animation || {});
     cfg.options.transitions = Object.assign({}, cfg.options.transitions || {});
     cfg.options.transitions.active = Object.assign(
       { animation: { duration: 0 } },
