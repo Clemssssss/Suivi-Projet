@@ -107,7 +107,8 @@
     isAdmin: false,
     editMode: false,
     drafts: {},
-    deletedRows: {}
+    deletedRows: {},
+    localEditable: {}
   };
 
   function cloneRows(rows) {
@@ -159,6 +160,36 @@
       activePayload.editableColumns.length
     ) {
       return activePayload;
+    }
+    if (activePayload && Array.isArray(activePayload.headers) && Array.isArray(activePayload.rows)) {
+      const key = getViewKey();
+      if (!state.localEditable[key]) {
+        const headers = activePayload.headers.slice();
+        const editableColumns = headers.map(function(header) {
+          return { key: header, label: header };
+        });
+        const editableRows = (activePayload.rows || []).map(function(row) {
+          const output = {};
+          headers.forEach(function(header, index) {
+            output[header] = Array.isArray(row)
+              ? (row[index] != null ? String(row[index]) : '')
+              : (row && row[header] != null ? String(row[header]) : '');
+          });
+          return output;
+        });
+        state.localEditable[key] = {
+          localOnly: true,
+          headers: headers,
+          rows: (activePayload.rows || []).map(function(row) {
+            return Array.isArray(row) ? row.slice() : headers.map(function(header) {
+              return row && row[header] != null ? String(row[header]) : '';
+            });
+          }),
+          editableColumns: editableColumns,
+          editableRows: editableRows
+        };
+      }
+      return state.localEditable[key];
     }
     return null;
   }
@@ -352,9 +383,10 @@
 
   function updateEditBar() {
     const editablePayload = getEditablePayload();
-    const canEdit = !!(editablePayload && state.isAdmin);
-    if (editBar) editBar.hidden = !canEdit;
-    if (!canEdit) return;
+    const canEditLocally = !!editablePayload;
+    const canSaveDb = !!(editablePayload && !editablePayload.localOnly && state.isAdmin);
+    if (editBar) editBar.hidden = !canEditLocally;
+    if (!canEditLocally) return;
 
     const workingRows = getWorkingEditableRows() || [];
     const deletedRows = state.deletedRows[getViewKey()] || [];
@@ -367,8 +399,12 @@
 
     if (editCopy) {
       editCopy.textContent = state.editMode
-        ? 'Les cellules sont modifiables. Vous pouvez corriger, ajouter ou supprimer des lignes puis sauvegarder en base.'
-        : 'Ouvrez le mode édition pour corriger les lignes visibles du dataset.';
+        ? (canSaveDb
+          ? 'Les cellules sont modifiables. Vous pouvez corriger, ajouter ou supprimer des lignes puis sauvegarder en base.'
+          : 'Les cellules sont modifiables en local. Vous pouvez corriger, ajouter ou supprimer des lignes, puis exporter CSV.')
+        : (canSaveDb
+          ? 'Ouvrez le mode édition pour corriger les lignes visibles du dataset.'
+          : 'Mode édition local disponible. La sauvegarde base est réservée au profil admin.');
     }
     if (editStatus) {
       editStatus.textContent = dirtyCount
@@ -376,10 +412,11 @@
         : (state.editMode ? 'Mode édition actif' : 'Aucune modification');
     }
     if (toggleEditBtn) toggleEditBtn.textContent = state.editMode ? '👁️ Quitter l’édition' : '✏️ Modifier';
+    if (toggleEditBtn) toggleEditBtn.disabled = false;
     if (addRowBtn) addRowBtn.hidden = !state.editMode;
     if (cancelEditBtn) cancelEditBtn.hidden = !state.editMode;
     if (saveDbBtn) {
-      saveDbBtn.hidden = !state.editMode;
+      saveDbBtn.hidden = !state.editMode || !canSaveDb;
       saveDbBtn.disabled = !dirtyCount;
     }
     document.body.classList.toggle('is-editing', !!state.editMode);
@@ -397,7 +434,13 @@
 
   async function saveEditsToDb() {
     const editablePayload = getEditablePayload();
-    if (!editablePayload || !state.isAdmin) return;
+    if (!editablePayload) return;
+    if (editablePayload.localOnly) {
+      throw new Error('Ce tableau est éditable localement uniquement (export CSV disponible).');
+    }
+    if (!state.isAdmin) {
+      throw new Error('Sauvegarde DB réservée au profil admin.');
+    }
 
     const workingRows = getWorkingEditableRows() || [];
     const deletedRows = state.deletedRows[getViewKey()] || [];
@@ -543,7 +586,7 @@
 
   if (toggleEditBtn) {
     toggleEditBtn.addEventListener('click', function() {
-      if (!state.isAdmin || !getEditablePayload()) return;
+      if (!getEditablePayload()) return;
       state.editMode = !state.editMode;
       render();
     });
