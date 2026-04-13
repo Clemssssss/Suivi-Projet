@@ -2182,7 +2182,7 @@
     _setControlLabelText('biz-performance-combo-scope', 'Base de calcul zone × client');
     _setControlInfoText(
       'biz-performance-combo-scope',
-      'Ce filtre agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Même périmètre</strong> : utilise exactement les filtres du bloc Performance.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale et affiche tout l\\'historique visible.'
+      'Ce filtre agit uniquement sur le graphique <strong>zone × client</strong>.<br><strong>Même périmètre</strong> : utilise exactement les filtres du bloc Performance.<br><strong>Toutes les années</strong> : ignore le filtre Année commerciale et affiche tout l\'historique visible.'
     );
     _setControlInfoText(
       'biz-performance-status-filter',
