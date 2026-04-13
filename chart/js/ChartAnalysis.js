@@ -672,10 +672,18 @@ window.ChartAnalysis = (() => {
     if (!lead && points.length) lead = points.shift();
     if (!lead) return normalized;
 
+    function _pointTone(point) {
+      const p = String(point || '').trim();
+      if (/^(🎯|🚀|✅|🧩)/.test(p)) return 'action';
+      if (/^(⚠️|❌|📉|🧊)/.test(p)) return 'risk';
+      if (/^(🏆|📈|📊|📚|🧭|💡|🔮|📅)/.test(p)) return 'insight';
+      return 'neutral';
+    }
+
     return `
-      <div class="ca-analysis-lead">${lead}</div>
+      <div class="ca-analysis-lead"><span class="ca-analysis-lead-kicker">Synthèse</span>${lead}</div>
       ${points.length ? `<div class="ca-analysis-grid">${points.map(function(point) {
-        return `<div class="ca-analysis-point">${point}</div>`;
+        return `<div class="ca-analysis-point ca-analysis-point--${_pointTone(point)}">${point}</div>`;
       }).join('')}</div>` : ''}
     `;
   }
@@ -968,17 +976,34 @@ window.ChartAnalysis = (() => {
           );
         }
       }
+      if (topShare !== null) {
+        lines.push(
+          topShare >= 45
+            ? `⚠️ Risque court terme : forte dépendance au point haut, surveiller la volatilité des mois faibles.`
+            : `✅ Opportunité court terme : distribution plutôt saine, marge pour accélérer sur 2 à 3 points relais.`
+        );
+      }
     } else if (options.family === 'pipeline') {
       lines.push(
         topShare !== null && topShare >= 45
           ? `🎯 Action : sécuriser rapidement <strong>${top.label}</strong> puis ouvrir 1 à 2 relais secondaires pour réduire la dépendance.`
           : `🎯 Action : cibler d’abord <strong>${top.label}</strong> puis le 2e niveau pour convertir plus vite le pipe visible.`
       );
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `⚠️ Risque commercial : concentration élevée du pipe, diversifier les relais pour fiabiliser l’atterrissage.`
+          : `✅ Signal positif : pipe réparti, meilleur potentiel de conversion régulière.`
+      );
     } else if (options.family === 'performance') {
       lines.push(
         topShare !== null && topShare >= 45
           ? `🎯 Action : protéger la catégorie forte <strong>${top.label}</strong> tout en lançant un plan de rattrapage sur les catégories de queue.`
           : `🎯 Action : dupliquer les pratiques de <strong>${top.label}</strong> sur les catégories sous le 2e niveau pour lisser la performance.`
+      );
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `⚠️ Vigilance performance : concentration élevée, un recul du leader impacterait fortement le total.`
+          : `✅ Lecture performance : base plus équilibrée, favorable à une progression durable.`
       );
     }
 
@@ -1756,26 +1781,47 @@ window.ChartAnalysis = (() => {
       }
       .ca-block-text {
         flex: 1;
-        padding: .7rem .8rem .55rem;
+        padding: .78rem .85rem .62rem;
       }
       .ca-analysis-lead {
         color: #e6f1fb;
-        font-size: .72rem;
-        line-height: 1.65;
+        font-size: .74rem;
+        line-height: 1.7;
+        display: grid;
+        gap: .28rem;
+      }
+      .ca-analysis-lead-kicker {
+        font-size: .56rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: rgba(0,212,170,.82);
       }
       .ca-analysis-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: .45rem;
-        margin-top: .55rem;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: .5rem;
+        margin-top: .62rem;
       }
       .ca-analysis-point {
-        padding: .52rem .6rem;
+        padding: .55rem .62rem;
         border-radius: 10px;
         border: 1px solid rgba(255,255,255,.06);
-        background: rgba(255,255,255,.025);
+        background: rgba(255,255,255,.03);
         color: rgba(220,232,245,.88);
         line-height: 1.55;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      }
+      .ca-analysis-point--insight {
+        border-color: rgba(0,153,255,.28);
+        background: linear-gradient(180deg, rgba(0,153,255,.09), rgba(0,153,255,.03));
+      }
+      .ca-analysis-point--action {
+        border-color: rgba(0,212,170,.32);
+        background: linear-gradient(180deg, rgba(0,212,170,.1), rgba(0,212,170,.03));
+      }
+      .ca-analysis-point--risk {
+        border-color: rgba(255,77,109,.34);
+        background: linear-gradient(180deg, rgba(255,77,109,.1), rgba(255,77,109,.03));
       }
       .ca-block-meta {
         display: flex;
