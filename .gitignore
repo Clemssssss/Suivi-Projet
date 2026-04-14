@@ -17,11 +17,28 @@ Desktop.ini
 !/scripts/
 !/scripts/generate_auth_hash.js
 !/scripts/import_secure_dataset.js
+!/scripts/import_excel_picker.js
+!/scripts/windows-db-secret.ps1
+!/scripts/windows-sharepoint-reminder.ps1
+!/scripts/test_db_connection.js
+!/db_tools.bat
+!/tools/
+!/tools/DbToolsPortable/
+!/tools/DbToolsPortable/**
+!/tools/build_db_tools_portable.bat
+
+# Build artifacts (GUI tools)
+tools/**/bin/
+tools/**/obj/
+tools/**/publish/
+tools/**/dist/
 
 # Local private files
 *.env
 *.env.local
 *.env.production
+.env.*
+.envrc
 chart/js/data.js
 
 # Variantes locales avec données embarquées (ne pas exposer)
@@ -29,3 +46,32 @@ chart/chart-*.html
 
 # Copies Windows automatiques
 chart/docs/* (*)*.pdf
+
+# Donnees locales import/export (sensibles)
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+*.parquet
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.dump
+
+# Secrets / certificats
+*.pem
+*.key
+*.pfx
+*.p12
+*.crt
+*.cer
+*.jks
+
+# Journaux / temporaires
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig

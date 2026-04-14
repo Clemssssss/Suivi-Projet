@@ -2560,6 +2560,19 @@ function update() {
   document.getElementById('btn-csv')
     .addEventListener('click', () => exportCSV(AE.getFiltered()));
 
+  var btnRefreshPage = document.getElementById('btn-refresh-page');
+  if (btnRefreshPage) {
+    btnRefreshPage.addEventListener('click', function() {
+      btnRefreshPage.classList.add('is-loading');
+      btnRefreshPage.setAttribute('aria-busy', 'true');
+      btnRefreshPage.disabled = true;
+      btnRefreshPage.innerHTML = '<span class="spin">⟳</span> Rafraîchissement...';
+      setTimeout(function() {
+        window.location.reload();
+      }, 180);
+    });
+  }
+
   var _btnXls = document.getElementById('btn-excel');
   if (_btnXls) _btnXls.addEventListener('click', function() {
     exportExcel(AE.getFiltered(), 'analytics_' + new Date().toISOString().slice(0,10) + '.xlsx', 'Projets filtres');
