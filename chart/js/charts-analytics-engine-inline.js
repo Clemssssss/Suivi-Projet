@@ -227,7 +227,31 @@ if (!window.AE) {
     const p = new URLSearchParams();
     if (st.year) p.set('year', st.year);
     if (st.caMode !== 'Bud') p.set('ca', st.caMode); // [CORRIGÉ v2]
+    if (st.search) p.set('q', st.search);
+    if (st.energyType) p.set('energy', st.energyType);
     for (const [k, v] of Object.entries(st.filters)) p.set('f_' + k, v);
+
+    var dateFieldSel = document.getElementById('date-field-selector');
+    if (dateFieldSel && dateFieldSel.value && dateFieldSel.value !== 'Date réception') {
+      p.set('date_field', dateFieldSel.value);
+    }
+
+    var timelinePreset = document.getElementById('timeline-preset');
+    var timelineStart  = document.getElementById('timeline-start');
+    var timelineEnd    = document.getElementById('timeline-end');
+    if (timelinePreset && timelinePreset.value) p.set('period', timelinePreset.value);
+    if (timelineStart && timelineStart.value) p.set('period_start', timelineStart.value);
+    if (timelineEnd && timelineEnd.value) p.set('period_end', timelineEnd.value);
+
+    var bizPerfView = document.getElementById('biz-performance-view');
+    var bizPerfCombo = document.getElementById('biz-performance-combo-scope');
+    var bizPerfStatus = document.getElementById('biz-performance-status-filter');
+    var bizPipeView = document.getElementById('biz-pipe-view');
+    if (bizPerfView && bizPerfView.value && bizPerfView.value !== 'amount') p.set('biz_view', bizPerfView.value);
+    if (bizPerfCombo && bizPerfCombo.value && bizPerfCombo.value !== 'block') p.set('biz_combo', bizPerfCombo.value);
+    if (bizPerfStatus && bizPerfStatus.value && bizPerfStatus.value !== 'all') p.set('biz_status', bizPerfStatus.value);
+    if (bizPipeView && bizPipeView.value && bizPipeView.value !== 'pipe_bud') p.set('biz_pipe', bizPipeView.value);
+
     return p.toString();
   }
 
@@ -235,8 +259,21 @@ if (!window.AE) {
     const p = new URLSearchParams(window.location.search);
     if (p.has('year')) st.year = p.get('year');
     if (p.has('ca'))   st.caMode = p.get('ca');
+    if (p.has('q')) st.search = (p.get('q') || '').trim();
+    if (p.has('energy')) st.energyType = p.get('energy') || '';
     for (const [k, v] of p.entries())
       if (k.startsWith('f_')) st.filters[k.slice(2)] = v;
+
+    window.__dashboardURLControls = {
+      dateField: p.get('date_field') || '',
+      period: p.get('period') || '',
+      periodStart: p.get('period_start') || '',
+      periodEnd: p.get('period_end') || '',
+      bizView: p.get('biz_view') || '',
+      bizCombo: p.get('biz_combo') || '',
+      bizStatus: p.get('biz_status') || '',
+      bizPipe: p.get('biz_pipe') || ''
+    };
   }
 
   function updateURL() {
@@ -244,10 +281,14 @@ if (!window.AE) {
     history.replaceState(null, '', window.location.pathname + (q ? '?' + q : ''));
   }
 
+  function syncURL() {
+    updateURL();
+  }
+
   return { init, getFiltered, getRaw: () => st.raw, toggleFilter, removeFilter, clearAll,
            setYear, setSearch, setCAMode, getCAMode, getFilters, setSelection, clearSelection, getSelection,
            setEnergyType, getEnergyType,
-           subscribe, nv, loadFromURL, getURL, EMPTY_LBL };
+           subscribe, nv, loadFromURL, getURL, syncURL, EMPTY_LBL };
 })();
 }
 
@@ -556,9 +597,8 @@ const CM = (() => {
     cfg.options = cfg.options || {};
     cfg.options.plugins = cfg.options.plugins || {};
     cfg.options.plugins.tooltip = Object.assign({}, TT, cfg.options.plugins.tooltip || {});
-    // Stabilise le rendu pendant les rafraîchissements multiples (chargement + survol).
-    // Evite l'effet "rebond" quand plusieurs modules déclenchent update() à la suite.
-    cfg.options.animation  = Object.assign({ duration: 0 }, cfg.options.animation || {});
+    const _reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cfg.options.animation  = _reducedMotion ? false : Object.assign({ duration: 280 }, cfg.options.animation || {});
     cfg.options.transitions = Object.assign({}, cfg.options.transitions || {});
     cfg.options.transitions.active = Object.assign(
       { animation: { duration: 0 } },
@@ -2177,51 +2217,9 @@ function rebuildYearSelectFromData(data) {
   if (current && yrs.includes(parseInt(current, 10))) {
     ys.value = current;
   }
-
-  sanitizeYearSelectOptions(ys);
-}
-
-function sanitizeYearSelectOptions(selectEl) {
-  const ys = selectEl || document.getElementById('year-filter');
-  if (!ys) return;
-
-  const current = String(ys.value || '').trim();
-  const years = Array.from(new Set(Array.from(ys.options || []).map(function(opt) {
-    return String(opt.value || '').trim();
-  }).filter(function(value) {
-    return /^\d{4}$/.test(value);
-  }))).sort(function(a, b) {
-    return parseInt(b, 10) - parseInt(a, 10);
-  });
-
-  ys.innerHTML = '<option value="">Toutes les années</option>';
-  years.forEach(function(year) {
-    const option = document.createElement('option');
-    option.value = year;
-    option.textContent = year;
-    ys.appendChild(option);
-  });
-
-  if (current && years.indexOf(current) !== -1) {
-    ys.value = current;
-  } else {
-    ys.value = '';
-  }
 }
 
 function sanitizeDashboardSelectionState() {
-  const hasURLState = (function() {
-    try {
-      const params = new URLSearchParams(window.location.search || '');
-      if (params.has('year') || params.has('ca')) return true;
-      for (const key of params.keys()) {
-        if (String(key || '').indexOf('f_') === 0) return true;
-      }
-    } catch (_) {}
-    return false;
-  })();
-  if (hasURLState) return;
-
   if (typeof AE === 'undefined' || typeof AE.getRaw !== 'function' || typeof AE.getFiltered !== 'function') return;
   const raw = AE.getRaw() || [];
   if (!raw.length) return;
@@ -2364,7 +2362,6 @@ function update() {
    INIT
 ═══════════════════════════════════════════════════════════ */
   window.addEventListener('load', async () => {
-    document.body.classList.add('dashboard-booting');
     window.DATA = Array.isArray(window.DATA) ? window.DATA : [];
     if (typeof DashboardDataTransparency !== 'undefined'
         && typeof DashboardDataTransparency.setDatasetMeta === 'function') {
@@ -2403,6 +2400,7 @@ function update() {
       }
     }
     AE.loadFromURL();
+    setTimeout(sanitizeDashboardSelectionState, 40);
 
   // ── Initialiser ChartFilterController ──────────────────────────
   // Doit être fait AVANT createAllCharts pour que registerChart fonctionne.
@@ -2458,42 +2456,22 @@ function update() {
   const ys  = document.getElementById('year-filter');
   rebuildYearSelectFromData(window.DATA);
 
+  // Restaurer depuis URL
+  const up = new URLSearchParams(window.location.search);
+  if (up.has('year')) ys.value = up.get('year');
+  if (up.has('ca'))   document.getElementById('ca-mode').value = up.get('ca');
+  if (up.has('q')) {
+    var searchElFromURL = document.getElementById('search-input');
+    if (searchElFromURL) searchElFromURL.value = up.get('q') || '';
+    AE.setSearch(up.get('q') || '');
+  }
+  if (up.has('energy')) {
+    var energyElFromURL = document.getElementById('energy-type-filter');
+    if (energyElFromURL) energyElFromURL.value = up.get('energy') || '';
+    AE.setEnergyType(up.get('energy') || '');
+  }
+
   AE.subscribe(update);
-  function syncControlsFromURL() {
-    var up = new URLSearchParams(window.location.search || '');
-    var yearParam = up.get('year');
-    var caParam = up.get('ca');
-    var yearSel = document.getElementById('year-filter');
-    var caSel = document.getElementById('ca-mode');
-
-    if (yearSel && yearParam) {
-      var hasOption = Array.from(yearSel.options || []).some(function(option) { return option.value === yearParam; });
-      if (!hasOption && /^\d{4}$/.test(yearParam)) {
-        var missingOption = document.createElement('option');
-        missingOption.value = yearParam;
-        missingOption.textContent = yearParam;
-        yearSel.appendChild(missingOption);
-      }
-      yearSel.value = yearParam;
-    }
-
-    if (caSel && caParam) {
-      var caExists = Array.from(caSel.options || []).some(function(option) { return option.value === caParam; });
-      if (caExists) caSel.value = caParam;
-    }
-  }
-
-  function applyURLBootState() {
-    syncControlsFromURL();
-    AE.loadFromURL();
-    update();
-  }
-
-  applyURLBootState();
-  setTimeout(applyURLBootState, 220);
-  setTimeout(applyURLBootState, 900);
-  setTimeout(sanitizeDashboardSelectionState, 1200);
-  setTimeout(function() { document.body.classList.remove('dashboard-booting'); }, 1400);
 
   // ── Toggles graphiques (v5 — réversible, sans destroy) ──
   function initToggleBtns() {
@@ -2555,7 +2533,6 @@ function update() {
     AE.setYear(this.value);
     notify('Filtre année', this.value || 'Toutes', 'info', 1800);
   });
-  sanitizeYearSelectOptions(ys);
 
   // ── MODULE 8 : Sélecteur de date global ─────────────────────────
   var dateFieldSel = document.getElementById('date-field-selector');
@@ -2568,7 +2545,20 @@ function update() {
         setTimeout(function() {
           var yrSel = document.getElementById('year-filter');
           if (yrSel && window.DATA) {
-            rebuildYearSelectFromData(window.DATA);
+            var currentVal = yrSel.value;
+            var yrs = [...new Set(window.DATA.map(function(p) {
+              return resolveProjectYearValue(p);
+            }).filter(Boolean))].sort().reverse();
+            yrSel.innerHTML = '<option value="">Toutes les années</option>';
+            yrs.forEach(function(y) {
+              var o = document.createElement('option');
+              o.value = y; o.textContent = y;
+              yrSel.appendChild(o);
+            });
+            // Restaurer la sélection si encore valide
+            if (currentVal && yrs.includes(parseInt(currentVal))) {
+              yrSel.value = currentVal;
+            }
           }
         }, 150);
       } else {
@@ -2603,6 +2593,14 @@ function update() {
   (function() {
     var energySel = document.getElementById('energy-type-filter');
     if (!energySel) return;
+    if (AE && typeof AE.getEnergyType === 'function') {
+      energySel.value = AE.getEnergyType() || energySel.value || '';
+    }
+    if (energySel.value) {
+      energySel.style.borderColor = 'rgba(245,183,64,.6)';
+      energySel.style.color       = '#f5b740';
+      energySel.style.background  = 'rgba(245,183,64,.08)';
+    }
     energySel.addEventListener('change', function() {
       AE.setEnergyType(this.value);
       // Badge visuel sur le select quand filtre actif
@@ -2616,6 +2614,61 @@ function update() {
         energySel.style.background  = '';
       }
     });
+  })();
+
+  // ── Restaurer les sélecteurs supplémentaires depuis URL ─────────
+  (function restoreURLControlSelections() {
+    var params = new URLSearchParams(window.location.search);
+    if (!params.toString()) return;
+
+    function setSelectAndDispatch(id, value) {
+      if (!value) return;
+      var el = document.getElementById(id);
+      if (!el) return;
+      var hasOption = Array.from(el.options || []).some(function(opt) { return String(opt.value) === String(value); });
+      if (!hasOption) return;
+      el.value = value;
+      el.dispatchEvent(new Event('change'));
+    }
+
+    setTimeout(function() {
+      setSelectAndDispatch('date-field-selector', params.get('date_field'));
+      setSelectAndDispatch('biz-performance-view', params.get('biz_view'));
+      setSelectAndDispatch('biz-performance-combo-scope', params.get('biz_combo'));
+      setSelectAndDispatch('biz-performance-status-filter', params.get('biz_status'));
+      setSelectAndDispatch('biz-pipe-view', params.get('biz_pipe'));
+
+      var hasYear = !!(params.get('year') || '').trim();
+      if (hasYear) return;
+
+      var preset = params.get('period') || '';
+      var start = params.get('period_start') || '';
+      var end = params.get('period_end') || '';
+      var presetEl = document.getElementById('timeline-preset');
+      var startEl = document.getElementById('timeline-start');
+      var endEl = document.getElementById('timeline-end');
+
+      if (!presetEl) return;
+      if (!preset && (start || end)) preset = 'custom';
+      if (!preset) return;
+
+      var presetOk = Array.from(presetEl.options || []).some(function(opt) { return String(opt.value) === String(preset); });
+      if (!presetOk) return;
+
+      presetEl.value = preset;
+      presetEl.dispatchEvent(new Event('change'));
+
+      if (preset === 'custom') {
+        if (startEl && start) {
+          startEl.value = start;
+          startEl.dispatchEvent(new Event('change'));
+        }
+        if (endEl && end) {
+          endEl.value = end;
+          endEl.dispatchEvent(new Event('change'));
+        }
+      }
+    }, 240);
   })();
 
   document.getElementById('btn-csv')

@@ -587,6 +587,7 @@
     }
 
     if (typeof window.update === 'function') window.update();
+    if (typeof AE !== 'undefined' && typeof AE.syncURL === 'function') AE.syncURL();
   }
 
   function _getActiveDateField() {
