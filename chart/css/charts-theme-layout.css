@@ -718,6 +718,24 @@ button, a, select, input, canvas,
   color: var(--snow);
 }
 
+.btn-hdr.is-loading {
+  pointer-events: none;
+  opacity: .86;
+  border-color: rgba(0,153,255,.5);
+  color: #9fd9ff;
+}
+
+.btn-hdr .spin {
+  display: inline-block;
+  animation: btnSpin .9s linear infinite;
+}
+
+@keyframes btnSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
 @media (max-width: 980px) {
   .hdr-right {
     max-width: 100%;
