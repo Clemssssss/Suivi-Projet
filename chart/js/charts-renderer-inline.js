@@ -654,10 +654,53 @@
     var startInput    = document.getElementById('timeline-start');
     var endInput      = document.getElementById('timeline-end');
     var clearTimeline = document.getElementById('timeline-clear');
+    var yearSel       = document.getElementById('year-filter');
+
+    function _hasTimelineFilter() {
+      return !!(_timeline.start || _timeline.end);
+    }
+
+    function _resetTimelineUI() {
+      _timeline = { start: null, end: null, preset: '' };
+      if (presetSel) presetSel.value = '';
+      if (startInput) startInput.value = '';
+      if (endInput) endInput.value = '';
+      if (customRange) customRange.style.display = 'none';
+    }
+
+    function _syncYearPeriodLocks() {
+      var hasYear = !!(yearSel && String(yearSel.value || '').trim());
+      var hasTimeline = _hasTimelineFilter();
+      var isCustom = !!(presetSel && presetSel.value === 'custom');
+
+      if (presetSel) {
+        presetSel.disabled = hasYear;
+        presetSel.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
+      }
+      if (startInput) {
+        startInput.disabled = hasYear || !isCustom;
+        startInput.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
+      }
+      if (endInput) {
+        endInput.disabled = hasYear || !isCustom;
+        endInput.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
+      }
+      if (clearTimeline) {
+        clearTimeline.disabled = hasYear && !hasTimeline;
+      }
+      if (yearSel) {
+        yearSel.disabled = hasTimeline;
+        yearSel.title = hasTimeline ? 'Désactivé car un filtre Période est actif.' : '';
+      }
+    }
 
     if (presetSel) {
       presetSel.addEventListener('change', function () {
         var val = this.value;
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         if (val === 'custom') {
           customRange && (customRange.style.display = '');
         } else {
@@ -670,35 +713,55 @@
           }
           _applyTimeline();
         }
+        _syncYearPeriodLocks();
       });
     }
 
     if (startInput) {
       startInput.addEventListener('change', function () {
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         _timeline.start = this.value || null;
         _timeline.preset = 'custom';
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
 
     if (endInput) {
       endInput.addEventListener('change', function () {
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         _timeline.end = this.value || null;
         _timeline.preset = 'custom';
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
 
     if (clearTimeline) {
       clearTimeline.addEventListener('click', function () {
-        _timeline = { start: null, end: null, preset: '' };
-        if (presetSel) presetSel.value = '';
-        if (startInput) startInput.value = '';
-        if (endInput) endInput.value = '';
-        if (customRange) customRange.style.display = 'none';
+        _resetTimelineUI();
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
+
+    if (yearSel) {
+      yearSel.addEventListener('change', function () {
+        if (String(this.value || '').trim()) {
+          _resetTimelineUI();
+          _applyTimeline();
+        }
+        _syncYearPeriodLocks();
+      });
+    }
+
+    _syncYearPeriodLocks();
 
     // Toggle boutons pour les nouvelles cartes
     document.querySelectorAll('.chart-toggle-btn').forEach(function(btn) {
