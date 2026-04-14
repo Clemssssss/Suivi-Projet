@@ -1448,16 +1448,22 @@ function updateKPIs(data) {
   const offerCA  = data.filter(p=>ProjectUtils.getStatus(p)==='offre').reduce((s,p)=>s+getBud(p),0);
   const pipeline = Math.round(offerCA * (conv / 100));
 
-  // Top société
-  const topSociete = (typeof Analytics !== 'undefined' && typeof Analytics.topSocieteScore === 'function')
-    ? (Analytics.topSocieteScore(data, {}, 1)[0] || null)
-    : null;
+  // Top société (100% piloté par le CA gagné)
+  const byClientWonCA = {};
+  data.forEach(function(p) {
+    if (ProjectUtils.getStatus(p) !== 'obtenu') return;
+    const client = String(p['Client'] || '').trim();
+    if (!client) return;
+    byClientWonCA[client] = (byClientWonCA[client] || 0) + getBud(p);
+  });
+  const topSocieteEntry = Object.entries(byClientWonCA).sort(function(a, b) { return b[1] - a[1]; })[0] || null;
+  const topSociete = topSocieteEntry ? { client: topSocieteEntry[0], ca_gagne: topSocieteEntry[1] } : null;
+  const totalWonCAForShare = Object.values(byClientWonCA).reduce(function(sum, value) { return sum + (Number(value) || 0); }, 0);
+  const topSocieteShare = (topSociete && totalWonCAForShare > 0)
+    ? Math.round((topSociete.ca_gagne / totalWonCAForShare) * 100)
+    : 0;
   const topSocieteSub = topSociete
-    ? (
-        topSociete.obtenu + '/' + topSociete.total + ' gagnes'
-        + ' · ' + topSociete.taux_reussite + '% reussite'
-        + ' · CA gagne ' + fmt(topSociete.ca_gagne || 0)
-      )
+    ? ('CA gagne ' + fmt(topSociete.ca_gagne || 0) + ' · ' + topSocieteShare + '% du CA gagne')
     : '';
 
   // Taux réponse
@@ -1487,6 +1493,36 @@ function updateKPIs(data) {
   setEl('k-top',      topSociete ? topSociete.client : '—');
   setEl('k-top-sub',  topSociete ? topSocieteSub : '');
   setEl('project-count', total + ' projets');
+
+  // KPI Top société : clic = export Excel des projets concernés
+  (function bindTopSocieteExport() {
+    var topVal = document.getElementById('k-top');
+    if (!topVal) return;
+    var topCard = topVal.closest('.kpi') || topVal;
+    if (!topCard) return;
+    topCard.style.cursor = topSociete ? 'pointer' : '';
+    topCard.title = topSociete ? 'Exporter les projets de cette société (Excel)' : '';
+    topCard.onclick = function() {
+      if (!topSociete || !topSociete.client) {
+        notify('Export impossible', 'Aucune société gagnante sur le périmètre courant', 'warning', 2200);
+        return;
+      }
+      var rows = data.filter(function(p) {
+        return String(p['Client'] || '').trim() === topSociete.client;
+      });
+      if (!rows.length) {
+        notify('Export impossible', 'Aucune ligne à exporter pour cette société', 'warning', 2200);
+        return;
+      }
+      var safeClient = topSociete.client
+        .replace(/[\\\\/:*?"<>|]+/g, '_')
+        .replace(/\s+/g, '_')
+        .slice(0, 48);
+      var file = 'top_societe_' + safeClient + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+      exportExcel(rows, file, 'Top societe');
+      notify('Export Excel', rows.length + ' ligne(s) exportées pour ' + topSociete.client, 'success', 2200);
+    };
+  })();
 
   // GoNogo dashboard
   var goCount   = data.filter(function(p){ return (p['GoNogo']||'').trim() === 'Go'; }).length;
