@@ -129,7 +129,10 @@ window.DashboardEmail = (() => {
       pipeline: [
         { label: '€ Remis + En étude total', value: kpiValue('biz-kpi-pipe-bud') },
         { label: '€ Remis + En étude pondéré', value: kpiValue('biz-kpi-pipe-weighted') },
-        { label: '% CA win proba / Bud', value: kpiValue('biz-kpi-pipe-ratio') }
+        { label: '% CA win proba / Bud', value: kpiValue('biz-kpi-pipe-ratio') },
+        { label: '€ Marge brute latente', value: kpiValue('biz-kpi-pipe-margin') },
+        { label: '% Marge / Bud', value: kpiValue('biz-kpi-pipe-margin-vs-bud') },
+        { label: '% CA win proba / Marge', value: kpiValue('biz-kpi-pipe-margin-ratio') }
       ]
     };
   }
@@ -217,7 +220,7 @@ window.DashboardEmail = (() => {
       { label: 'Énergie', value: labelOfSelect('energy-type-filter') || 'Tous types' },
       { label: 'Période', value: labelOfSelect('timeline-preset') || 'Toutes les périodes' },
       { label: 'Mesure', value: labelOfSelect('biz-performance-view') || 'Montant (€ Bud)' },
-      { label: 'Graphique zone × client', value: labelOfSelect('biz-performance-combo-scope') || 'Année sélectionnée seulement' },
+      { label: 'Périmètre zone / client', value: labelOfSelect('biz-performance-combo-scope') || 'Même périmètre que le bloc' },
       { label: 'Statut affiché', value: labelOfSelect('biz-performance-status-filter') || 'Tout' },
       { label: 'Volume affiché', value: textOf('project-count') || '-- projets' }
     ];

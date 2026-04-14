@@ -139,6 +139,15 @@ window.DashboardPDF = (() => {
     return (typeof window !== 'undefined' && window.DATA) ? window.DATA : [];
   }
 
+  function _readBusinessKpiValue(id, fallback) {
+    const el = document.getElementById(id);
+    if (!el) return fallback || '—';
+    const valueNode = el.querySelector('.business-kpi-value');
+    const raw = (valueNode ? valueNode.textContent : el.textContent) || '';
+    const txt = String(raw).replace(/\s+/g, ' ').trim();
+    return txt || (fallback || '—');
+  }
+
   function _getFilters() {
     if (typeof FilterManager !== 'undefined' && FilterManager.getFilters)
       return FilterManager.getFilters();
@@ -291,7 +300,7 @@ window.DashboardPDF = (() => {
     doc.setTextColor(...C.pale);
     _docText(doc, `Champ date : ${activeField}`, w / 2, 65, { align: 'center' });
 
-    // Filtres actifs (présentation lisible avec retour à la ligne)
+    // Filtres actifs
     let y = 92;
     if (filters.length > 0) {
       doc.setFont('helvetica', 'bold');
@@ -300,33 +309,17 @@ window.DashboardPDF = (() => {
       _docText(doc, 'Filtres actifs', 14, y);
       y += 7;
 
-      const maxShown = 10;
-      const shown = filters.slice(0, maxShown);
-      shown.forEach(f => {
-        const type = _safeText(String(f.type || 'Filtre'));
-        const value = _safeText(String(f.label || f.value || '—'));
-        const wrapped = doc.splitTextToSize(value, 146);
-        const cardH = Math.max(8, 4 + (wrapped.length * 3.6));
-        if (y + cardH > 124) return;
-
+      filters.forEach(f => {
         doc.setFillColor(...C.card);
-        doc.roundedRect(14, y - 4, 182, cardH, 1.8, 1.8, 'F');
+        doc.roundedRect(14, y - 4, 80, 7, 1.5, 1.5, 'F');
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(...C.brand);
-        _docText(doc, type, 17, y);
+        doc.setFontSize(8);
+        doc.setTextColor(...C.pale);
+        _docText(doc, `${f.type}`, 17, y);
         doc.setTextColor(...C.snow);
-        doc.setFontSize(8);
-        _docText(doc, wrapped.join(' '), 48, y);
-        y += cardH + 2;
+        _docText(doc, String(f.label || f.value), 50, y);
+        y += 9;
       });
-      if (filters.length > maxShown) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...C.dust);
-        _docText(doc, `+${filters.length - maxShown} filtre(s) supplémentaire(s)`, 14, y + 2);
-        y += 8;
-      }
     } else {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -434,6 +427,10 @@ window.DashboardPDF = (() => {
     const concPct    = topClient && caGagne > 0
       ? Math.round(topClient[1] / caGagne * 100) : null;
 
+    const kpiPipeMargin = _readBusinessKpiValue('biz-kpi-pipe-margin', '—');
+    const kpiPipeMarginVsBud = _readBusinessKpiValue('biz-kpi-pipe-margin-vs-bud', '—');
+    const kpiPipeWeightedVsMargin = _readBusinessKpiValue('biz-kpi-pipe-margin-ratio', '—');
+
     const kpis = [
       { icon: '📊', label: 'CA Total (Bud)',     value: _fmt(caTotal),                    sub: `dont ${_fmt(caGagne)} obtenus`,   color: C.pale   },
       { icon: '🔮', label: 'Pipeline Pondéré',   value: _fmt(pipeline),                   sub: `${offre.length} offres en cours`,  color: C.blue   },
@@ -441,22 +438,28 @@ window.DashboardPDF = (() => {
       { icon: '📉', label: 'Taux de Perte',      value: tauxPert !== null ? tauxPert + '%' : '—', sub: `${lost.length} perdus`,    color: C.red    },
       { icon: '💼', label: 'CA Moy. Gagné',      value: caParP > 0 ? _fmt(caParP) : '—', sub: `sur ${won.length} projet(s)`,     color: C.brand  },
       { icon: '🏦', label: 'Concentration',       value: concPct !== null ? concPct + '%' : '—', sub: topClient ? topClient[0].substring(0, 22) : '—', color: C.gold },
+      { icon: '🧮', label: 'Marge Brute Latente', value: kpiPipeMargin,                    sub: 'Pipe remis + en étude',            color: C.blue   },
+      { icon: '⚖️', label: '% Marge / Bud',       value: kpiPipeMarginVsBud,               sub: 'Hors marges vides',                color: C.pale   },
+      { icon: '🔁', label: '% CA Win / Marge',    value: kpiPipeWeightedVsMargin,          sub: 'Hors marges vides',                color: C.brand  },
     ];
 
+    const cardW = 88;
+    const cardH = 28;
+    const rowGap = 32;
     y += 4;
     kpis.forEach((kpi, i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const x   = 14 + col * 95;
-      const cy  = y + row * 36;
+      const cy  = y + row * rowGap;
 
       // Carte
       doc.setFillColor(...C.card);
-      doc.roundedRect(x, cy, 88, 30, 3, 3, 'F');
+      doc.roundedRect(x, cy, cardW, cardH, 3, 3, 'F');
 
       // Barre colorée supérieure
       doc.setFillColor(...kpi.color);
-      doc.roundedRect(x, cy, 88, 1.2, 0.5, 0.5, 'F');
+      doc.roundedRect(x, cy, cardW, 1.2, 0.5, 0.5, 'F');
 
       // Icône + label
       doc.setFont('helvetica', 'normal');
@@ -466,7 +469,7 @@ window.DashboardPDF = (() => {
 
       // Valeur principale
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(12);
       doc.setTextColor(...C.snow);
       _docText(doc, kpi.value, x + 5, cy + 20);
 
@@ -474,7 +477,7 @@ window.DashboardPDF = (() => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(...C.dust);
-      _docText(doc, kpi.sub, x + 5, cy + 27);
+      _docText(doc, kpi.sub, x + 5, cy + 25);
     });
 
     _drawFooter(doc, 2);
@@ -505,7 +508,6 @@ window.DashboardPDF = (() => {
 
   function _createExportDialog(charts) {
     return new Promise(resolve => {
-      var activePreset = '';
       function presetMatches(presetName, chartId) {
         if (presetName === 'direction') {
           return /^biz-chart-perf-(month|zone|client|type|zone-client|client-type)$/.test(chartId)
@@ -580,7 +582,6 @@ window.DashboardPDF = (() => {
       modal.querySelectorAll('[data-pdf-preset]').forEach(function(button) {
         button.addEventListener('click', function() {
           var presetName = button.getAttribute('data-pdf-preset');
-          activePreset = presetName || '';
           modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) {
             input.checked = presetMatches(presetName, input.getAttribute('data-pdf-chart'));
           });
@@ -588,17 +589,12 @@ window.DashboardPDF = (() => {
           if (select) {
             select.value = presetName === 'direction' ? '2' : '1';
           }
-          var includeTable = modal.querySelector('#pdf-include-table');
-          if (includeTable && presetName === 'direction') includeTable.checked = false;
         });
       });
       modal.querySelector('[data-pdf-start]').addEventListener('click', function() {
-        var selectedChartIds = Array.from(modal.querySelectorAll('[data-pdf-chart]:checked')).map(function(input) {
+        const selectedChartIds = Array.from(modal.querySelectorAll('[data-pdf-chart]:checked')).map(function(input) {
           return input.getAttribute('data-pdf-chart');
         });
-        if (activePreset === 'direction' && selectedChartIds.length > 6) {
-          selectedChartIds = selectedChartIds.slice(0, 6);
-        }
         if (!selectedChartIds.length) {
           alert('Sélectionne au moins un graphique pour générer le PDF.');
           return;
@@ -669,7 +665,15 @@ window.DashboardPDF = (() => {
       }
     }
 
-    function _getLayout(count) {
+    function _isDenseHorizontalChart(canvas) {
+      const inst = _resolveInst(canvas);
+      if (!inst || !inst.data) return false;
+      const labelsCount = Array.isArray(inst.data.labels) ? inst.data.labels.length : 0;
+      const axis = (inst.options && inst.options.indexAxis) ? inst.options.indexAxis : 'x';
+      return (axis === 'y' && labelsCount >= 9) || labelsCount >= 14;
+    }
+
+    function _getLayout(count, forceTallSingle) {
       if (count >= 4) {
         const half = (AVAIL - 4) / 2;
         return { perPage: 4, cells: [
@@ -679,7 +683,7 @@ window.DashboardPDF = (() => {
           { x: MARGIN + half + 4, y: 142, w: half, h: 118 }
         ] };
       }
-      if (count === 1) return { perPage: 1, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 238 }] };
+      if (count === 1) return { perPage: 1, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: forceTallSingle ? 246 : 238 }] };
       return { perPage: 2, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 114 }, { x: MARGIN, y: 141, w: AVAIL, h: 114 }] };
     }
 
@@ -721,53 +725,40 @@ window.DashboardPDF = (() => {
       }
 
       if (inst && inst.data && Array.isArray(inst.data.datasets) && inst.data.datasets.length > 1) {
-        const slotW = cell.w < 100 ? 24 : 42;
-        const maxItems = Math.max(1, Math.floor((imgW - 4) / slotW));
-        const series = inst.data.datasets.slice(0, Math.min(cell.w < 100 ? 3 : 4, maxItems));
+        const series = inst.data.datasets.slice(0, cell.w < 100 ? 2 : 4);
+        const parseColor = function(raw) {
+          const txt = String(raw || '#0099ff');
+          const rgba = txt.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+          if (rgba) return { r: +rgba[1], g: +rgba[2], b: +rgba[3] };
+          const hex = txt.match(/^#([0-9a-f]{6})$/i);
+          if (hex) {
+            const n = parseInt(hex[1], 16);
+            return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+          }
+          return { r: 0, g: 153, b: 255 };
+        };
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5.8);
         series.forEach(function(ds, idx) {
-          const rawColor = String(
-            (Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : ds.backgroundColor)
-            || ds.borderColor || '#0099ff'
-          );
-          let r = 0, g = 153, b = 255;
-          const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-          if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
-          const lx = cell.x + pad + (idx * slotW);
-          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7);
-          doc.setFillColor(r, g, b);
-          doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
-          doc.setTextColor(...C.pale);
-          _docText(doc, _safeText(String(ds.label || 'Serie')).substring(0, cell.w < 100 ? 10 : 16), lx + 3.2, ly);
-        });
-      } else if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
-        const labels = inst.data.labels.slice(0, cell.w < 100 ? 4 : 6);
-        const showCategoryLegend = labels.length <= (cell.w < 100 ? 3 : 4);
-        if (!showCategoryLegend) return;
-        const ds = inst.data.datasets[0] || {};
-        const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(function() { return ds.backgroundColor || '#0099ff'; });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.8);
-        labels.forEach(function(lbl, idx) {
-          const rawColor = String(colors[idx] || '#0099ff');
-          let r = 0, g = 153, b = 255;
-          const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-          if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
+          const colorSample = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : (ds.borderColor || ds.backgroundColor);
+          const c = parseColor(colorSample);
           const cols = cell.w < 100 ? 1 : 2;
           const lx = cell.x + pad + ((idx % cols) * ((imgW - 6) / cols));
-          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 5.2);
-          doc.setFillColor(r, g, b);
+          const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 4.2);
+          doc.setFillColor(c.r, c.g, c.b);
           doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
           doc.setTextColor(...C.pale);
-          _docText(doc, _safeText(String(lbl)).substring(0, cell.w < 100 ? 14 : 18), lx + 3.2, ly);
+          _docText(doc, _safeText(String(ds.label || ('Série ' + (idx + 1)))).substring(0, cell.w < 100 ? 14 : 18), lx + 3.2, ly);
         });
       }
     }
 
-    const layout = _getLayout(options.chartsPerPage || 2);
+    const preferredPerPage = Math.max(1, Math.min(4, Number(options.chartsPerPage) || 2));
     let chartIdx = 0;
     while (chartIdx < canvases.length) {
+      const probeSlice = canvases.slice(chartIdx, chartIdx + preferredPerPage);
+      const hasDenseChart = probeSlice.some(_isDenseHorizontalChart);
+      const layout = _getLayout(hasDenseChart ? 1 : preferredPerPage, hasDenseChart);
       doc.addPage();
       _drawPageBg(doc);
       pageNum++;
@@ -802,27 +793,7 @@ window.DashboardPDF = (() => {
     let pageNum  = startPage + 1;
 
     y = _drawSectionHeader(doc, y, '📋  Tableau des Projets');
-    y += 2;
-
-    const wonCount = data.filter(p => _getStatus(p) === 'obtenu').length;
-    const lostCount = data.filter(p => _getStatus(p) === 'perdu').length;
-    const offerCount = data.filter(p => _getStatus(p) === 'offre').length;
-    const totalCA = data.reduce((sum, p) => sum + _getCA(p, 'ca_etudie'), 0);
-
-    const summary = [
-      `Projets: ${data.length}`,
-      `Gagnes: ${wonCount}`,
-      `Perdus: ${lostCount}`,
-      `En cours: ${offerCount}`,
-      `CA total: ${_fmt(totalCA)}`
-    ];
-    doc.setFillColor(...C.card);
-    doc.roundedRect(14, y, w - 28, 9, 2, 2, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.2);
-    doc.setTextColor(...C.pale);
-    _docText(doc, summary.join('   |   '), 17, y + 5.6);
-    y += 14;
+    y += 4;
 
     const cols = [
       { header: 'Projet',    key: 'projet',     w: 52 },
@@ -862,7 +833,6 @@ window.DashboardPDF = (() => {
       return _getCA(b, 'ca_etudie') - _getCA(a, 'ca_etudie');
     });
 
-    let rowIndex = 0;
     for (const p of sorted) {
       if (y + rowH > pageH - 15) {
         _drawFooter(doc, pageNum);
@@ -886,10 +856,6 @@ window.DashboardPDF = (() => {
 
       const st = _getStatus(p);
       cx = 14;
-      if (rowIndex % 2 === 1) {
-        doc.setFillColor(10, 18, 30);
-        doc.rect(14, y - 4.5, w - 28, rowH, 'F');
-      }
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
 
@@ -928,7 +894,6 @@ window.DashboardPDF = (() => {
       doc.line(14, y + 2, w - 14, y + 2);
 
       y += rowH;
-      rowIndex += 1;
     }
 
     _drawFooter(doc, pageNum);
