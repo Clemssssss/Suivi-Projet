@@ -129,7 +129,10 @@ window.DashboardEmail = (() => {
       pipeline: [
         { label: '€ Remis + En étude total', value: kpiValue('biz-kpi-pipe-bud') },
         { label: '€ Remis + En étude pondéré', value: kpiValue('biz-kpi-pipe-weighted') },
-        { label: '% CA win proba / Bud', value: kpiValue('biz-kpi-pipe-ratio') }
+        { label: '% CA win proba / Bud', value: kpiValue('biz-kpi-pipe-ratio') },
+        { label: '€ Marge brute latente', value: kpiValue('biz-kpi-pipe-margin') },
+        { label: '% Marge / Bud', value: kpiValue('biz-kpi-pipe-margin-vs-bud') },
+        { label: '% CA win proba / Marge', value: kpiValue('biz-kpi-pipe-margin-ratio') }
       ]
     };
   }

@@ -271,6 +271,13 @@
     return bud * prob;
   }
 
+  function getMargin(project) {
+    var value = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseMontant)
+      ? ProjectUtils.parseMontant(project['MB (€)'])
+      : parseFloat(project['MB (€)']);
+    return (value != null && isFinite(value)) ? value : null;
+  }
+
   function getYear(project) {
     if (typeof Analytics !== 'undefined' && Analytics.getProjectYear) {
       var liveYear = parseInt(Analytics.getProjectYear(project), 10);
@@ -504,6 +511,7 @@
 
   function computeValue(projects, mode) {
     var items = Array.isArray(projects) ? projects : [];
+    var withMargin = items.filter(function(p) { return getMargin(p) != null; });
     switch (mode) {
       case 'won_amount':
         return items.filter(isWon).reduce(function(sum, p) { return sum + getBud(p); }, 0);
@@ -535,6 +543,18 @@
         var bud = computeValue(items, 'pipe_bud');
         var weighted = computeValue(items, 'pipe_weighted');
         return bud > 0 ? (weighted / bud) : 0;
+      case 'pipe_margin_amount':
+        return withMargin.filter(isPipeCommercialStatus).reduce(function(sum, p) { return sum + (getMargin(p) || 0); }, 0);
+      case 'pipe_margin_ratio':
+        var marginBase = withMargin.filter(isPipeCommercialStatus);
+        var marginBud = computeValue(marginBase, 'pipe_bud');
+        var marginAmount = computeValue(marginBase, 'pipe_margin_amount');
+        return marginBud > 0 ? (marginAmount / marginBud) : 0;
+      case 'pipe_weighted_margin_ratio':
+        var weightedMarginBase = withMargin.filter(isPipeCommercialStatus);
+        var totalWeighted = computeValue(weightedMarginBase, 'pipe_weighted');
+        var totalMargin = computeValue(weightedMarginBase, 'pipe_margin_amount');
+        return totalMargin > 0 ? (totalWeighted / totalMargin) : 0;
       default:
         return 0;
     }
@@ -551,7 +571,13 @@
   }
 
   function formatValue(value, mode) {
-    if (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') {
+    if (
+      mode === 'won_rate_amount' ||
+      mode === 'won_rate_count' ||
+      mode === 'pipe_ratio' ||
+      mode === 'pipe_margin_ratio' ||
+      mode === 'pipe_weighted_margin_ratio'
+    ) {
       return (value * 100).toFixed(1).replace('.', ',') + ' %';
     }
     if (mode.indexOf('_count') !== -1) {
@@ -577,7 +603,10 @@
       won_rate_count: 'Taux de transfo dossiers',
       pipe_bud: '€ Remis + En étude',
       pipe_weighted: '€ Remis + En étude',
-      pipe_ratio: '% Remis + En étude'
+      pipe_ratio: '% Remis + En étude',
+      pipe_margin_amount: '€ Marge brute latente',
+      pipe_margin_ratio: '% Marge / Bud',
+      pipe_weighted_margin_ratio: '% CA win proba / Marge'
     };
     return labels[mode] || mode;
   }
@@ -634,6 +663,8 @@
 
     var entries = Object.keys(buckets).map(function(key) {
       var bucket = buckets[key];
+      var wonAmount = computeValue(bucket.projects, 'won_amount');
+      var lostAmount = computeValue(bucket.projects, 'lost_amount');
       return {
         label: bucket.label,
         filters: dimension === 'zone'
@@ -642,15 +673,20 @@
               ? { 'Client': bucket.label }
               : { 'Type de projet (Activité)': bucket.label }),
         value: computeValue(bucket.projects, mode),
+        wonAmount: wonAmount,
+        lostAmount: lostAmount,
         projects: bucket.projects
       };
     }).sort(function(a, b) {
+      if (dimension === 'client' && mode === 'won_rate_amount') {
+        return (b.wonAmount || 0) - (a.wonAmount || 0);
+      }
       return b.value - a.value;
     });
-    return dimension === 'client' ? finalizeTopEntries(entries, limit || 12) : entries.slice(0, limit || 12);
+    return dimension === 'client' ? finalizeTopEntries(entries, limit || 12, mode) : entries.slice(0, limit || 12);
   }
 
-  function finalizeTopEntries(entries, limit) {
+  function finalizeTopEntries(entries, limit, mode) {
     var list = Array.isArray(entries) ? entries.slice() : [];
     var max = Number(limit) || 12;
     if (list.length <= max) return list;
@@ -662,7 +698,9 @@
     });
     top.push({
       label: 'Autres',
-      value: rest.reduce(function(sum, entry) { return sum + (Number(entry.value) || 0); }, 0),
+      value: (mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio' || mode === 'pipe_margin_ratio' || mode === 'pipe_weighted_margin_ratio')
+        ? computeValue(othersProjects, mode)
+        : rest.reduce(function(sum, entry) { return sum + (Number(entry.value) || 0); }, 0),
       projects: othersProjects,
       _othersEntries: rest
     });
@@ -750,7 +788,7 @@
       };
     }).sort(function(a, b) {
       return b.value - a.value;
-    }), limit || 12);
+    }), limit || 12, mode);
   }
 
   function dimensionValue(project, dimension) {
@@ -1004,7 +1042,22 @@
         var entry = entries && entries[idx];
         if (!entry) return '';
         var count = Array.isArray(entry.projects) ? entry.projects.length : 0;
-        return count ? ('Dossiers : ' + count) : '';
+        if (mode === 'won_rate_amount') {
+          var won = computeValue(entry.projects || [], 'won_amount');
+          var lost = computeValue(entry.projects || [], 'lost_amount');
+          return [
+            '€ gagnés : ' + formatValue(won, 'won_amount'),
+            '€ perdus : ' + formatValue(lost, 'lost_amount'),
+            count ? ('Dossiers décidés : ' + count) : ''
+          ].filter(Boolean).join('\n');
+        }
+        if (mode === 'won_rate_count') {
+          var wonC = computeValue(entry.projects || [], 'won_count');
+          var lostC = computeValue(entry.projects || [], 'lost_count');
+          return 'Gagnés : ' + wonC + ' • Perdus : ' + lostC;
+        }
+        if (mode.indexOf('_count') !== -1) return count ? ('Dossiers : ' + count) : '';
+        return '';
       },
       footer: function(items) {
         if (!items || !items.length || !entries) return '';
@@ -1012,7 +1065,7 @@
         var entry = entries[idx];
         if (!entry) return filterContextSummary();
         var total = entries.reduce(function(sum, current) { return sum + (Number(current.value) || 0); }, 0);
-        if (total > 0 && mode !== 'won_rate_amount' && mode !== 'won_rate_count' && mode !== 'pipe_ratio') {
+        if (total > 0 && mode !== 'won_rate_amount' && mode !== 'won_rate_count' && mode !== 'pipe_ratio' && mode !== 'pipe_margin_ratio' && mode !== 'pipe_weighted_margin_ratio') {
           return 'Part du total : ' + toPercentString((Number(entry.value) || 0) / total) + '\n' + filterContextSummary();
         }
         return filterContextSummary();
@@ -1660,7 +1713,7 @@
     var labels = entries.map(function(e) { return e.label; });
     var values = entries.map(function(e) { return e.value; });
     var colors = paletteFor(mode, values.length, entries);
-    var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio') && !opts.forceBar ? 'line' : 'bar'));
+    var chartType = opts.type || ((opts.indexAxis === 'y') ? 'bar' : ((mode === 'won_rate_amount' || mode === 'won_rate_count' || mode === 'pipe_ratio' || mode === 'pipe_margin_ratio' || mode === 'pipe_weighted_margin_ratio') && !opts.forceBar ? 'line' : 'bar'));
     var primaryColor = colors[0] || 'rgba(0,212,170,.82)';
     var dataset = {
       label: title,
@@ -1704,7 +1757,8 @@
       options: {
         indexAxis: opts.indexAxis,
         interaction: {
-          mode: 'nearest',
+          mode: 'index',
+          axis: isHorizontal ? 'y' : 'x',
           intersect: false
         },
         scales: {
@@ -1728,6 +1782,9 @@
           legend: { display: false },
           tooltip: {
             displayColors: false,
+            bodyFont: { size: 11 },
+            titleFont: { size: 12 },
+            padding: 9,
             callbacks: tooltipFormatter(mode, entries)
           }
         },
@@ -1795,7 +1852,8 @@
       options: {
         indexAxis: opts.indexAxis,
         interaction: {
-          mode: 'nearest',
+          mode: 'index',
+          axis: isHorizontal ? 'y' : 'x',
           intersect: false
         },
         scales: {
@@ -1824,6 +1882,9 @@
           },
           tooltip: {
             displayColors: true,
+            bodyFont: { size: 11 },
+            titleFont: { size: 12 },
+            padding: 9,
             callbacks: comparisonTooltipFormatter(mode, entries)
           }
         },
@@ -2000,11 +2061,16 @@
     var scope = resolveBusinessScope(rawAll, view);
     var scopeProjects = scope.scopeProjects;
     var offers = scopeProjects.filter(isPipeCommercialStatus);
-    var zoneHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone géographique' : 'Remis + En étude par zone géographique';
-    var clientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client' : 'Remis + En étude par client';
-    var typeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par type de projet' : 'Remis + En étude par type de projet';
-    var zoneClientHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par zone × client' : 'Remis + En étude par zone × client';
-    var clientTypeHint = view === 'pipe_ratio' ? 'Part de CA win proba / Bud par client × type de projet' : 'Remis + En étude par client × type de projet';
+    var hintPrefix = 'Remis + En étude';
+    if (view === 'pipe_ratio') hintPrefix = 'Part de CA win proba / Bud';
+    if (view === 'pipe_margin_amount') hintPrefix = 'Marge brute latente';
+    if (view === 'pipe_margin_ratio') hintPrefix = 'Part de marge brute / Bud';
+    if (view === 'pipe_weighted_margin_ratio') hintPrefix = 'Part de CA win proba / Marge';
+    var zoneHint = hintPrefix + ' par zone géographique';
+    var clientHint = hintPrefix + ' par client';
+    var typeHint = hintPrefix + ' par type de projet';
+    var zoneClientHint = hintPrefix + ' par zone × client';
+    var clientTypeHint = hintPrefix + ' par client × type de projet';
 
     updateTitles('biz-title-pipe-', view);
 
@@ -2016,7 +2082,10 @@
     var pipelineViews = [
       buildProjectTableView(offers, '€ Remis + En étude total', 'Détail KPI — pipe commercial Bud', pipelineMeta.concat(['Base KPI : colonne Bud']), '€ Remis + En étude total'),
       buildProjectTableView(offers, '€ Remis + En étude pondéré', 'Détail KPI — pipe commercial pondéré', pipelineMeta.concat(['Base KPI : colonne CA win proba']), '€ Remis + En étude pondéré'),
-      buildProjectTableView(offers, '% CA win proba / Bud', 'Détail KPI — pipe commercial', pipelineMeta.concat(['Base KPI : pondération globale du pipe actif']), '% CA win proba / Bud')
+      buildProjectTableView(offers, '% CA win proba / Bud', 'Détail KPI — pipe commercial', pipelineMeta.concat(['Base KPI : pondération globale du pipe actif']), '% CA win proba / Bud'),
+      buildProjectTableView(offers.filter(function(p) { return getMargin(p) != null; }), '€ Marge brute latente', 'Détail KPI — pipe commercial marge', pipelineMeta.concat(['Base KPI : somme MB (€) sur offres remises/en étude']), '€ Marge brute latente'),
+      buildProjectTableView(offers.filter(function(p) { return getMargin(p) != null; }), '% Marge / Bud', 'Détail KPI — pipe commercial marge / Bud', pipelineMeta.concat(['Base KPI : comparaison marge brute / Bud (hors vides)']), '% Marge / Bud'),
+      buildProjectTableView(offers.filter(function(p) { return getMargin(p) != null; }), '% CA win proba / Marge', 'Détail KPI — pipe commercial CA win proba / marge', pipelineMeta.concat(['Base KPI : comparaison CA win proba / marge brute (hors vides)']), '% CA win proba / Marge')
     ];
     var pipelineTableConfigBase = {
       title: 'KPI Pipe commercial',
@@ -2033,6 +2102,15 @@
     });
     renderKpi('biz-kpi-pipe-ratio', '% CA win proba / Bud', computeValue(scopeProjects, 'pipe_ratio'), 'Pondération globale du pipe actif', offers, 'Pipe commercial ratio — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_ratio', {
       tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[2].id })
+    });
+    renderKpi('biz-kpi-pipe-margin', '€ Marge brute latente', computeValue(scopeProjects, 'pipe_margin_amount'), 'Somme MB (€) sur offres remises/en étude', offers.filter(function(p) { return getMargin(p) != null; }), 'Pipe commercial marge brute — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_margin_amount', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[3].id })
+    });
+    renderKpi('biz-kpi-pipe-margin-vs-bud', '% Marge / Bud', computeValue(scopeProjects, 'pipe_margin_ratio'), 'Comparaison marge brute / Bud (hors vides)', offers.filter(function(p) { return getMargin(p) != null; }), 'Pipe commercial marge / Bud — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_margin_ratio', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[4].id })
+    });
+    renderKpi('biz-kpi-pipe-margin-ratio', '% CA win proba / Marge', computeValue(scopeProjects, 'pipe_weighted_margin_ratio'), 'Comparaison CA win proba / marge brute (hors vides)', offers.filter(function(p) { return getMargin(p) != null; }), 'Pipe commercial CA win proba / marge — ' + describeScopeLabel(scope).toLowerCase(), 'pipe_weighted_margin_ratio', {
+      tablePageConfig: Object.assign({}, pipelineTableConfigBase, { selectedViewId: pipelineViews[5].id })
     });
 
     createChart('biz-chart-pipe-zone', modeLabel(view) + ' par zone', createAggregateEntries(scopeProjects, 'zone', view, 10), view, {

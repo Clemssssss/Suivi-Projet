@@ -139,6 +139,15 @@ window.DashboardPDF = (() => {
     return (typeof window !== 'undefined' && window.DATA) ? window.DATA : [];
   }
 
+  function _readBusinessKpiValue(id, fallback) {
+    const el = document.getElementById(id);
+    if (!el) return fallback || '—';
+    const valueNode = el.querySelector('.business-kpi-value');
+    const raw = (valueNode ? valueNode.textContent : el.textContent) || '';
+    const txt = String(raw).replace(/\s+/g, ' ').trim();
+    return txt || (fallback || '—');
+  }
+
   function _getFilters() {
     if (typeof FilterManager !== 'undefined' && FilterManager.getFilters)
       return FilterManager.getFilters();
@@ -418,6 +427,10 @@ window.DashboardPDF = (() => {
     const concPct    = topClient && caGagne > 0
       ? Math.round(topClient[1] / caGagne * 100) : null;
 
+    const kpiPipeMargin = _readBusinessKpiValue('biz-kpi-pipe-margin', '—');
+    const kpiPipeMarginVsBud = _readBusinessKpiValue('biz-kpi-pipe-margin-vs-bud', '—');
+    const kpiPipeWeightedVsMargin = _readBusinessKpiValue('biz-kpi-pipe-margin-ratio', '—');
+
     const kpis = [
       { icon: '📊', label: 'CA Total (Bud)',     value: _fmt(caTotal),                    sub: `dont ${_fmt(caGagne)} obtenus`,   color: C.pale   },
       { icon: '🔮', label: 'Pipeline Pondéré',   value: _fmt(pipeline),                   sub: `${offre.length} offres en cours`,  color: C.blue   },
@@ -425,22 +438,28 @@ window.DashboardPDF = (() => {
       { icon: '📉', label: 'Taux de Perte',      value: tauxPert !== null ? tauxPert + '%' : '—', sub: `${lost.length} perdus`,    color: C.red    },
       { icon: '💼', label: 'CA Moy. Gagné',      value: caParP > 0 ? _fmt(caParP) : '—', sub: `sur ${won.length} projet(s)`,     color: C.brand  },
       { icon: '🏦', label: 'Concentration',       value: concPct !== null ? concPct + '%' : '—', sub: topClient ? topClient[0].substring(0, 22) : '—', color: C.gold },
+      { icon: '🧮', label: 'Marge Brute Latente', value: kpiPipeMargin,                    sub: 'Pipe remis + en étude',            color: C.blue   },
+      { icon: '⚖️', label: '% Marge / Bud',       value: kpiPipeMarginVsBud,               sub: 'Hors marges vides',                color: C.pale   },
+      { icon: '🔁', label: '% CA Win / Marge',    value: kpiPipeWeightedVsMargin,          sub: 'Hors marges vides',                color: C.brand  },
     ];
 
+    const cardW = 88;
+    const cardH = 28;
+    const rowGap = 32;
     y += 4;
     kpis.forEach((kpi, i) => {
       const col = i % 2;
       const row = Math.floor(i / 2);
       const x   = 14 + col * 95;
-      const cy  = y + row * 36;
+      const cy  = y + row * rowGap;
 
       // Carte
       doc.setFillColor(...C.card);
-      doc.roundedRect(x, cy, 88, 30, 3, 3, 'F');
+      doc.roundedRect(x, cy, cardW, cardH, 3, 3, 'F');
 
       // Barre colorée supérieure
       doc.setFillColor(...kpi.color);
-      doc.roundedRect(x, cy, 88, 1.2, 0.5, 0.5, 'F');
+      doc.roundedRect(x, cy, cardW, 1.2, 0.5, 0.5, 'F');
 
       // Icône + label
       doc.setFont('helvetica', 'normal');
@@ -450,7 +469,7 @@ window.DashboardPDF = (() => {
 
       // Valeur principale
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
+      doc.setFontSize(12);
       doc.setTextColor(...C.snow);
       _docText(doc, kpi.value, x + 5, cy + 20);
 
@@ -458,7 +477,7 @@ window.DashboardPDF = (() => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(...C.dust);
-      _docText(doc, kpi.sub, x + 5, cy + 27);
+      _docText(doc, kpi.sub, x + 5, cy + 25);
     });
 
     _drawFooter(doc, 2);
@@ -646,7 +665,15 @@ window.DashboardPDF = (() => {
       }
     }
 
-    function _getLayout(count) {
+    function _isDenseHorizontalChart(canvas) {
+      const inst = _resolveInst(canvas);
+      if (!inst || !inst.data) return false;
+      const labelsCount = Array.isArray(inst.data.labels) ? inst.data.labels.length : 0;
+      const axis = (inst.options && inst.options.indexAxis) ? inst.options.indexAxis : 'x';
+      return (axis === 'y' && labelsCount >= 9) || labelsCount >= 14;
+    }
+
+    function _getLayout(count, forceTallSingle) {
       if (count >= 4) {
         const half = (AVAIL - 4) / 2;
         return { perPage: 4, cells: [
@@ -656,7 +683,7 @@ window.DashboardPDF = (() => {
           { x: MARGIN + half + 4, y: 142, w: half, h: 118 }
         ] };
       }
-      if (count === 1) return { perPage: 1, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 238 }] };
+      if (count === 1) return { perPage: 1, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: forceTallSingle ? 246 : 238 }] };
       return { perPage: 2, cells: [{ x: MARGIN, y: 18, w: AVAIL, h: 114 }, { x: MARGIN, y: 141, w: AVAIL, h: 114 }] };
     }
 
@@ -697,31 +724,41 @@ window.DashboardPDF = (() => {
         _docText(doc, '[Graphique non rendu]', cell.x + (cell.w / 2), imgTop + 20, { align: 'center' });
       }
 
-      if (inst && inst.data && inst.data.labels && inst.data.labels.length) {
-        const labels = inst.data.labels.slice(0, cell.w < 100 ? 4 : 6);
-        const ds = inst.data.datasets[0] || {};
-        const colors = Array.isArray(ds.backgroundColor) ? ds.backgroundColor : labels.map(() => ds.backgroundColor || '#0099ff');
+      if (inst && inst.data && Array.isArray(inst.data.datasets) && inst.data.datasets.length > 1) {
+        const series = inst.data.datasets.slice(0, cell.w < 100 ? 2 : 4);
+        const parseColor = function(raw) {
+          const txt = String(raw || '#0099ff');
+          const rgba = txt.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+          if (rgba) return { r: +rgba[1], g: +rgba[2], b: +rgba[3] };
+          const hex = txt.match(/^#([0-9a-f]{6})$/i);
+          if (hex) {
+            const n = parseInt(hex[1], 16);
+            return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+          }
+          return { r: 0, g: 153, b: 255 };
+        };
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(5.8);
-        labels.forEach(function(lbl, idx) {
-          const rawColor = String(colors[idx] || '#0099ff');
-          let r = 0, g = 153, b = 255;
-          const m = rawColor.match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);
-          if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
+        series.forEach(function(ds, idx) {
+          const colorSample = Array.isArray(ds.backgroundColor) ? ds.backgroundColor[0] : (ds.borderColor || ds.backgroundColor);
+          const c = parseColor(colorSample);
           const cols = cell.w < 100 ? 1 : 2;
           const lx = cell.x + pad + ((idx % cols) * ((imgW - 6) / cols));
           const ly = Math.min(cell.y + cell.h - 6, imgTop + imgH + 7 + Math.floor(idx / cols) * 4.2);
-          doc.setFillColor(r, g, b);
+          doc.setFillColor(c.r, c.g, c.b);
           doc.circle(lx + 1.2, ly - 1.1, .9, 'F');
           doc.setTextColor(...C.pale);
-          _docText(doc, _safeText(String(lbl)).substring(0, cell.w < 100 ? 14 : 18), lx + 3.2, ly);
+          _docText(doc, _safeText(String(ds.label || ('Série ' + (idx + 1)))).substring(0, cell.w < 100 ? 14 : 18), lx + 3.2, ly);
         });
       }
     }
 
-    const layout = _getLayout(options.chartsPerPage || 2);
+    const preferredPerPage = Math.max(1, Math.min(4, Number(options.chartsPerPage) || 2));
     let chartIdx = 0;
     while (chartIdx < canvases.length) {
+      const probeSlice = canvases.slice(chartIdx, chartIdx + preferredPerPage);
+      const hasDenseChart = probeSlice.some(_isDenseHorizontalChart);
+      const layout = _getLayout(hasDenseChart ? 1 : preferredPerPage, hasDenseChart);
       doc.addPage();
       _drawPageBg(doc);
       pageNum++;
@@ -964,7 +1001,9 @@ window.DashboardPDF = (() => {
     if (document.getElementById('btn-export-pdf')) return;
 
     // Chercher la barre d'actions existante
-    const actionBar = document.querySelector('.btn-hdr')?.parentElement
+    const actionBar = document.querySelector('[data-header-menu-panel="exports"]')
+      || document.querySelector('.hdr-actions-main')
+      || document.querySelector('.btn-hdr')?.parentElement
       || document.querySelector('.header-actions, .dashboard-actions, .toolbar');
 
     const btn = document.createElement('button');
