@@ -1297,6 +1297,16 @@ button, a, select, input, canvas,
   min-width: 118px;
   justify-content: center;
 }
+#ctrl-bars-essential-toggle {
+  min-width: 170px;
+  border-color: rgba(0,153,255,.32);
+  color: #9fd9ff;
+}
+#ctrl-bars-essential-toggle.is-active {
+  border-color: rgba(0,212,170,.44);
+  color: var(--brand);
+  background: rgba(0,212,170,.1);
+}
 .ctrl-bars-body {
   display: flex;
   flex-direction: column;
@@ -1377,6 +1387,16 @@ button, a, select, input, canvas,
 .ctrl-inp:hover  { border-color: rgba(0,212,170,.35); }
 .ctrl-inp:focus  { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,212,170,.12); }
 .ctrl-div { display: none; }
+.filters-essential-on .ctrl-advanced {
+  display: none !important;
+}
+.filters-essential-on .ctrl-bars-title::after {
+  content: ' • Mode essentiel';
+  color: var(--brand);
+  font-family: var(--mono);
+  font-size: .7rem;
+  margin-left: .35rem;
+}
 
 #timeline-custom-range {
   flex-direction: row;
@@ -1966,6 +1986,15 @@ button, a, select, input, canvas,
 }
 .chart-card:hover::after { opacity: .5; }
 .chart-card.hidden { display: none; }
+body.dashboard-booting .chart-card,
+body.dashboard-booting .kpi,
+body.dashboard-booting #ctrl-bars-sticky {
+  opacity: .7;
+}
+body.dashboard-booting .chart-card:hover,
+body.dashboard-booting .kpi:hover {
+  transform: none !important;
+}
 .business-dashboard-root {
   margin: 0 2.5rem 1.5rem;
 }

@@ -2364,6 +2364,7 @@ function update() {
    INIT
 ═══════════════════════════════════════════════════════════ */
   window.addEventListener('load', async () => {
+    document.body.classList.add('dashboard-booting');
     window.DATA = Array.isArray(window.DATA) ? window.DATA : [];
     if (typeof DashboardDataTransparency !== 'undefined'
         && typeof DashboardDataTransparency.setDatasetMeta === 'function') {
@@ -2492,6 +2493,7 @@ function update() {
   setTimeout(applyURLBootState, 220);
   setTimeout(applyURLBootState, 900);
   setTimeout(sanitizeDashboardSelectionState, 1200);
+  setTimeout(function() { document.body.classList.remove('dashboard-booting'); }, 1400);
 
   // ── Toggles graphiques (v5 — réversible, sans destroy) ──
   function initToggleBtns() {

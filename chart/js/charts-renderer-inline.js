@@ -656,6 +656,47 @@
     var startInput    = document.getElementById('timeline-start');
     var endInput      = document.getElementById('timeline-end');
     var clearTimeline = document.getElementById('timeline-clear');
+    var essentialBtn  = document.getElementById('ctrl-bars-essential-toggle');
+    var barsRoot      = document.getElementById('ctrl-bars-sticky');
+    var helpBtn       = document.getElementById('btn-quick-help');
+
+    (function initEssentialFiltersMode() {
+      if (!essentialBtn || !barsRoot) return;
+      var KEY = 'dashboard.filters.essentialMode';
+      function apply(isOn) {
+        barsRoot.classList.toggle('filters-essential-on', !!isOn);
+        essentialBtn.classList.toggle('is-active', !!isOn);
+        essentialBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        essentialBtn.textContent = isOn ? '⚙ Filtres essentiels : on' : '⚙ Filtres essentiels : off';
+      }
+      var saved = false;
+      try { saved = localStorage.getItem(KEY) === '1'; } catch (_) {}
+      apply(saved);
+      essentialBtn.addEventListener('click', function() {
+        var next = !barsRoot.classList.contains('filters-essential-on');
+        apply(next);
+        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) {}
+      });
+    })();
+
+    if (helpBtn && !helpBtn._boundQuickHelp) {
+      helpBtn._boundQuickHelp = true;
+      helpBtn.addEventListener('click', function() {
+        var msg = [
+          'Aide rapide (30 sec):',
+          '1) Année commerciale = filtre principal.',
+          '2) Mode CA = Total (Bud) ou Gagné uniquement.',
+          '3) Période = fenêtre de temps (6m, 12m, YTD...).',
+          '4) Mesure = valeur €, volume, ou taux.',
+          '5) Graphique zone × client = réglage spécifique à CE graphique.',
+          'Astuce: activez "Filtres essentiels : on" pour une lecture simple.'
+        ].join('\n');
+        if (typeof notify === 'function') {
+          notify('Aide rapide', 'Consultez la fenêtre d\'aide ouverte', 'info', 1800);
+        }
+        alert(msg);
+      });
+    }
 
     if (presetSel) {
       presetSel.addEventListener('change', function () {

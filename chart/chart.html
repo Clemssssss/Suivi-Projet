@@ -74,6 +74,7 @@
       <details class="hdr-menu" data-menu="tools">
         <summary class="btn-hdr hdr-menu-toggle">🧰 Outils</summary>
         <div class="hdr-menu-panel" data-header-menu-panel="tools">
+          <button class="btn-hdr" id="btn-quick-help" type="button" title="Explication rapide des filtres et de la lecture du dashboard">❓ Aide rapide</button>
           <button class="btn-hdr" id="btn-email-report" type="button" title="Créer un brouillon d'email avec synthèse et graphiques">✉️ Créer email</button>
           <button class="btn-hdr" id="btn-open-manual" type="button" title="Ouvrir le manuel utilisateur du dashboard">📘 Manuel</button>
           <button class="btn-hdr" id="btn-toggle-values" type="button" title="Afficher ou masquer les valeurs sur les graphiques">🔢 Valeurs : off</button>
@@ -106,6 +107,7 @@
     <div class="ctrl-bars-kicker">Filtres du dashboard</div>
     <div class="ctrl-bars-title">Pilotage global du périmètre et des graphiques</div>
   </div>
+  <button type="button" class="btn-hdr ctrl-bars-toggle" id="ctrl-bars-essential-toggle" aria-pressed="false">⚙ Filtres essentiels : off</button>
   <button type="button" class="btn-hdr ctrl-bars-toggle" id="ctrl-bars-toggle" aria-expanded="true">▾ Réduire</button>
 </div>
 <div class="ctrl-bars-body">
@@ -117,7 +119,7 @@
     </select>
   </div>
   <div class="ctrl-div"></div>
-  <div class="ctrl-grp" id="date-field-ctrl" title="Choisir le champ date utilisé pour le calcul des années et des KPIs">
+  <div class="ctrl-grp ctrl-advanced" id="date-field-ctrl" title="Choisir le champ date utilisé pour le calcul des années et des KPIs">
     <label class="ctrl-lbl">Champ date <span class="info-icon" data-info="Définit le champ utilisé pour calculer l'<strong>année commerciale</strong> de chaque projet. Ce choix impacte <em>tous les graphiques, KPIs et barres de progression</em>.">ⓘ</span></label>
     <select id="date-field-selector" class="ctrl-inp" style="min-width:195px;">
       <option value="Date réception" selected>Date réception</option>
@@ -147,7 +149,7 @@
   </div>
 </div>
 <div class="ctrl-bar" id="timeline-filter-bar">
-  <div class="ctrl-grp">
+  <div class="ctrl-grp ctrl-advanced">
     <label class="ctrl-lbl" style="white-space:nowrap;">🕒 Période <span class="info-icon" data-info="Applique une fenêtre temporelle glissante sur le <strong>champ date</strong> choisi. Exemple : <strong>6 derniers mois</strong> inclut bien la fin d'année précédente si nécessaire.">ⓘ</span></label>
     <select id="timeline-preset" class="ctrl-inp">
       <option value="">Toutes les périodes</option>

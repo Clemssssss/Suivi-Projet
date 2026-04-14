@@ -1915,9 +1915,9 @@
     updateTitles('biz-title-perf-', displayMode);
     var monthHint = document.getElementById('biz-hint-perf-month');
     if (monthHint) {
-      monthHint.textContent = hasTimeline
+      monthHint.textContent = (hasTimeline
         ? ('Periode active ' + (timeline.start || 'debut') + ' → ' + (timeline.end || 'aujourd hui') + ' • ' + filterContextSummary())
-        : describeScopeDetail(scope, timeline);
+        : describeScopeDetail(scope, timeline)) + ' • Note: 0 non affiche, petites valeurs visibles.';
     }
     var comboHint = document.getElementById('biz-hint-perf-zone-client');
     if (comboHint) comboHint.textContent = comboScope === 'all'

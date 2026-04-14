@@ -505,6 +505,7 @@ window.DashboardPDF = (() => {
 
   function _createExportDialog(charts) {
     return new Promise(resolve => {
+      var activePreset = '';
       function presetMatches(presetName, chartId) {
         if (presetName === 'direction') {
           return /^biz-chart-perf-(month|zone|client|type|zone-client|client-type)$/.test(chartId)
@@ -579,6 +580,7 @@ window.DashboardPDF = (() => {
       modal.querySelectorAll('[data-pdf-preset]').forEach(function(button) {
         button.addEventListener('click', function() {
           var presetName = button.getAttribute('data-pdf-preset');
+          activePreset = presetName || '';
           modal.querySelectorAll('[data-pdf-chart]').forEach(function(input) {
             input.checked = presetMatches(presetName, input.getAttribute('data-pdf-chart'));
           });
@@ -586,12 +588,17 @@ window.DashboardPDF = (() => {
           if (select) {
             select.value = presetName === 'direction' ? '2' : '1';
           }
+          var includeTable = modal.querySelector('#pdf-include-table');
+          if (includeTable && presetName === 'direction') includeTable.checked = false;
         });
       });
       modal.querySelector('[data-pdf-start]').addEventListener('click', function() {
-        const selectedChartIds = Array.from(modal.querySelectorAll('[data-pdf-chart]:checked')).map(function(input) {
+        var selectedChartIds = Array.from(modal.querySelectorAll('[data-pdf-chart]:checked')).map(function(input) {
           return input.getAttribute('data-pdf-chart');
         });
+        if (activePreset === 'direction' && selectedChartIds.length > 6) {
+          selectedChartIds = selectedChartIds.slice(0, 6);
+        }
         if (!selectedChartIds.length) {
           alert('Sélectionne au moins un graphique pour générer le PDF.');
           return;
