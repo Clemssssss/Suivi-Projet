@@ -574,12 +574,10 @@
     var badge   = document.getElementById('timeline-active-badge');
     var badgeTxt= document.getElementById('timeline-badge-text');
     var clearBtn= document.getElementById('timeline-clear');
-    var actionsGrp = document.getElementById('timeline-actions-group');
     var hasFilter = _timeline.start || _timeline.end;
 
     if (badge)    badge.style.display    = hasFilter ? '' : 'none';
     if (clearBtn) clearBtn.style.display = hasFilter ? '' : 'none';
-    if (actionsGrp) actionsGrp.style.display = hasFilter ? '' : 'none';
 
     if (hasFilter && badgeTxt) {
       var label = _timeline.start || '';
@@ -656,51 +654,53 @@
     var startInput    = document.getElementById('timeline-start');
     var endInput      = document.getElementById('timeline-end');
     var clearTimeline = document.getElementById('timeline-clear');
-    var essentialBtn  = document.getElementById('ctrl-bars-essential-toggle');
-    var barsRoot      = document.getElementById('ctrl-bars-sticky');
-    var helpBtn       = document.getElementById('btn-quick-help');
+    var yearSel       = document.getElementById('year-filter');
 
-    (function initEssentialFiltersMode() {
-      if (!essentialBtn || !barsRoot) return;
-      var KEY = 'dashboard.filters.essentialMode';
-      function apply(isOn) {
-        barsRoot.classList.toggle('filters-essential-on', !!isOn);
-        essentialBtn.classList.toggle('is-active', !!isOn);
-        essentialBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
-        essentialBtn.textContent = isOn ? '⚙ Filtres essentiels : on' : '⚙ Filtres essentiels : off';
+    function _hasTimelineFilter() {
+      return !!(_timeline.start || _timeline.end);
+    }
+
+    function _resetTimelineUI() {
+      _timeline = { start: null, end: null, preset: '' };
+      if (presetSel) presetSel.value = '';
+      if (startInput) startInput.value = '';
+      if (endInput) endInput.value = '';
+      if (customRange) customRange.style.display = 'none';
+    }
+
+    function _syncYearPeriodLocks() {
+      var hasYear = !!(yearSel && String(yearSel.value || '').trim());
+      var hasTimeline = _hasTimelineFilter();
+      var isCustom = !!(presetSel && presetSel.value === 'custom');
+
+      if (presetSel) {
+        presetSel.disabled = hasYear;
+        presetSel.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
       }
-      var saved = false;
-      try { saved = localStorage.getItem(KEY) === '1'; } catch (_) {}
-      apply(saved);
-      essentialBtn.addEventListener('click', function() {
-        var next = !barsRoot.classList.contains('filters-essential-on');
-        apply(next);
-        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) {}
-      });
-    })();
-
-    if (helpBtn && !helpBtn._boundQuickHelp) {
-      helpBtn._boundQuickHelp = true;
-      helpBtn.addEventListener('click', function() {
-        var msg = [
-          'Aide rapide (30 sec):',
-          '1) Année commerciale = filtre principal.',
-          '2) Mode CA = Total (Bud) ou Gagné uniquement.',
-          '3) Période = fenêtre de temps (6m, 12m, YTD...).',
-          '4) Mesure = valeur €, volume, ou taux.',
-          '5) Graphique zone × client = réglage spécifique à CE graphique.',
-          'Astuce: activez "Filtres essentiels : on" pour une lecture simple.'
-        ].join('\n');
-        if (typeof notify === 'function') {
-          notify('Aide rapide', 'Consultez la fenêtre d\'aide ouverte', 'info', 1800);
-        }
-        alert(msg);
-      });
+      if (startInput) {
+        startInput.disabled = hasYear || !isCustom;
+        startInput.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
+      }
+      if (endInput) {
+        endInput.disabled = hasYear || !isCustom;
+        endInput.title = hasYear ? 'Désactivé car un filtre Année commerciale est actif.' : '';
+      }
+      if (clearTimeline) {
+        clearTimeline.disabled = hasYear && !hasTimeline;
+      }
+      if (yearSel) {
+        yearSel.disabled = hasTimeline;
+        yearSel.title = hasTimeline ? 'Désactivé car un filtre Période est actif.' : '';
+      }
     }
 
     if (presetSel) {
       presetSel.addEventListener('change', function () {
         var val = this.value;
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         if (val === 'custom') {
           customRange && (customRange.style.display = '');
         } else {
@@ -713,35 +713,55 @@
           }
           _applyTimeline();
         }
+        _syncYearPeriodLocks();
       });
     }
 
     if (startInput) {
       startInput.addEventListener('change', function () {
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         _timeline.start = this.value || null;
         _timeline.preset = 'custom';
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
 
     if (endInput) {
       endInput.addEventListener('change', function () {
+        if (yearSel && yearSel.value) {
+          yearSel.value = '';
+          if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') AE.setYear('');
+        }
         _timeline.end = this.value || null;
         _timeline.preset = 'custom';
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
 
     if (clearTimeline) {
       clearTimeline.addEventListener('click', function () {
-        _timeline = { start: null, end: null, preset: '' };
-        if (presetSel) presetSel.value = '';
-        if (startInput) startInput.value = '';
-        if (endInput) endInput.value = '';
-        if (customRange) customRange.style.display = 'none';
+        _resetTimelineUI();
         _applyTimeline();
+        _syncYearPeriodLocks();
       });
     }
+
+    if (yearSel) {
+      yearSel.addEventListener('change', function () {
+        if (String(this.value || '').trim()) {
+          _resetTimelineUI();
+          _applyTimeline();
+        }
+        _syncYearPeriodLocks();
+      });
+    }
+
+    _syncYearPeriodLocks();
 
     // Toggle boutons pour les nouvelles cartes
     document.querySelectorAll('.chart-toggle-btn').forEach(function(btn) {
