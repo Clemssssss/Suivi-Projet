@@ -2195,6 +2195,7 @@
       el.addEventListener('change', function() {
         syncPerformanceControls();
         render();
+        if (typeof AE !== 'undefined' && typeof AE.syncURL === 'function') AE.syncURL();
       });
     });
   }
