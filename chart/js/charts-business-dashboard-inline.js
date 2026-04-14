@@ -2188,7 +2188,7 @@
   }
 
   function bindControls() {
-    ['biz-performance-view', 'biz-performance-combo-scope', 'biz-performance-status-filter', 'biz-pipe-view'].forEach(function(id) {
+    ['biz-performance-view', 'biz-performance-combo-scope', 'biz-performance-status-filter', 'biz-pipe-view', 'ca-mode'].forEach(function(id) {
       var el = document.getElementById(id);
       if (!el || el._businessBound) return;
       el._businessBound = true;
@@ -2201,9 +2201,11 @@
   }
 
   function syncPerformanceControls() {
+    var caModeEl = document.getElementById('ca-mode');
     var viewEl = document.getElementById('biz-performance-view');
     var statusEl = document.getElementById('biz-performance-status-filter');
     if (!viewEl || !statusEl) return;
+    var caMode = (caModeEl && caModeEl.value) ? caModeEl.value : 'Bud';
     var isRateView = viewEl.value === 'won_rate_amount' || viewEl.value === 'won_rate_count';
     if (isRateView) {
       if (!statusEl.dataset.previousValue) statusEl.dataset.previousValue = statusEl.value || 'all';
@@ -2212,9 +2214,18 @@
       statusEl.title = 'Le taux de transformation se calcule sur Gagné + Perdu.';
       return;
     }
+
+    if (caMode === 'ca_gagne') {
+      if (!statusEl.dataset.previousValue) statusEl.dataset.previousValue = statusEl.value || 'all';
+      statusEl.value = 'won';
+      statusEl.disabled = true;
+      statusEl.title = 'Mode CA Gagné uniquement : affichage forcé sur les projets gagnés.';
+      return;
+    }
+
     statusEl.disabled = false;
     statusEl.title = '';
-    if (statusEl.value === 'decided' && statusEl.dataset.previousValue) {
+    if ((statusEl.value === 'decided' || statusEl.value === 'won') && statusEl.dataset.previousValue) {
       statusEl.value = statusEl.dataset.previousValue;
     }
     delete statusEl.dataset.previousValue;
