@@ -23,6 +23,7 @@ window.ChartAnalysis = (() => {
 
   const TABLE_VIEW_STORAGE_KEY = 'dashboard.chart.tableView';
   const STYLE_STORAGE_KEY = 'dashboard.chart.styles';
+  const ANALYSIS_VIEW_STORAGE_KEY = 'dashboard.chart.analysisView';
   const _STYLE_APPLYING = new WeakSet();
   const _STYLE_SIGNATURES = new WeakMap();
 
@@ -77,61 +78,6 @@ window.ChartAnalysis = (() => {
     return _fmt(num);
   }
 
-  function _isCountMode(mode) {
-    const m = String(mode || '').toLowerCase();
-    return m.indexOf('_count') !== -1 || m === 'count' || m === 'offer_count';
-  }
-
-  function _isRatioMode(mode) {
-    const m = String(mode || '').toLowerCase();
-    return m === 'pipe_ratio' || m.indexOf('won_rate_') === 0;
-  }
-
-  function _formatByMode(value, mode) {
-    const num = Number(value);
-    if (!isFinite(num)) return null;
-    if (_isRatioMode(mode)) return Math.round(num * 100) + '%';
-    if (_isCountMode(mode)) return Math.round(num).toLocaleString('fr-FR');
-    return _fmt(num);
-  }
-
-  function _getBusinessSummary(chartId) {
-    if (typeof window.BusinessChartsDashboard === 'undefined'
-        || typeof window.BusinessChartsDashboard.getChartSummary !== 'function') return null;
-    return window.BusinessChartsDashboard.getChartSummary(chartId);
-  }
-
-  function _setSelectValue(selectEl, candidates) {
-    if (!selectEl || !Array.isArray(candidates)) return false;
-    const available = Array.from(selectEl.options || []).map(function(opt) { return String(opt.value); });
-    const next = candidates.find(function(candidate) { return available.includes(String(candidate)); });
-    if (!next) return false;
-    if (String(selectEl.value) === String(next)) return true;
-    selectEl.value = next;
-    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  function _toggleBusinessDisplayMode(chartId) {
-    if (!chartId || chartId.indexOf('biz-chart-perf-') !== 0) return false;
-
-    const summary = _getBusinessSummary(chartId);
-    if (!summary || !summary.mode) return false;
-    const perfView = document.getElementById('biz-performance-view');
-    if (!perfView) return false;
-
-    const mode = String(summary.mode);
-    const toCount = !_isCountMode(mode);
-
-    if (mode === 'won_rate_amount' || mode === 'won_rate_count') {
-      return _setSelectValue(perfView, [toCount ? 'won_rate_count' : 'won_rate_amount']);
-    }
-
-    return toCount
-      ? _setSelectValue(perfView, ['count', 'won_count', 'compare_status_count', 'decided_count', 'lost_count'])
-      : _setSelectValue(perfView, ['amount', 'won_amount', 'compare_status_amount', 'decided_amount', 'lost_amount']);
-  }
-
   function _storageGet(key, fallback) {
     try {
       const raw = window.localStorage ? localStorage.getItem(key) : null;
@@ -145,6 +91,29 @@ window.ChartAnalysis = (() => {
     try {
       if (window.localStorage) localStorage.setItem(key, JSON.stringify(value));
     } catch (e) {}
+  }
+
+  function _isAnalysisCollapsed(chartId) {
+    const map = _storageGet(ANALYSIS_VIEW_STORAGE_KEY, {});
+    if (map && Object.prototype.hasOwnProperty.call(map, chartId)) {
+      return !!map[chartId];
+    }
+    return true; // default mode réduit
+  }
+
+  function _setAnalysisCollapsed(chartId, collapsed) {
+    const map = _storageGet(ANALYSIS_VIEW_STORAGE_KEY, {});
+    map[chartId] = !!collapsed;
+    _storageSet(ANALYSIS_VIEW_STORAGE_KEY, map);
+  }
+
+  function _syncCollapseButton(block) {
+    if (!block) return;
+    const collapseBtn = block.querySelector('.ca-collapse-btn');
+    if (!collapseBtn) return;
+    const isCollapsed = block.classList.contains('ca-collapsed');
+    collapseBtn.textContent = isCollapsed ? '➕ Développer' : '➖ Réduire';
+    collapseBtn.title = isCollapsed ? 'Afficher l’analyse complète' : 'Passer en vue réduite';
   }
 
   function _storeTablePayload(payload) {
@@ -201,24 +170,17 @@ window.ChartAnalysis = (() => {
     const datasets = (chart.data.datasets || []).filter(ds => ds && Array.isArray(ds.data));
     if (!labels.length && !datasets.length) return null;
 
-    const businessSummary = _getBusinessSummary(chartId);
-    const fallbackMode = businessSummary && businessSummary.mode ? businessSummary.mode : '';
-    const seriesModes = businessSummary && businessSummary.kind === 'comparison' && Array.isArray(businessSummary.series)
-      ? businessSummary.series.map(function(serie) { return serie && serie.key ? String(serie.key) : fallbackMode; })
-      : [];
-
     const isMulti = datasets.length > 1;
     let rows = [];
 
     if (isMulti) {
       rows = labels.map((label, i) => {
-        const cells = datasets.map((ds, dsIndex) => {
-          const mode = seriesModes[dsIndex] || fallbackMode;
+        const cells = datasets.map(ds => {
           const raw = ds.data[i];
           const num = typeof raw === 'object' && raw !== null
             ? Number(raw.y != null ? raw.y : raw.x)
             : Number(raw);
-          return _formatByMode(num, mode) || _formatVal(num) || '—';
+          return _formatVal(num) || '—';
         });
         return { label: String(label || ''), cells };
       }).filter(r => r.label);
@@ -232,7 +194,7 @@ window.ChartAnalysis = (() => {
         return { label: String(label || ''), val: isFinite(num) ? num : null };
       }).filter(r => r.label && r.val !== null);
       combined.sort((a, b) => b.val - a.val);
-      rows = combined.map(r => ({ label: r.label, cells: [_formatByMode(r.val, fallbackMode) || _formatVal(r.val) || '—'] }));
+      rows = combined.map(r => ({ label: r.label, cells: [_formatVal(r.val) || '—'] }));
     }
 
     if (!rows.length) return null;
@@ -256,6 +218,8 @@ window.ChartAnalysis = (() => {
       <div class="ca-table-controls">
         <input class="ca-search-input" type="text" placeholder="🔍 Rechercher dans le tableau…" autocomplete="off">
         <span class="ca-row-count"></span>
+        <button class="ca-compact-btn" title="Afficher plus d'informations à l'écran">🗜 Compact</button>
+        <button class="ca-expand-btn" title="Afficher toutes les lignes du tableau">🧾 Tout voir</button>
         <button class="ca-open-table-btn" title="Ouvrir ce tableau dans un nouvel onglet">↗ Pleine page</button>
         <button class="ca-export-btn" title="Exporter vers Excel">⬇ Excel</button>
       </div>
@@ -279,6 +243,8 @@ window.ChartAnalysis = (() => {
     const searchInput= tableView.querySelector('.ca-search-input');
     const exportBtn  = tableView.querySelector('.ca-export-btn');
     const openBtn    = tableView.querySelector('.ca-open-table-btn');
+    const compactBtn = tableView.querySelector('.ca-compact-btn');
+    const expandBtn  = tableView.querySelector('.ca-expand-btn');
     const rowCount   = tableView.querySelector('.ca-row-count');
     const topScroll  = tableView.querySelector('.ca-top-scroll');
     const topInner   = tableView.querySelector('.ca-top-scroll-inner');
@@ -318,6 +284,34 @@ window.ChartAnalysis = (() => {
       rowCount.textContent = visible < total ? `${visible} / ${total} lignes` : `${total} lignes`;
     }
     _updateCount();
+
+    function _setCompact(enabled) {
+      tableView.classList.toggle('ca-table-compact', !!enabled);
+      if (compactBtn) compactBtn.textContent = enabled ? '📐 Standard' : '🗜 Compact';
+      _syncScrollWidth();
+    }
+
+    function _setExpanded(enabled) {
+      tableView.classList.toggle('ca-table-expanded', !!enabled);
+      if (expandBtn) expandBtn.textContent = enabled ? '📚 Vue réduite' : '🧾 Tout voir';
+      _syncScrollWidth();
+    }
+
+    if (compactBtn) {
+      compactBtn.addEventListener('click', function() {
+        _setCompact(!tableView.classList.contains('ca-table-compact'));
+      });
+    }
+
+    if (expandBtn) {
+      expandBtn.addEventListener('click', function() {
+        _setExpanded(!tableView.classList.contains('ca-table-expanded'));
+      });
+    }
+
+    if (allRows().length <= 14) {
+      _setExpanded(true);
+    }
 
     /* ── Sort on header click ── */
     const ths = Array.from(table.querySelectorAll('thead th'));
@@ -471,9 +465,16 @@ window.ChartAnalysis = (() => {
       (chart.data.datasets || []).forEach(function(ds, index) {
         const color = colors[index % colors.length];
         ds.borderColor = color;
-        ds.backgroundColor = Array.isArray(ds.data)
-          ? ds.data.map(function(_, idx) { return colors[idx % colors.length]; })
-          : color;
+        if (Array.isArray(ds.data)) {
+          const hasMultipleSeries = (chart.data.datasets || []).length > 1;
+          // Multi-series charts should keep one color per series.
+          // Single-series charts (pie/doughnut/single bar) can vary by point.
+          ds.backgroundColor = hasMultipleSeries
+            ? color
+            : ds.data.map(function(_, idx) { return colors[idx % colors.length]; });
+        } else {
+          ds.backgroundColor = color;
+        }
         ds.pointBackgroundColor = color;
         ds.pointBorderColor = color;
       });
@@ -623,7 +624,32 @@ window.ChartAnalysis = (() => {
   }
 
   function _toggleGlobalMode(preferredChartId) {
-    const businessModeHandled = _toggleBusinessDisplayMode(preferredChartId);
+    let businessModeHandled = false;
+    try {
+      if (preferredChartId && preferredChartId.indexOf('biz-chart-perf-') === 0
+          && typeof window.BusinessChartsDashboard !== 'undefined'
+          && typeof window.BusinessChartsDashboard.getChartSummary === 'function') {
+        const summary = window.BusinessChartsDashboard.getChartSummary(preferredChartId);
+        const perfView = document.getElementById('biz-performance-view');
+        if (summary && summary.mode && perfView && perfView.options) {
+          const mode = String(summary.mode);
+          const toCount = mode.indexOf('_count') === -1;
+          const available = Array.from(perfView.options).map(function(opt) { return String(opt.value); });
+          const candidates = (mode === 'won_rate_amount' || mode === 'won_rate_count')
+            ? [toCount ? 'won_rate_count' : 'won_rate_amount']
+            : (toCount
+              ? ['count', 'won_count', 'compare_status_count', 'decided_count', 'lost_count']
+              : ['amount', 'won_amount', 'compare_status_amount', 'decided_amount', 'lost_amount']);
+          const nextView = candidates.find(function(value) { return available.indexOf(String(value)) !== -1; });
+          if (nextView) {
+            perfView.value = nextView;
+            perfView.dispatchEvent(new Event('change', { bubbles: true }));
+            businessModeHandled = true;
+          }
+        }
+      }
+    } catch (_) {}
+
     if (!businessModeHandled) {
       if (typeof AE === 'undefined' || typeof AE.getCAMode !== 'function' || typeof AE.setCAMode !== 'function') return;
       const current = AE.getCAMode();
@@ -670,10 +696,18 @@ window.ChartAnalysis = (() => {
     if (!lead && points.length) lead = points.shift();
     if (!lead) return normalized;
 
+    function _pointTone(point) {
+      const p = String(point || '').trim();
+      if (/^(🎯|🚀|✅|🧩)/.test(p)) return 'action';
+      if (/^(⚠️|❌|📉|🧊)/.test(p)) return 'risk';
+      if (/^(🏆|📈|📊|📚|🧭|💡|🔮|📅)/.test(p)) return 'insight';
+      return 'neutral';
+    }
+
     return `
-      <div class="ca-analysis-lead">${lead}</div>
+      <div class="ca-analysis-lead"><span class="ca-analysis-lead-kicker">Synthèse</span>${lead}</div>
       ${points.length ? `<div class="ca-analysis-grid">${points.map(function(point) {
-        return `<div class="ca-analysis-point">${point}</div>`;
+        return `<div class="ca-analysis-point ca-analysis-point--${_pointTone(point)}">${point}</div>`;
       }).join('')}</div>` : ''}
     `;
   }
@@ -908,39 +942,45 @@ window.ChartAnalysis = (() => {
     const summary = _summarizeChartData(chartId);
     if (!summary || !summary.categories.length) return null;
 
-    const top = summary.topCategory;
-    const second = summary.secondCategory;
+    const categories = (summary.categories || []).filter(function(item) {
+      return item
+        && String(item.label || '').trim() !== ''
+        && isFinite(Number(item.value));
+    });
+    if (!categories.length) return null;
+
+    const top = categories[0];
+    const second = categories[1] || null;
+    if (!top || String(top.label || '').trim() === '' || !isFinite(Number(top.value))) return null;
+
     const topShare = summary.total > 0 ? Math.round(top.value / summary.total * 100) : null;
     const lines = [];
-    const fmt = function(value) {
-      return _formatByMode(value, summary.mode) || _formatVal(value) || _fmt(value);
-    };
 
     if (options.emphasis === 'time') {
-      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${fmt(top.value)}).`);
+      lines.push(`📅 Point haut : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
       if (second) {
         const delta = second.value !== 0 ? _pct(top.value, second.value) : null;
         lines.push(delta !== null
           ? `📈 Écart avec le 2e point : <strong>${delta >= 0 ? '+' : ''}${delta}%</strong> face à <strong>${second.label}</strong>.`
-          : `📊 2e point : <strong>${second.label}</strong> (${fmt(second.value)}).`);
+          : `📊 2e point : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}).`);
       }
     } else {
-      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${fmt(top.value)}).`);
+      lines.push(`🏆 Leader visible : <strong>${top.label}</strong> (${_formatVal(top.value) || _fmt(top.value)}).`);
       if (second) {
         const gap = top.value - second.value;
-        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${fmt(second.value)}) — écart ${fmt(gap)}.`);
+        lines.push(`📊 2e niveau : <strong>${second.label}</strong> (${_formatVal(second.value) || _fmt(second.value)}) — écart ${_formatVal(gap) || _fmt(gap)}.`);
       }
     }
 
     if (summary.datasets.length > 1 && summary.topDataset) {
-      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${fmt(summary.topDataset.total)}).`);
+      lines.push(`📚 Série dominante : <strong>${summary.topDataset.label}</strong> (${_formatVal(summary.topDataset.total) || _fmt(summary.topDataset.total)}).`);
     }
 
     if (topShare !== null) {
       lines.push(
         topShare >= 45
           ? `⚠️ Concentration marquée : <strong>${top.label}</strong> pèse ${topShare}% du total affiché.`
-          : `🧭 Répartition sur <strong>${summary.categories.length}</strong> catégorie${_s(summary.categories.length)} avec un leader à ${topShare}%.`
+          : `🧭 Répartition sur <strong>${categories.length}</strong> catégorie${_s(categories.length)} avec un leader à ${topShare}%.`
       );
     }
 
@@ -969,17 +1009,34 @@ window.ChartAnalysis = (() => {
           );
         }
       }
+      if (topShare !== null) {
+        lines.push(
+          topShare >= 45
+            ? `⚠️ Risque court terme : forte dépendance au point haut, surveiller la volatilité des mois faibles.`
+            : `✅ Opportunité court terme : distribution plutôt saine, marge pour accélérer sur 2 à 3 points relais.`
+        );
+      }
     } else if (options.family === 'pipeline') {
       lines.push(
         topShare !== null && topShare >= 45
           ? `🎯 Action : sécuriser rapidement <strong>${top.label}</strong> puis ouvrir 1 à 2 relais secondaires pour réduire la dépendance.`
           : `🎯 Action : cibler d’abord <strong>${top.label}</strong> puis le 2e niveau pour convertir plus vite le pipe visible.`
       );
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `⚠️ Risque commercial : concentration élevée du pipe, diversifier les relais pour fiabiliser l’atterrissage.`
+          : `✅ Signal positif : pipe réparti, meilleur potentiel de conversion régulière.`
+      );
     } else if (options.family === 'performance') {
       lines.push(
         topShare !== null && topShare >= 45
           ? `🎯 Action : protéger la catégorie forte <strong>${top.label}</strong> tout en lançant un plan de rattrapage sur les catégories de queue.`
           : `🎯 Action : dupliquer les pratiques de <strong>${top.label}</strong> sur les catégories sous le 2e niveau pour lisser la performance.`
+      );
+      lines.push(
+        topShare !== null && topShare >= 45
+          ? `⚠️ Vigilance performance : concentration élevée, un recul du leader impacterait fortement le total.`
+          : `✅ Lecture performance : base plus équilibrée, favorable à une progression durable.`
       );
     }
 
@@ -1757,26 +1814,47 @@ window.ChartAnalysis = (() => {
       }
       .ca-block-text {
         flex: 1;
-        padding: .7rem .8rem .55rem;
+        padding: .78rem .85rem .62rem;
       }
       .ca-analysis-lead {
         color: #e6f1fb;
-        font-size: .72rem;
-        line-height: 1.65;
+        font-size: .74rem;
+        line-height: 1.7;
+        display: grid;
+        gap: .28rem;
+      }
+      .ca-analysis-lead-kicker {
+        font-size: .56rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: rgba(0,212,170,.82);
       }
       .ca-analysis-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-        gap: .45rem;
-        margin-top: .55rem;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: .5rem;
+        margin-top: .62rem;
       }
       .ca-analysis-point {
-        padding: .52rem .6rem;
+        padding: .55rem .62rem;
         border-radius: 10px;
         border: 1px solid rgba(255,255,255,.06);
-        background: rgba(255,255,255,.025);
+        background: rgba(255,255,255,.03);
         color: rgba(220,232,245,.88);
         line-height: 1.55;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      }
+      .ca-analysis-point--insight {
+        border-color: rgba(0,153,255,.28);
+        background: linear-gradient(180deg, rgba(0,153,255,.09), rgba(0,153,255,.03));
+      }
+      .ca-analysis-point--action {
+        border-color: rgba(0,212,170,.32);
+        background: linear-gradient(180deg, rgba(0,212,170,.1), rgba(0,212,170,.03));
+      }
+      .ca-analysis-point--risk {
+        border-color: rgba(255,77,109,.34);
+        background: linear-gradient(180deg, rgba(255,77,109,.1), rgba(255,77,109,.03));
       }
       .ca-block-meta {
         display: flex;
@@ -1813,7 +1891,8 @@ window.ChartAnalysis = (() => {
       .ca-toggle-btn.is-table { background: rgba(0,212,170,.12); border-color: rgba(0,212,170,.3); color: #34d399; }
       .ca-open-btn,
       .ca-style-btn,
-      .ca-mode-btn {
+      .ca-mode-btn,
+      .ca-collapse-btn {
         flex-shrink: 0;
         border-radius: 5px;
         cursor: pointer;
@@ -1841,6 +1920,23 @@ window.ChartAnalysis = (() => {
         color: #c4b5fd;
       }
       .ca-mode-btn:hover { background: rgba(139,120,248,.18); color: #ddd6fe; }
+      .ca-collapse-btn {
+        background: rgba(56,189,248,.11);
+        border: 1px solid rgba(56,189,248,.26);
+        color: #a5f3fc;
+      }
+      .ca-collapse-btn:hover { background: rgba(56,189,248,.2); color: #cffafe; }
+
+      .chart-analysis-block.ca-collapsed .ca-analysis-grid { display: none; }
+      .chart-analysis-block.ca-collapsed .ca-block-meta { display: none; }
+      .chart-analysis-block.ca-collapsed .ca-block-text { padding-bottom: .45rem; }
+      .chart-analysis-block.ca-collapsed .ca-analysis-lead {
+        display: block;
+        line-height: 1.55;
+        max-height: none;
+        overflow: visible;
+      }
+      .chart-analysis-block.ca-collapsed .ca-analysis-lead-kicker { display: none; }
 
       /* ── TABLE WRAPPER ── */
       .ca-table-view { display: none; }
@@ -1891,6 +1987,25 @@ window.ChartAnalysis = (() => {
         transition: all .15s;
       }
       .ca-export-btn:hover { background: rgba(16,185,129,.22); color: #6ee7b7; }
+      .ca-compact-btn,
+      .ca-expand-btn {
+        flex-shrink: 0;
+        background: rgba(148,163,184,.12);
+        border: 1px solid rgba(148,163,184,.24);
+        color: #cbd5e1;
+        font-family: 'DM Mono', monospace;
+        font-size: .58rem;
+        padding: .22rem .6rem;
+        border-radius: 4px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all .15s;
+      }
+      .ca-compact-btn:hover,
+      .ca-expand-btn:hover {
+        background: rgba(148,163,184,.2);
+        color: #e2e8f0;
+      }
       .ca-open-table-btn {
         flex-shrink: 0;
         background: rgba(0,153,255,.12);
@@ -2022,8 +2137,9 @@ window.ChartAnalysis = (() => {
       .ca-table-scroll {
         overflow-x: auto;
         overflow-y: auto;
-        max-height: 290px;
+        max-height: min(56vh, 560px);
       }
+      .ca-table-view.ca-table-expanded .ca-table-scroll { max-height: none; }
       .ca-table-scroll::-webkit-scrollbar { height: 5px; width: 5px; }
       .ca-table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.03); }
       .ca-table-scroll::-webkit-scrollbar-thumb { background: rgba(0,212,170,.35); border-radius: 3px; }
@@ -2036,6 +2152,7 @@ window.ChartAnalysis = (() => {
         font-family: 'DM Mono', monospace;
         font-size: .65rem;
       }
+      .ca-table-view.ca-table-compact .ca-data-table { font-size: .58rem; }
       .ca-data-table thead th {
         background: rgba(0,30,22,.85);
         color: #9fb3c8;
@@ -2052,6 +2169,11 @@ window.ChartAnalysis = (() => {
         user-select: none;
         transition: background .12s;
       }
+      .ca-data-table thead th:first-child {
+        left: 0;
+        z-index: 3;
+        box-shadow: 1px 0 0 rgba(0,212,170,.08);
+      }
       .ca-data-table thead th:hover { background: rgba(0,212,170,.1); color: #c0d8f0; }
       .ca-data-table thead th::after { content: ''; display: inline-block; margin-left: 4px; opacity: .3; font-size: .55rem; }
       .ca-data-table thead th[data-sort="asc"]::after  { content: '▲'; opacity: 1; color: #00d4aa; }
@@ -2067,6 +2189,15 @@ window.ChartAnalysis = (() => {
         border-right: 1px solid rgba(255,255,255,.025);
         white-space: nowrap;
       }
+      .ca-table-view.ca-table-compact .ca-data-table td { padding: .18rem .5rem; }
+      .ca-data-table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: rgba(4,15,11,.95);
+        box-shadow: 1px 0 0 rgba(0,212,170,.08);
+      }
+      .ca-data-table tbody tr:hover td:first-child { background: rgba(0,50,36,.95) !important; }
       .ca-dt-label { color: #c0d0e0; font-weight: 500; min-width: 120px; }
       .ca-dt-val { text-align: right; color: #9fb3c8; min-width: 80px; }
 
@@ -2102,6 +2233,7 @@ window.ChartAnalysis = (() => {
         <div class="ca-block-header">
           <span class="ca-block-kicker" style="font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(0,212,170,.7);">Analyse</span>
           <div class="ca-block-actions">
+            <button class="ca-collapse-btn" title="Passer en vue réduite">➕ Développer</button>
             <button class="ca-mode-btn" title="Basculer entre volume et valeur">📈 / 💰 Mode</button>
             <button class="ca-style-btn" title="Personnaliser les couleurs, axes et graduations">🎨 Style</button>
             <button class="ca-toggle-btn" title="Afficher ou masquer le tableau synthétique">📊 Afficher le tableau</button>
@@ -2122,8 +2254,23 @@ window.ChartAnalysis = (() => {
       const tableView = block.querySelector('.ca-table-view');
       const styleBtn  = block.querySelector('.ca-style-btn');
       const modeBtn   = block.querySelector('.ca-mode-btn');
+      const collapseBtn = block.querySelector('.ca-collapse-btn');
+
+      if (!block.dataset.collapseInit) {
+        block.classList.toggle('ca-collapsed', _isAnalysisCollapsed(chartId));
+        _syncCollapseButton(block);
+        block.dataset.collapseInit = '1';
+      }
 
       if (!block.dataset.bound) {
+      if (collapseBtn) {
+        collapseBtn.addEventListener('click', () => {
+          const next = !block.classList.contains('ca-collapsed');
+          block.classList.toggle('ca-collapsed', next);
+          _setAnalysisCollapsed(chartId, next);
+          _syncCollapseButton(block);
+        });
+      }
       btn.addEventListener('click', () => {
         const isTableNow = tableView.classList.toggle('is-visible');
         btn.textContent = isTableNow ? '📕 Masquer le tableau' : '📊 Afficher le tableau';
@@ -2171,12 +2318,9 @@ window.ChartAnalysis = (() => {
     const textEl = block.querySelector('.ca-block-text');
     const metaEl = block.querySelector('.ca-block-meta');
     if (textEl) {
-      if (!text) {
-        block.style.display = 'none';
-      } else {
-        textEl.innerHTML = _formatAnalysisMarkup(text);
-        block.style.display = '';
-      }
+      const finalText = text || '📌 Analyse disponible en vue réduite. Développez pour plus de détails.';
+      textEl.innerHTML = _formatAnalysisMarkup(finalText);
+      block.style.display = '';
     }
     if (metaEl) {
       if (typeof DashboardDataTransparency !== 'undefined'
@@ -2188,9 +2332,14 @@ window.ChartAnalysis = (() => {
     }
     var modeBtn = block.querySelector('.ca-mode-btn');
     if (modeBtn) {
-      var businessSummary = _getBusinessSummary(chartId);
+      var businessSummary = (typeof window.BusinessChartsDashboard !== 'undefined'
+        && typeof window.BusinessChartsDashboard.getChartSummary === 'function')
+        ? window.BusinessChartsDashboard.getChartSummary(chartId)
+        : null;
       if (businessSummary && businessSummary.mode) {
-        modeBtn.textContent = _isCountMode(businessSummary.mode) ? '💰 Passer en valeur' : '📈 Passer en volume';
+        modeBtn.textContent = String(businessSummary.mode).indexOf('_count') !== -1
+          ? '💰 Passer en valeur'
+          : '📈 Passer en volume';
       } else if (typeof AE !== 'undefined' && typeof AE.getCAMode === 'function') {
         modeBtn.textContent = AE.getCAMode() === 'Bud' ? '📈 Passer en volume' : '💰 Passer en valeur';
       }

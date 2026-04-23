@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr" style="color-scheme: dark;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration des données</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="js/console-policy.js"></script>
+  <script src="js/authclient.js"></script>
+  <style>
+    body{margin:0;background:#08111d;color:#dce8f5;font-family:'DM Sans',system-ui,sans-serif;}
+    .wrap{max-width:1280px;margin:0 auto;padding:1.2rem;}
+    .nav{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap;}
+    .title{font-family:'Fraunces',serif;font-size:2rem;font-weight:900;color:#fff;}
+    .title em{font-style:normal;color:#00d4aa;}
+    .nav-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;}
+    .pill,.btn,.nav a{background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:12px;padding:.7rem .9rem;font:inherit;text-decoration:none;}
+    .pill{font-family:'DM Mono',monospace;color:#9ff3e1;}
+    .btn{cursor:pointer;}
+    .hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:1rem;margin-bottom:1rem;}
+    .card{background:rgba(15,23,35,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:1rem 1rem 1.2rem;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+    .card h2{margin:.1rem 0 .4rem;font-family:'Fraunces',serif;font-size:1.35rem;}
+    .meta{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.78rem;margin-bottom:.9rem;line-height:1.6;}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;}
+    .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem;}
+    .action{display:block;background:#0c1523;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1rem;text-decoration:none;color:#e8f4ff;}
+    .action strong{display:block;font-size:1rem;margin-bottom:.3rem;}
+    .action span{display:block;color:#9fb6cb;font-size:.84rem;line-height:1.5;}
+    .kv{display:grid;grid-template-columns:170px 1fr;gap:.55rem .9rem;font-size:.84rem;}
+    .kv div:nth-child(odd){color:#8ea6bc;font-family:'DM Mono',monospace;}
+    .status{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.78rem;margin-top:.85rem;line-height:1.55;}
+    .badge-row{display:flex;gap:.55rem;flex-wrap:wrap;margin:.85rem 0 0;}
+    .badge{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.2);border-radius:999px;padding:.45rem .7rem;font-family:'DM Mono',monospace;font-size:.72rem;color:#9ff3e1;}
+    .badge.alt{background:rgba(0,153,255,.1);border-color:rgba(0,153,255,.2);color:#b9e7ff;}
+    .badge.warn{background:rgba(255,183,77,.1);border-color:rgba(255,183,77,.2);color:#ffd98b;}
+    .badge.err{background:rgba(255,77,109,.1);border-color:rgba(255,77,109,.2);color:#ffc3d0;}
+    @media (max-width:1024px){.hero,.grid{grid-template-columns:1fr;}.actions{grid-template-columns:1fr;}}
+    @media (max-width:720px){.title{font-size:1.6rem;}.kv{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <div class="title">Administration <em>données</em></div>
+      <div class="nav-actions">
+        <span class="pill" id="auth-user-label">🔒 Session</span>
+        <button class="btn" id="btn-logout" type="button">Se déconnecter</button>
+        <a href="/chart/chart.html">← Retour dashboard</a>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="card">
+        <h2>Pilotage rapide</h2>
+        <div class="meta">Point d’entrée unique pour mettre à jour la DB, vérifier la source SharePoint et contrôler le dataset visible dans le dashboard.</div>
+        <div class="actions">
+          <a class="action" href="/chart/dataset-upload.html">
+            <strong>🗄️ MAJ DB depuis Excel</strong>
+            <span>Charge un fichier local, compare-le à la DB puis remplace le dataset si validation.</span>
+          </a>
+          <a class="action" href="/chart/source-sync.html">
+            <strong>⚙️ Source SharePoint</strong>
+            <span>Configure la source distante, teste l’accès et lance un refresh serveur.</span>
+          </a>
+          <a class="action" href="/chart/whitelist.html">
+            <strong>🛡️ Whitelist réseau</strong>
+            <span>Contrôle les accès admin et les IP autorisées pour les opérations sensibles.</span>
+          </a>
+          <a class="action" href="/chart/logs.html">
+            <strong>🧾 Journaux</strong>
+            <span>Consulte les événements d’accès, de synchro et d’import sur l’environnement.</span>
+          </a>
+          <a class="action" href="/chart/accounts.html">
+            <strong>👤 Comptes utilisateurs</strong>
+            <span>Crée ou désactive des comptes d’accès au dashboard avec rôle et mot de passe.</span>
+          </a>
+        </div>
+        <div class="status" id="admin-status">Chargement des informations…</div>
+      </div>
+
+      <div class="card">
+        <h2>Vue d’ensemble</h2>
+        <div class="meta">Synthèse rapide du dataset chargé et de la dernière source distante connue.</div>
+        <div class="badge-row" id="overview-badges">
+          <span class="badge">Dataset —</span>
+          <span class="badge alt">SharePoint —</span>
+          <span class="badge warn">Refresh —</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Dataset principal</h2>
+        <div class="meta">État du dataset actuellement utilisé par le dashboard.</div>
+        <div class="kv" id="dataset-snapshot">
+          <div>Dataset</div><div>—</div>
+          <div>Source</div><div>—</div>
+          <div>Nb lignes</div><div>—</div>
+          <div>Dernière MAJ</div><div>—</div>
+          <div>Hash payload</div><div>—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Source SharePoint</h2>
+        <div class="meta">Configuration active côté serveur pour la synchronisation distante.</div>
+        <div class="kv" id="sharepoint-snapshot">
+          <div>URL</div><div>—</div>
+          <div>Mode auth</div><div>—</div>
+          <div>Activation</div><div>—</div>
+          <div>Dernier statut</div><div>—</div>
+          <div>Dernière sync</div><div>—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>À surveiller</h2>
+        <div class="meta">Repères rapides pour éviter les erreurs d’exploitation.</div>
+        <div class="kv" id="watch-snapshot">
+          <div>Dataset key suivie</div><div>saip-main</div>
+          <div>Mode import Excel</div><div>Remplacement complet avec aperçu diff</div>
+          <div>Workflow conseillé</div><div>Analyser → vérifier diff → importer</div>
+          <div>Risque principal</div><div>Supprimer des lignes par inadvertance lors d’un import incomplet</div>
+          <div>Contrôle rapide</div><div>Comparer le volume DB et le volume du fichier avant validation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/data-admin-page.js"></script>
+</body>
+</html>
+

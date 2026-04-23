@@ -173,3 +173,23 @@ Body :
 ```
 
 Le connecteur Excel doit lire un vrai tableau Excel, par exemple `Tableau1`.
+
+## Git
+
+Le script `git_push_smart.cmd` à la racine permet de faire un push assisté depuis le dossier du projet.
+
+Exemples :
+
+```bat
+git_push_smart.cmd
+git_push_smart.cmd "Mise à jour des pages admin"
+git_push_smart.cmd --no-commit
+```
+
+Comportement :
+
+- détecte la branche courante
+- affiche l’état du dépôt
+- fait `git add -A` puis `git commit` si des fichiers ont changé
+- pousse la branche courante sur `origin`
+- utilise `git push -u origin <branche>` au premier push de la branche

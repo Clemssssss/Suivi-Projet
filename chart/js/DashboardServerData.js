@@ -43,6 +43,18 @@ window.DashboardServerData = (function() {
     } catch (_) {}
   }
 
+  function readBootstrapDataset() {
+    var data = Array.isArray(window.DATA) ? window.DATA : [];
+    if (!data.length) return null;
+    return {
+      sourceName: 'Jeu embarque / session courante',
+      rowCount: data.length,
+      updatedAt: '',
+      payloadHash: '',
+      data: data.map(function(item) { return Object.assign({}, item); })
+    };
+  }
+
   async function request(url) {
     var response = await fetch(url, {
       method: 'GET',
@@ -65,6 +77,31 @@ window.DashboardServerData = (function() {
   }
 
   async function hydrateDashboard() {
+    var bootstrap = readBootstrapDataset();
+    if (bootstrap) {
+      writeSessionCache(bootstrap);
+      if (typeof window.DashboardDataTransparency !== 'undefined'
+          && typeof window.DashboardDataTransparency.setDatasetMeta === 'function') {
+        window.DashboardDataTransparency.setDatasetMeta({
+          datasetKey: DATASET_KEY,
+          sourceName: bootstrap.sourceName,
+          rowCount: bootstrap.rowCount,
+          updatedAt: bootstrap.updatedAt,
+          payloadHash: bootstrap.payloadHash,
+          storageMode: 'bootstrap',
+          sourceType: 'bootstrap'
+        });
+      }
+      return {
+        ok: true,
+        sourceName: bootstrap.sourceName,
+        rowCount: bootstrap.rowCount,
+        updatedAt: bootstrap.updatedAt,
+        payloadHash: bootstrap.payloadHash,
+        storageMode: 'bootstrap'
+      };
+    }
+
     var result = await loadDataset();
     if (!result.ok || !result.data || !Array.isArray(result.data.data) || !result.data.data.length) {
       var cached = readSessionCache();

@@ -46,6 +46,8 @@ window.FloatingFilterBar = (() => {
     'dateRange':                  'Période',
     '_tranche':                   'Tranche',
     '_mois':                      'Mois',
+    '_businessStatus':            'Statut',
+    '__selection__':              'Graphique',
   };
 
   /* ── Icônes par type de filtre ────────────────────────────────── */
@@ -61,6 +63,8 @@ window.FloatingFilterBar = (() => {
     'partenaire_gc': '🤝',
     '_tranche': '💶',
     '_mois': '📆',
+    '_businessStatus': '📌',
+    '__selection__': '📊',
   };
 
   let _container = null;
@@ -76,6 +80,29 @@ window.FloatingFilterBar = (() => {
       Object.entries(aeFilters).forEach(([type, value]) => {
         if (value != null && value !== '') {
           filters.push({ type, value, source: 'ae' });
+        }
+      });
+    }
+    if (typeof AE !== 'undefined' && AE.getSelection) {
+      const selection = AE.getSelection();
+      if (selection && selection.label) {
+        filters.push({
+          type: '__selection__',
+          value: selection.label + (selection.count ? ' (' + selection.count + ')' : ''),
+          source: 'ae-selection'
+        });
+      }
+    }
+
+    if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.getDrillFilters === 'function') {
+      const businessFilters = window.BusinessChartsDashboard.getDrillFilters() || {};
+      Object.entries(businessFilters).forEach(([type, value]) => {
+        if (value == null || value === '') return;
+        const alreadyIn = filters.some(
+          existing => existing.type === type && String(existing.value) === String(value)
+        );
+        if (!alreadyIn) {
+          filters.push({ type, value, source: 'business' });
         }
       });
     }
@@ -99,6 +126,16 @@ window.FloatingFilterBar = (() => {
 
   /* ── Supprimer un filtre dans les deux systèmes ───────────────── */
   function _removeFilter(type, value, source) {
+    if (type === '__selection__') {
+      if (typeof AE !== 'undefined' && AE.clearSelection) AE.clearSelection();
+      return;
+    }
+    if (source === 'business') {
+      if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.removeDrillFilter === 'function') {
+        window.BusinessChartsDashboard.removeDrillFilter(type);
+      }
+      return;
+    }
     // Supprimer dans AE
     if (typeof AE !== 'undefined' && AE.removeFilter) {
       AE.removeFilter(type);
@@ -115,6 +152,9 @@ window.FloatingFilterBar = (() => {
   function _clearAll() {
     if (typeof AE !== 'undefined' && AE.clearAll) {
       AE.clearAll();
+    }
+    if (typeof window.BusinessChartsDashboard !== 'undefined' && typeof window.BusinessChartsDashboard.clearDrillFilters === 'function') {
+      window.BusinessChartsDashboard.clearDrillFilters();
     }
     if (typeof FilterManager !== 'undefined' && FilterManager.clearAll) {
       FilterManager.clearAll();
@@ -135,6 +175,10 @@ window.FloatingFilterBar = (() => {
     const statusMap = { obtenu: 'Gagné', perdu: 'Perdu', offre: 'En cours' };
     if (type === 'Statut' || type === 'status') {
       return statusMap[String(value).toLowerCase()] || value;
+    }
+    if (type === '_businessStatus') {
+      const businessMap = { won: 'Gagné', lost: 'Perdu', offer: 'Offre', decided: 'Décidé', pipe: 'Pipe actif' };
+      return businessMap[String(value).toLowerCase()] || value;
     }
     return String(value);
   }

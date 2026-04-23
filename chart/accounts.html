@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr" style="color-scheme: dark;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comptes utilisateurs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="js/console-policy.js"></script>
+  <script src="js/authclient.js"></script>
+  <style>
+    body{margin:0;background:#08111d;color:#dce8f5;font-family:'DM Sans',system-ui,sans-serif;}
+    .wrap{max-width:1400px;margin:0 auto;padding:1.2rem;}
+    .nav{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap;}
+    .title{font-family:'Fraunces',serif;font-size:2rem;font-weight:900;color:#fff;}
+    .title em{font-style:normal;color:#00d4aa;}
+    .nav-actions{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;}
+    .pill,.btn,.nav a{background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:12px;padding:.7rem .9rem;font:inherit;text-decoration:none;}
+    .pill{font-family:'DM Mono',monospace;color:#9ff3e1;}
+    .btn{cursor:pointer;}
+    .layout{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:1rem;}
+    .card{background:rgba(15,23,35,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:1rem 1rem 1.2rem;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+    .card h2{margin:.1rem 0 .4rem;font-family:'Fraunces',serif;font-size:1.4rem;}
+    .meta{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.78rem;margin-bottom:.9rem;line-height:1.55;}
+    .status{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.8rem;margin:.2rem 0 1rem;line-height:1.5;}
+    .form-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:.75rem;align-items:end;}
+    .field{display:flex;flex-direction:column;gap:.3rem;}
+    .field label{font-family:'DM Mono',monospace;font-size:.73rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.04em;}
+    .field input,.field select{width:100%;background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:12px;padding:.8rem .9rem;font:inherit;box-sizing:border-box;}
+    .check{display:flex;align-items:center;gap:.45rem;padding:.9rem 0 .2rem;color:#bfd4e8;font-size:.9rem;}
+    .check input{width:1rem;height:1rem;accent-color:#00d4aa;}
+    .btn-primary{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.34);color:#9ff3e1;font-weight:700;}
+    .summary{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .tag{display:inline-flex;align-items:center;border-radius:999px;padding:.32rem .6rem;font-family:'DM Mono',monospace;font-size:.72rem;border:1px solid transparent;}
+    .tag-ok{background:rgba(0,212,170,.12);color:#9ff3e1;border-color:rgba(0,212,170,.24);}
+    .tag-off{background:rgba(255,77,109,.12);color:#ffc3d0;border-color:rgba(255,77,109,.24);}
+    .tag-role{background:rgba(0,153,255,.12);color:#b9e7ff;border-color:rgba(0,153,255,.24);}
+    .table-wrap{overflow:auto;}
+    table{width:100%;border-collapse:collapse;min-width:980px;}
+    th,td{padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:top;font-size:.82rem;}
+    th{font-family:'DM Mono',monospace;font-size:.72rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.04em;}
+    .row-actions{display:flex;gap:.45rem;flex-wrap:wrap;}
+    .row-actions button{background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:10px;padding:.5rem .7rem;cursor:pointer;font:inherit;}
+    .row-actions .toggle{border-color:rgba(159,217,255,.25);color:#b9e7ff;}
+    .muted{color:#8ea6bc;}
+    .mono{font-family:'DM Mono',monospace;}
+    .stack{display:grid;gap:1rem;}
+    @media (max-width:1120px){.layout{grid-template-columns:1fr;}.form-grid{grid-template-columns:1fr 1fr;}}
+    @media (max-width:700px){.form-grid{grid-template-columns:1fr;}.title{font-size:1.6rem;}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <div class="title">Comptes <em>utilisateurs</em></div>
+      <div class="nav-actions">
+        <span class="pill" id="auth-user-label">🔒 Session</span>
+        <button class="btn" id="btn-logout" type="button">Se déconnecter</button>
+        <a href="/chart/data-admin.html">← Admin</a>
+        <a href="/chart/whitelist.html">🛡️ Whitelist</a>
+        <a href="/chart/logs.html">🧾 Logs</a>
+        <a href="/chart/chart.html">← Dashboard</a>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="stack">
+        <div class="card">
+          <h2>Créer ou mettre à jour un compte</h2>
+          <div class="meta">Le formulaire crée le compte en base. Si le nom existe déjà, il met aussi à jour le mot de passe, le rôle et l’état actif.</div>
+          <form id="account-form">
+            <div class="form-grid">
+              <div class="field">
+                <label for="account-username">Nom de compte</label>
+                <input id="account-username" type="text" autocomplete="username" placeholder="prenom.nom" required>
+              </div>
+              <div class="field">
+                <label for="account-password">Mot de passe</label>
+                <input id="account-password" type="password" autocomplete="new-password" placeholder="Mot de passe initial" required>
+              </div>
+              <div class="field">
+                <label for="account-role">Rôle</label>
+                <select id="account-role">
+                  <option value="user">Utilisateur</option>
+                  <option value="consultation">Consultation</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" id="account-submit" type="submit">Enregistrer</button>
+            </div>
+            <label class="check">
+              <input id="account-active" type="checkbox" checked>
+              Compte actif à la création / mise à jour
+            </label>
+          </form>
+          <div class="status" id="account-form-status">Prêt</div>
+          <div class="summary" id="account-summary">
+            <span class="tag tag-role">Total —</span>
+            <span class="tag tag-ok">Actifs —</span>
+            <span class="tag tag-off">Inactifs —</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <h2>Comptes existants</h2>
+          <div class="meta">Liste des comptes autorisés à se connecter au dashboard. Le mot de passe n’est jamais affiché.</div>
+          <div class="status" id="account-list-status">Chargement...</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>État</th>
+                  <th>Compte</th>
+                  <th>Rôle</th>
+                  <th>Créé / MAJ</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="accounts-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/accounts-page.js"></script>
+</body>
+</html>

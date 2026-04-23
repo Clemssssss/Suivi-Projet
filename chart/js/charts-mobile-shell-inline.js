@@ -24,7 +24,8 @@
     var state = loadState();
     return {
       actionsOpen: !!state.actionsOpen,
-      filtersOpen: !!state.filtersOpen
+      filtersOpen: state.filtersOpen !== false,
+      controlsCollapsed: !!state.controlsCollapsed
     };
   }
 
@@ -41,12 +42,21 @@
 
     var actionsBtn = document.getElementById('mobile-actions-toggle');
     var filtersBtn = document.getElementById('mobile-filters-toggle');
+    var controlsBtn = document.getElementById('ctrl-bars-toggle');
+    var controlsBar = document.getElementById('ctrl-bars-sticky');
 
     if (!isMobile()) {
       body.classList.remove('mobile-shell-ready', 'mobile-actions-open', 'mobile-filters-open');
       setButtonState(actionsBtn, true, { open: '✕ Actions', closed: '☰ Actions' });
       setButtonState(filtersBtn, true, { open: '✕ Filtres', closed: '⚙ Filtres' });
+      if (controlsBar) controlsBar.classList.toggle('is-minimized', getState().controlsCollapsed);
+      if (controlsBtn) {
+        var desktopCollapsed = getState().controlsCollapsed;
+        controlsBtn.setAttribute('aria-expanded', desktopCollapsed ? 'false' : 'true');
+        controlsBtn.textContent = desktopCollapsed ? '▸ Afficher' : '▾ Réduire';
+      }
       if (typeof window._syncShellPadding === 'function') setTimeout(window._syncShellPadding, 30);
+      if (typeof window._scheduleViewportRefresh === 'function') setTimeout(window._scheduleViewportRefresh, 60);
       return;
     }
 
@@ -54,9 +64,15 @@
     body.classList.add('mobile-shell-ready');
     body.classList.toggle('mobile-actions-open', state.actionsOpen);
     body.classList.toggle('mobile-filters-open', state.filtersOpen);
+    if (controlsBar) controlsBar.classList.toggle('is-minimized', state.controlsCollapsed);
     setButtonState(actionsBtn, state.actionsOpen, { open: '✕ Actions', closed: '☰ Actions' });
     setButtonState(filtersBtn, state.filtersOpen, { open: '✕ Filtres', closed: '⚙ Filtres' });
+    if (controlsBtn) {
+      controlsBtn.setAttribute('aria-expanded', state.controlsCollapsed ? 'false' : 'true');
+      controlsBtn.textContent = state.controlsCollapsed ? '▸ Afficher' : '▾ Réduire';
+    }
     if (typeof window._syncShellPadding === 'function') setTimeout(window._syncShellPadding, 30);
+    if (typeof window._scheduleViewportRefresh === 'function') setTimeout(window._scheduleViewportRefresh, 60);
   }
 
   function toggleKey(key) {
@@ -66,8 +82,95 @@
     applyState();
   }
 
-  function injectToggles() {
+  function ensureActionMenus() {
     var headerRight = document.querySelector('.hdr-right');
+    if (!headerRight) return null;
+
+    var actionsMain = headerRight.querySelector('.hdr-actions-main');
+    if (!actionsMain) return null;
+
+    var exportsPanel = actionsMain.querySelector('[data-header-menu-panel="exports"]');
+    var toolsPanel = actionsMain.querySelector('[data-header-menu-panel="tools"]');
+    var adminPanel = actionsMain.querySelector('[data-header-menu-panel="admin"]');
+
+    var menuMap = {
+      exports: {
+        panel: exportsPanel,
+        ids: ['btn-export-html', 'btn-csv', 'btn-excel', 'btn-export-json', 'btn-export-pdf']
+      },
+      tools: {
+        panel: toolsPanel,
+        ids: ['btn-email-report', 'btn-open-manual', 'btn-toggle-values', 'btn-notes-mode', 'ux-share-btn']
+      },
+      admin: {
+        panel: adminPanel,
+        ids: ['csv-import-trigger', 'btn-data-admin', 'btn-db-upload', 'btn-sharepoint-refresh', 'btn-sharepoint-source']
+      }
+    };
+
+    Object.keys(menuMap).forEach(function(key) {
+      var entry = menuMap[key];
+      if (!entry.panel) return;
+      entry.ids.forEach(function(id) {
+        var node = document.getElementById(id);
+        if (!node || node.parentElement === entry.panel) return;
+        entry.panel.appendChild(node);
+      });
+    });
+
+    return menuMap;
+  }
+
+  function ensureHeaderGroups() {
+    var headerRight = document.querySelector('.hdr-right');
+    if (!headerRight) return null;
+
+    var actionsMain = headerRight.querySelector('.hdr-actions-main');
+    var actionsMeta = headerRight.querySelector('.hdr-actions-meta');
+    var actionsStatus = headerRight.querySelector('.hdr-actions-status');
+
+    if (!actionsMain) {
+      actionsMain = document.createElement('div');
+      actionsMain.className = 'hdr-actions-main';
+      headerRight.insertBefore(actionsMain, headerRight.firstChild || null);
+    }
+    if (!actionsMeta) {
+      actionsMeta = document.createElement('div');
+      actionsMeta.className = 'hdr-actions-meta';
+      if (actionsStatus) headerRight.insertBefore(actionsMeta, actionsStatus);
+      else headerRight.appendChild(actionsMeta);
+    }
+
+    Array.prototype.slice.call(headerRight.children).forEach(function(child) {
+      if (!child || child === actionsMain || child === actionsMeta || child === actionsStatus) return;
+      if (child.id === 'mobile-shell-toggles') return;
+      if (child.id === 'project-count' || child.id === 'filter-micro' || child.classList.contains('hdr-pill') || child.classList.contains('filter-micro-badge')) {
+        actionsMeta.appendChild(child);
+        return;
+      }
+      actionsMain.appendChild(child);
+    });
+
+    ensureActionMenus();
+    return { headerRight: headerRight, actionsMain: actionsMain, actionsMeta: actionsMeta, actionsStatus: actionsStatus };
+  }
+
+  function bindMenuDismiss() {
+    if (document.body && document.body._headerMenusBound) return;
+    if (document.body) document.body._headerMenusBound = true;
+
+    document.addEventListener('click', function(event) {
+      var insideMenu = event.target && event.target.closest && event.target.closest('.hdr-menu');
+      if (insideMenu) return;
+      document.querySelectorAll('.hdr-menu[open]').forEach(function(menu) {
+        menu.removeAttribute('open');
+      });
+    });
+  }
+
+  function injectToggles() {
+    var groups = ensureHeaderGroups();
+    var headerRight = groups && groups.headerRight ? groups.headerRight : document.querySelector('.hdr-right');
     if (!headerRight || document.getElementById('mobile-shell-toggles')) return;
 
     var wrap = document.createElement('div');
@@ -92,7 +195,23 @@
   }
 
   function init() {
+    ensureHeaderGroups();
+    ensureActionMenus();
+    bindMenuDismiss();
     injectToggles();
+    var controlsBtn = document.getElementById('ctrl-bars-toggle');
+    if (controlsBtn && !controlsBtn._ctrlBarBound) {
+      controlsBtn._ctrlBarBound = true;
+      controlsBtn.addEventListener('click', function() { toggleKey('controlsCollapsed'); });
+    }
+    if (!window._headerMenuObserverBound) {
+      window._headerMenuObserverBound = true;
+      var observer = new MutationObserver(function() {
+        ensureHeaderGroups();
+        ensureActionMenus();
+      });
+      observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    }
     applyState();
   }
 

@@ -12,6 +12,7 @@ window.DashboardAuthGuard = (function() {
   };
 
   var lastReadOnlyNoticeAt = 0;
+  var domSyncScheduled = false;
 
   function whenBodyReady(callback) {
     if (document.body) {
@@ -19,6 +20,29 @@ window.DashboardAuthGuard = (function() {
       return;
     }
     document.addEventListener('DOMContentLoaded', callback, { once: true });
+  }
+
+  function syncStateToDOM() {
+    if (!document.body || document.readyState === 'loading') {
+      if (!domSyncScheduled) {
+        domSyncScheduled = true;
+        document.addEventListener('DOMContentLoaded', function() {
+          domSyncScheduled = false;
+          syncStateToDOM();
+        }, { once: true });
+      }
+      return;
+    }
+
+    updateHeaderUser();
+    updateRoleVisibility();
+    updateReadOnlyUI();
+    bindLogout();
+    bindReadOnlyGuard();
+    window.AuthClient.setDocumentAuthenticated(true);
+    document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
+      detail: { user: state.user, role: state.role, isAdmin: state.isAdmin, isReadOnly: state.isReadOnly }
+    }));
   }
 
   function getNextURL() {
@@ -49,7 +73,13 @@ window.DashboardAuthGuard = (function() {
   function updateRoleVisibility() {
     var adminOnlyNodes = document.querySelectorAll('[data-admin-only="1"]');
     adminOnlyNodes.forEach(function(node) {
-      node.hidden = !state.isAdmin;
+      if (state.isAdmin) {
+        node.hidden = false;
+        node.removeAttribute('hidden');
+      } else {
+        node.hidden = true;
+        node.setAttribute('hidden', '');
+      }
       node.setAttribute('aria-hidden', state.isAdmin ? 'false' : 'true');
       if (state.isAdmin) {
         if (node.id === 'csv-import-trigger') node.style.display = 'inline-flex';
@@ -206,15 +236,7 @@ window.DashboardAuthGuard = (function() {
         return false;
       }
 
-      updateHeaderUser();
-      updateRoleVisibility();
-      updateReadOnlyUI();
-      bindLogout();
-      bindReadOnlyGuard();
-      window.AuthClient.setDocumentAuthenticated(true);
-      document.dispatchEvent(new CustomEvent('dashboard-auth-ready', {
-        detail: { user: state.user, role: state.role, isAdmin: state.isAdmin, isReadOnly: state.isReadOnly }
-      }));
+      syncStateToDOM();
       return true;
     } catch (err) {
       console.error('[AuthGuard] Vérification session impossible', err);
