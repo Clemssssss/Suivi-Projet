@@ -176,22 +176,12 @@ Le connecteur Excel doit lire un vrai tableau Excel, par exemple `Tableau1`.
 
 ## Git
 
-Le script `git_push_smart.cmd` à la racine permet de faire un push assisté depuis le dossier du projet.
+Le script `git_push_smart.cmd` à la racine aide à faire un push assisté vers `origin/main`.
 
-Exemples :
+Il:
 
-```bat
-git_push_smart.cmd
-git_push_smart.cmd "Mise à jour des pages admin"
-git_push_smart.cmd --no-commit
-```
-
-Comportement :
-
-- détecte la branche courante
-- affiche l’état du dépôt
-- fait `git add -A` puis `git commit` si des fichiers ont changé
-- récupère `origin/main` avant le push
-- fait un `git rebase origin/main` pour éviter les rejets non-fast-forward
-- pousse toujours vers `origin/main`
-- utilise `git push origin HEAD:main` pour publier l’état courant sur `main`
+- détecte les changements locaux
+- bloque ou avertit si des chemins sensibles/générés comme `data/`, `archive/`, `.netlify/internal/`, `node_modules/` ou `tools/DbToolsPortable/bin|obj|publish` sont présents dans les fichiers changés
+- fait `git add -A`
+- commit si nécessaire
+- récupère `origin/main`, fait un `git rebase origin/main`, puis pousse vers `main`

@@ -18,13 +18,7 @@ const DATE_FIELDS = new Set([
 const MONTANT_FIELDS = new Set(['Bud', 'MB (€)', 'CA win proba']);
 const WINPROBA_FIELDS = new Set(['Win proba']);
 const NUM_FIELDS = new Set(['Puissance (MWc)', '_annee', 'id']);
-const HEADER_ALIAS_MAP = {
-  'Décidé le': 'Décidé le ',
-  'Décidé le ': 'Décidé le ',
-  'MB (\u0080)': 'MB (€)',
-  'MB (\uFFFD)': 'MB (€)',
-  'MB (�)': 'MB (€)'
-};
+const HEADER_ALIAS_MAP = { 'Décidé le': 'Décidé le ', 'Décidé le ': 'Décidé le ' };
 
 function canonicalHeader(h) {
   return HEADER_ALIAS_MAP[h] || h;
@@ -49,14 +43,8 @@ function parseDate(v) {
     return v.toISOString().slice(0, 10);
   }
   const s = String(v).trim();
-  const fr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (fr) {
-    let year = Number(fr[3]);
-    if (Number.isFinite(year) && year > 0 && year < 100) year += 2000;
-    if (year >= 1900 && year <= 2100) {
-      return `${String(year)}-${String(fr[2]).padStart(2, '0')}-${String(fr[1]).padStart(2, '0')}`;
-    }
-  }
+  const fr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (fr) return `${fr[3]}-${String(fr[2]).padStart(2, '0')}-${String(fr[1]).padStart(2, '0')}`;
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
   return nvClean(s);
 }
@@ -64,7 +52,7 @@ function parseDate(v) {
 function parseMontant(v) {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  let s = String(v).trim().replace(/[\u20AC\u0080\$\u00A3\u00A0\u202F\s]/g, '');
+  let s = String(v).trim().replace(/[\u20AC\$\u00A3\u00A0\u202F\s]/g, '');
   if (!s || s === '-') return null;
   const lc = s.lastIndexOf(',');
   const ld = s.lastIndexOf('.');
@@ -223,26 +211,6 @@ function loadWorkbookRowsFromCsvText(text) {
   return { score: scoreHeaderCandidate(matrix[headerIndex] || []), rows, sheetName: 'CSV' };
 }
 
-function normalizeWindows1252Artifacts(text) {
-  return String(text || '').replace(/\u0080/g, '€');
-}
-
-function loadWorkbookRowsFromCsvBuffer(buffer) {
-  const raw = Buffer.from(buffer || []);
-  const utf8Text = raw.toString('utf8');
-  const utf8Loaded = loadWorkbookRowsFromCsvText(utf8Text);
-
-  const hasUtf8Bom = raw.length >= 3 && raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf;
-  if (hasUtf8Bom || !utf8Text.includes('\uFFFD')) {
-    return utf8Loaded;
-  }
-
-  const latin1Loaded = loadWorkbookRowsFromCsvText(normalizeWindows1252Artifacts(raw.toString('latin1')));
-  if (latin1Loaded.score > utf8Loaded.score) return latin1Loaded;
-  if (latin1Loaded.score === utf8Loaded.score) return latin1Loaded;
-  return utf8Loaded;
-}
-
 function bufferLooksLikeHtml(buffer) {
   const snippet = Buffer.from(buffer || []).slice(0, 512).toString('utf8').trim().toLowerCase();
   return snippet.startsWith('<!doctype html') || snippet.startsWith('<html') || snippet.includes('<head') || snippet.includes('<body');
@@ -271,7 +239,6 @@ function buildRows(headers, matrixRows, rowOffset) {
     const obj = {};
 
     headers.forEach((header, i) => {
-      if (!header) return;
       const raw = values[i];
       if (DATE_FIELDS.has(header) || DATE_FIELDS.has(header.trim())) obj[header] = parseDate(raw);
       else if (MONTANT_FIELDS.has(header)) obj[header] = parseMontant(raw);
@@ -394,23 +361,9 @@ async function loadWorkbookRowsFromWorkbook(workbook) {
 }
 
 async function loadWorkbookRowsFromFile(filePath) {
-  const ext = path.extname(String(filePath || '')).toLowerCase();
-  if (ext === '.csv' || ext === '.txt') {
-    const csvBuffer = await fs.promises.readFile(filePath);
-    return loadWorkbookRowsFromCsvBuffer(csvBuffer);
-  }
-
-  const buffer = await fs.promises.readFile(filePath);
-  if (bufferLooksLikeHtml(buffer)) {
-    throw new Error('Le fichier local semble être une page HTML, pas un export .xlsx/.csv');
-  }
-  if (bufferLooksLikeZip(buffer)) {
-    return loadWorkbookRowsFromBuffer(buffer);
-  }
-  if (bufferLooksLikeCsv(buffer, ext === '.csv' ? 'text/csv' : 'text/plain')) {
-    return loadWorkbookRowsFromCsvBuffer(buffer);
-  }
-  throw new Error('Format local non pris en charge : attendu .xlsx ou CSV exploitable');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  return loadWorkbookRowsFromWorkbook(workbook);
 }
 
 async function loadWorkbookRowsFromBuffer(buffer) {
@@ -431,7 +384,7 @@ async function loadRowsFromRemoteBuffer(buffer, meta) {
     return loadWorkbookRowsFromBuffer(buffer);
   }
   if (bufferLooksLikeCsv(buffer, contentType)) {
-    return loadWorkbookRowsFromCsvBuffer(buffer);
+    return loadWorkbookRowsFromCsvText(Buffer.from(buffer).toString('utf8'));
   }
   throw new Error('Format distant non pris en charge : attendu .xlsx ou CSV exploitable');
 }

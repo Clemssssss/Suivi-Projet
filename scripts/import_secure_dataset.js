@@ -9,7 +9,7 @@ async function main() {
   const datasetKey = process.argv[3] || 'saip-main';
   const actor = process.argv[4] || 'local-import';
   if (!inputPath) {
-    throw new Error('Usage: node scripts/import_secure_dataset.js <file-path(.xlsx|.csv)> [datasetKey] [actor]');
+    throw new Error('Usage: node scripts/import_secure_dataset.js <xlsx-path> [datasetKey] [actor]');
   }
   const resolvedPath = assertExistingFile(inputPath);
 

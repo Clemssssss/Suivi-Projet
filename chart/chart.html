@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-<link rel="stylesheet" href="css/charts-theme-layout.css">
+<link rel="stylesheet" href="./css/charts-theme-layout.css">
 
 <!--[if gte mso 9]><xml>
 <mso:CustomDocumentProperties>
@@ -1440,53 +1440,53 @@
 </div><!-- /.shell -->
 
 <script src="js/data.js"></script>
-<script src="js/projectutils.js"></script>
+<script src="./js/projectUtils.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      FilterManager — gestionnaire central des filtres interactifs
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-filter-manager-inline.js"></script>
+<script src="./js/charts-filter-manager-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      ChartFilterController v2.1 — architecture centralisée
      Règle absolue : AUCUN onclick direct sur canvas ailleurs
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-filter-controller-inline.js"></script>
+<script src="./js/charts-filter-controller-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      DataFilterEngine v2.1 — moteur de filtrage centralisé
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-data-filter-engine-inline.js"></script>
+<script src="./js/charts-data-filter-engine-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      ChartDrillDown v2.1 — tableau contextuel inline
      Positionnement : DANS la chart-card (jamais document.body)
      Données : lecture pure via DataFilterEngine (aucun re-filtrage)
 ══════════════════════════════════════════════════════════ -->
-<link rel="stylesheet" href="css/charts-drilldown-panel.css">
-<script src="js/charts-drilldown-inline.js"></script>
+<link rel="stylesheet" href="./css/charts-drilldown-panel.css">
+<script src="./js/charts-drilldown-inline.js"></script>
 
-<script src="js/analytics.js"></script>
+<script src="./js/analytics.js"></script>
 <!-- ── MODULE 9 — analytics-patch avant charts ── -->
-<script src="js/analytics-patch.js"></script>
-<script src="js/charts-enrichis.js"></script>
+<script src="./js/analytics-patch.js"></script>
+<script src="./js/charts-enrichis.js"></script>
 <!-- ── MODULES 4, 5, 7 — ChartDrillDown v3.0 + ChartConfigManager v2.0 ── -->
-<script src="js/ChartDrillDown.js"></script>
-<script src="js/ChartConfigManager.js"></script>
+<script src="./js/ChartDrillDown.js"></script>
+<script src="./js/ChartConfigManager.js"></script>
 <!-- ── MODULE 9 — Nouveaux graphiques ── -->
-<script src="js/charts-nouveaux.js"></script>
+<script src="./js/charts-nouveaux.js"></script>
 <!-- ── MODULE 2 — PDF v2.0 UTF-8 ── -->
-<script src="js/dashboardpdf.js"></script>
+<script src="./js/DashboardPDF.js"></script>
 <!-- ── MODULE 1 — Barre de filtres unique ── -->
-<script src="js/floatingfilterbar.js"></script>
+<script src="./js/FloatingFilterBar.js"></script>
 <!-- ── MODULE 3 — Explications dynamiques ── -->
-<script src="js/ChartAnalysis.js"></script>
+<script src="./js/ChartAnalysis.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : KPI STRATÉGIQUES
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-strategic-kpis-inline.js"></script>
-<script src="js/charts-analytics-engine-inline.js"></script>
+<script src="./js/charts-strategic-kpis-inline.js"></script>
+<script src="./js/charts-analytics-engine-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : IMPORT CSV v4.0 — Anti-redéclaration robuste
@@ -1508,22 +1508,22 @@
 <!-- ══════════════════════════════════════════════════════════
      MODULE : EXPORT JSON
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-export-json-inline.js"></script>
+<script src="./js/charts-export-json-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : MODE STRATÉGIQUE (Volume ↔ Valeur)
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-strategic-mode-toggle-inline.js"></script>
+<script src="./js/charts-strategic-mode-toggle-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : SCORE DE SANTÉ COMMERCIALE /100
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-health-score-inline.js"></script>
+<script src="./js/charts-health-score-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : INSIGHTS AUTOMATIQUES
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-insights-inline.js"></script>
+<script src="./js/charts-insights-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      HOOK v2.0 — Intégration Analytics.js + ChartsEnrichis
@@ -1531,13 +1531,13 @@
      Les nouveaux graphiques (funnel, scatter, etc.) sont
      alimentés par ChartsEnrichis via Analytics.js.
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-renderer-inline.js"></script>
+<script src="./js/charts-renderer-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v3.0 — INTELLIGENCE DÉCISIONNELLE
      Diagnostics, Projection, Comparaison, Score Performance
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-diagnostics-inline.js"></script>
+<script src="./js/charts-diagnostics-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v4.0 — COMPARAISON ANNÉES
@@ -1546,7 +1546,7 @@
        ChartsEnrichis → createYearComparisonChart(), renderDeltaKPIs(), renderZoneComparisonTable()
        Ce module   → logique UI, état, événements
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-year-compare-inline.js"></script>
+<script src="./js/charts-year-compare-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v4.2 — BARRE OBJECTIF MULTI-ANNÉES
@@ -1555,31 +1555,31 @@
        renderObjectiveBars()         → rendu HTML, zéro Analytics direct dans la boucle
        Modes : normal / comparaison / positif uniquement
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-objectives-config-inline.js"></script>
+<script src="./js/charts-objectives-config-inline.js"></script>
 
 <!-- ── MODULE : TABLEAU DÉTAIL OBJECTIF PAR ANNÉE ── -->
-<script src="js/charts-target-tracker-inline.js"></script>
+<script src="./js/charts-target-tracker-inline.js"></script>
 
-<script src="js/tooltipinfo.js"></script>
+<script src="./js/TooltipInfo.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v5.0 — WIDGETS DÉCISIONNELS + FILTRES PREMIUM + CHART VISIBILITY
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-floating-filters-inline.js"></script>
-<script src="js/charts-tooltip-bootstrap-inline.js"></script>
+<script src="./js/charts-floating-filters-inline.js"></script>
+<script src="./js/charts-tooltip-bootstrap-inline.js"></script>
 
-<script src="js/charts-drill-map-inline.js"></script>
+<script src="./js/charts-drill-map-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULES v3.0 — Éditeur, State, UX
 ══════════════════════════════════════════════════════════ -->
-<script src="js/ChartEditor.js"></script>
-<script src="js/dashboardstate.js"></script>
-<script src="js/dashboardux.js"></script>
-<script src="js/DashboardDnD.js"></script>
-<script src="js/dashboardsections.js"></script>
-<script src="js/dashboardpdf.js"></script>
-<script src="js/charts-modules-init-inline.js"></script>
+<script src="./js/ChartEditor.js"></script>
+<script src="./js/DashboardState.js"></script>
+<script src="./js/DashboardUX.js"></script>
+<script src="./js/DashboardDnD.js"></script>
+<script src="./js/DashboardSections.js"></script>
+<script src="./js/DashboardPDF.js"></script>
+<script src="./js/charts-modules-init-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      POINT 8 — Audit de registration des graphiques Chart.js
@@ -1587,20 +1587,20 @@
      et affiche un warning console. Délai 2s pour laisser tous les graphiques
      se créer (ChartEditor, lazy render, etc.)
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-registration-audit-inline.js"></script>
+<script src="./js/charts-registration-audit-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      NORMALISATION DES BOUTONS — Uniformise info/focus/cfg sur toutes les cartes
      S'assure que chaque chart-card a exactement les mêmes boutons dans le même ordre
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-card-actions-normalizer-inline.js"></script>
+<script src="./js/charts-card-actions-normalizer-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      SYNC PADDING-TOP DU SHELL
      Header (fixed) + ctrl-bars-sticky (fixed) sont hors du shell.
      On mesure leur hauteur totale et on l'applique au shell.
 ══════════════════════════════════════════════════════════ -->
-<script src="js/charts-shell-padding-sync-inline.js"></script>
+<script src="./js/charts-shell-padding-sync-inline.js"></script>
 </body>
 </html>
 

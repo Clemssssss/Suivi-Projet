@@ -150,8 +150,7 @@ function isAdminOnlyPage(request) {
   const url = new URL(request.url);
   return url.pathname === '/chart/logs.html'
     || url.pathname === '/chart/source-sync.html'
-    || url.pathname === '/chart/whitelist.html'
-    || url.pathname === '/chart/accounts.html';
+    || url.pathname === '/chart/whitelist.html';
 }
 
 function readAdminIP(context) {

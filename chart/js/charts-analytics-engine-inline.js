@@ -1,5 +1,4 @@
 'use strict';
-window.__DASHBOARD_DEFAULT_COMMERCIAL_YEAR = window.__DASHBOARD_DEFAULT_COMMERCIAL_YEAR || '2026';
 
 /* ═══════════════════════════════════════════════════════════
    ANALYTICS ENGINE — source unique de vérité
@@ -19,15 +18,6 @@ if (!window.AE) {
     'inconnu', 'unknown', 'none', 'aucun'
   ]);
   const EMPTY_LBL = 'Non renseigné';
-
-  function normalizeYearValue(raw) {
-    if (raw === null || raw === undefined) return '';
-    var str = String(raw).trim();
-    if (!/^\d{4}$/.test(str)) return '';
-    var year = parseInt(str, 10);
-    if (!isFinite(year) || year < 1900 || year > 2100) return '';
-    return String(year);
-  }
 
   function nv(v) {
     if (v === null || v === undefined) return null;
@@ -53,11 +43,7 @@ if (!window.AE) {
     // Obligatoire pour que AE.setYear() (year-filter) filtre correctement.
     // DataFilterEngine fait la même chose dans setRawData() — on reste cohérents.
     st.raw = d.map(function(p) {
-      var existingYear = normalizeYearValue(p && p._annee);
-      if (existingYear) {
-        if (String(p._annee).trim() === existingYear) return p;
-        return Object.assign({}, p, { _annee: existingYear });
-      }
+      if (p._annee !== undefined && p._annee !== null && String(p._annee).trim() !== '') return p;
       // Calculer _annee si absent
       var annee = null;
       if (typeof Analytics !== 'undefined' && Analytics.getProjectYear) {
@@ -74,7 +60,6 @@ if (!window.AE) {
           }
         }
       }
-      annee = normalizeYearValue(annee) || null;
       if (annee === p._annee) return p; // pas de changement
       return Object.assign({}, p, { _annee: annee });
     });
@@ -165,9 +150,8 @@ if (!window.AE) {
       d = d.filter(p => {
         if (k === 'Statut') return ProjectUtils.getStatus(p) === v || ProjectUtils.parseStatusKey(v) === ProjectUtils.getStatus(p);
         if (k === '_annee') {
-          var py = normalizeYearValue(p && p._annee);
-          var fy = normalizeYearValue(v);
-          return !!fy && py === fy;
+          const py = p._annee ? String(p._annee) : '';
+          return py === String(v);
         }
         if (k === '_mois') return _matchesMonthFilter(p, v);
         if (k === '_businessStatus') return _matchesBusinessStatus(p, v);
@@ -183,15 +167,6 @@ if (!window.AE) {
   }
 
   function toggleFilter(k, v) {
-    if (k === '_annee') {
-      var normalizedYear = normalizeYearValue(v);
-      if (!normalizedYear) {
-        notify('Filtre ignoré', 'Année commerciale invalide', 'warning', 1800);
-        return;
-      }
-      v = normalizedYear;
-    }
-
     if (st.filters[k] === v) {
       delete st.filters[k];
       notify('Filtre supprimé', v, 'info', 1800);
@@ -233,7 +208,7 @@ if (!window.AE) {
     notify('Filtre graphique appliqué', (label || 'Sélection graphique') + ' • ' + items.length + ' projet(s)', 'success', 2200);
   }
   function clearAll()      { st.filters = {}; st.selection = null; push(); notify('Filtres effacés', 'Tous les projets', 'info', 1800); }
-  function setYear(y)      { st.year = normalizeYearValue(y); st.filters = {}; push(); }
+  function setYear(y)      { st.year = y; st.filters = {}; push(); }
   function getSelection()  { return st.selection ? { label: st.selection.label, count: st.selection.count } : null; }
   function setSearch(q)    { st.search = q.trim(); push(); }
   function setCAMode(m)    { st.caMode = m; push(); }
@@ -282,20 +257,12 @@ if (!window.AE) {
 
   function loadFromURL() {
     const p = new URLSearchParams(window.location.search);
-    if (p.has('year')) st.year = normalizeYearValue(p.get('year'));
+    if (p.has('year')) st.year = p.get('year');
     if (p.has('ca'))   st.caMode = p.get('ca');
     if (p.has('q')) st.search = (p.get('q') || '').trim();
     if (p.has('energy')) st.energyType = p.get('energy') || '';
-    for (const [k, v] of p.entries()) {
-      if (!k.startsWith('f_')) continue;
-      var filterKey = k.slice(2);
-      if (filterKey === '_annee') {
-        var yv = normalizeYearValue(v);
-        if (yv) st.filters[filterKey] = yv;
-      } else {
-        st.filters[filterKey] = v;
-      }
-    }
+    for (const [k, v] of p.entries())
+      if (k.startsWith('f_')) st.filters[k.slice(2)] = v;
 
     window.__dashboardURLControls = {
       dateField: p.get('date_field') || '',
@@ -1906,23 +1873,20 @@ function createAllCharts(data) {
   // ── 17. CA cumulé multi-années ──
   {
     const M = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    const years = [...new Set(data.map(function(p) {
-      var year = resolveProjectYearValue(p);
-      return isFinite(year) ? String(year) : null;
+    const years = [...new Set(data.map(p => {
+      // Priorité : annee_manuel > annee
+      if (p._annee != null && String(p._annee).trim() !== '') return String(p._annee);
+      return p._annee;
     }).filter(Boolean))].sort();
     const datasets = years.map((y, yi) => {
       const mCA = Array(12).fill(0);
       data.filter(p => {
-        var py = resolveProjectYearValue(p);
-        return isFinite(py) && String(py) === String(y);
+        const py = (p._annee != null && String(p._annee).trim() !== '')
+          ? String(p._annee) : String(p._annee||'');
+        return py === String(y);
       }).forEach(p => {
-        const rawDate = p['Date réception'];
-        if (!rawDate) return;
-        const d = (typeof ProjectUtils !== 'undefined' && typeof ProjectUtils.parseDate === 'function')
-          ? ProjectUtils.parseDate(rawDate)
-          : new Date(rawDate);
-        if (!(d instanceof Date) || !isFinite(d.getTime())) return;
-        mCA[d.getMonth()] += getCAValue(p, cm);
+        const d = p['Date réception'] || p['Date réception']; if (!d) return;
+        mCA[new Date(d).getMonth()] += getCAValue(p, cm);
       });
       let acc = 0;
       const cumul = mCA.map(v => { acc += v; return acc; });
@@ -2217,15 +2181,6 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
-function normalizeDashboardYearValue(raw) {
-  if (raw === null || raw === undefined) return '';
-  var str = String(raw).trim();
-  if (!/^\d{4}$/.test(str)) return '';
-  var year = parseInt(str, 10);
-  if (!isFinite(year) || year < 1900 || year > 2100) return '';
-  return String(year);
-}
-
 function resolveProjectYearValue(project) {
   if (!project) return null;
 
@@ -2233,10 +2188,8 @@ function resolveProjectYearValue(project) {
     if (raw == null) return null;
     const str = String(raw).trim();
     if (!str) return null;
-    const normalizedYear = normalizeDashboardYearValue(str);
-    if (normalizedYear) return parseInt(normalizedYear, 10);
-    const lower = str.toLowerCase();
-    if (lower === 'null' || lower === 'undefined' || lower === 'nan') return null;
+    const parsedInt = parseInt(str, 10);
+    if (/^\d{4}$/.test(str) && isFinite(parsedInt)) return parsedInt;
     if (typeof ProjectUtils !== 'undefined' && typeof ProjectUtils.parseDate === 'function') {
       const date = ProjectUtils.parseDate(str);
       if (date && typeof date.getFullYear === 'function') {
@@ -2299,21 +2252,6 @@ function rebuildYearSelectFromData(data) {
 
   if (current && yrs.includes(parseInt(current, 10))) {
     ys.value = current;
-    return;
-  }
-
-  var urlHasYear = new URLSearchParams(window.location.search).has('year');
-  if (urlHasYear) return;
-  if (ys.dataset.defaultYearApplied === '1') return;
-
-  var defaultYear = normalizeDashboardYearValue(window.__DASHBOARD_DEFAULT_COMMERCIAL_YEAR);
-  var defaultYearInt = parseInt(defaultYear, 10);
-  if (defaultYear && yrs.includes(defaultYearInt)) {
-    ys.value = defaultYear;
-    ys.dataset.defaultYearApplied = '1';
-    if (typeof AE !== 'undefined' && typeof AE.setYear === 'function') {
-      AE.setYear(defaultYear);
-    }
   }
 }
 
@@ -2345,8 +2283,10 @@ function setDashboardData(newData, options) {
 
   window.DATA = source.map(function(p) {
     const normalized = Object.assign({}, p);
-    const year = resolveProjectYearValue(normalized);
-    normalized._annee = isFinite(year) ? String(year) : null;
+    if (normalized._annee == null || String(normalized._annee).trim() === '') {
+      const year = resolveProjectYearValue(normalized);
+      if (year) normalized._annee = String(year);
+    }
     return normalized;
   });
 
@@ -2554,10 +2494,7 @@ function update() {
 
   // Restaurer depuis URL
   const up = new URLSearchParams(window.location.search);
-  if (up.has('year')) {
-    ys.value = up.get('year');
-    ys.dataset.defaultYearApplied = '1';
-  }
+  if (up.has('year')) ys.value = up.get('year');
   if (up.has('ca'))   document.getElementById('ca-mode').value = up.get('ca');
   if (up.has('q')) {
     var searchElFromURL = document.getElementById('search-input');
@@ -2629,7 +2566,6 @@ function update() {
     });
 
   ys.addEventListener('change', function () {
-    this.dataset.defaultYearApplied = '1';
     AE.setYear(this.value);
     notify('Filtre année', this.value || 'Toutes', 'info', 1800);
   });
@@ -2645,7 +2581,20 @@ function update() {
         setTimeout(function() {
           var yrSel = document.getElementById('year-filter');
           if (yrSel && window.DATA) {
-            rebuildYearSelectFromData(window.DATA);
+            var currentVal = yrSel.value;
+            var yrs = [...new Set(window.DATA.map(function(p) {
+              return resolveProjectYearValue(p);
+            }).filter(Boolean))].sort().reverse();
+            yrSel.innerHTML = '<option value="">Toutes les années</option>';
+            yrs.forEach(function(y) {
+              var o = document.createElement('option');
+              o.value = y; o.textContent = y;
+              yrSel.appendChild(o);
+            });
+            // Restaurer la sélection si encore valide
+            if (currentVal && yrs.includes(parseInt(currentVal))) {
+              yrSel.value = currentVal;
+            }
           }
         }, 150);
       } else {
