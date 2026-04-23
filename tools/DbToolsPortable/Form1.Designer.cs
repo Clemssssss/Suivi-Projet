@@ -130,7 +130,7 @@ partial class Form1
         this.lblTitle.Name = "lblTitle";
         this.lblTitle.Size = new System.Drawing.Size(998, 44);
         this.lblTitle.TabIndex = 0;
-        this.lblTitle.Text = "DB Tools Portable - Import Excel + SharePoint";
+        this.lblTitle.Text = "DB Tools Portable - Import Excel/CSV + SharePoint";
         this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
         // 
         // grpWorkspace

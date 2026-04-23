@@ -176,6 +176,20 @@
   }
 
   /**
+   * Lire un montant métier avec filet de secours sur les autres champs
+   * financiers disponibles dans le dataset.
+   */
+  function getProjectAmount(project) {
+    if (!project) return 0;
+    const keys = ['Bud', 'MB (€)', 'CA win proba'];
+    for (const key of keys) {
+      const value = parseMontant(project[key]);
+      if (value !== null && value > 0) return value;
+    }
+    return 0;
+  }
+
+  /**
    * Formater un montant numérique pour l'affichage.
    *
    * @param {number|string} value
@@ -576,7 +590,7 @@
       else if (status === STATUS_KEYS.OFFRE) kpis.offre++;
 
       // CA
-      const montant = parseMontant(p['Bud']);
+      const montant = getProjectAmount(p);
       if (montant !== null) {
         kpis.caTotal += montant;
         if (status === STATUS_KEYS.OBTENU) kpis.caObtenu += montant;
@@ -655,7 +669,7 @@
     projects.forEach(p => {
       if (getStatus(p) === STATUS_KEYS.OFFRE) {
         totalOffres++;
-        const montant = parseMontant(p['Bud']);
+        const montant = getProjectAmount(p);
         if (montant !== null) offreMontant += montant;
       }
     });
@@ -820,7 +834,7 @@
 
     if (filters.minCA) {
       filtered = filtered.filter(p =>
-        (parseMontant(p['Bud']) || 0) >= filters.minCA
+        getProjectAmount(p) >= filters.minCA
       );
     }
 
@@ -845,6 +859,7 @@
 
     // Montants
     parseMontant,
+    getProjectAmount,
     formatMontant,
 
     // Dates

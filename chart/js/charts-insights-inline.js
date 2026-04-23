@@ -1,7 +1,12 @@
 (function () {
   'use strict';
 
-  function pCA(v){ return (typeof v==='number'?v:parseFloat(String(v||'').replace(/[^\d.]/g,''))||0); }
+  function pCA(v){
+    if (typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount && typeof v === 'object') {
+      return ProjectUtils.getProjectAmount(v) || 0;
+    }
+    return (typeof v==='number'?v:parseFloat(String(v||'').replace(/[^\d.]/g,''))||0);
+  }
   function fmt(v){ if(!v)return'—'; if(v>=1e6)return(v/1e6).toFixed(2).replace('.',',')+' M€'; if(v>=1e3)return Math.round(v/1e3)+' k€'; return Math.round(v)+'€'; }
 
   function genConversion(data) {
@@ -61,7 +66,7 @@
     var decided = won + lost;
     var convRate = decided > 0 ? won / decided : 0;
     var offers = data.filter(function(p){ return ProjectUtils.getStatus(p)==='offre'; });
-    var totalCA = offers.reduce(function(s,p){ return s+pCA(p['Bud']); }, 0);
+    var totalCA = offers.reduce(function(s,p){ return s+pCA(p); }, 0);
     var pipe = Math.round(totalCA * convRate);
     if (pipe < 1000) return null;
     return '💼 CA pipeline prévisionnel : <strong>' + fmt(pipe) + '</strong> (' + offers.length + ' offres × ' + Math.round(convRate*100) + '% taux conv.).';

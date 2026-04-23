@@ -502,9 +502,18 @@ const TT  = {
 
 function fmt(v)   { return ProjectUtils.formatMontant(v, true); }
 function pCA(v)   { return ProjectUtils.parseMontant(v) || 0; }
+function getAmount(p) {
+  if (!p) return 0;
+  var keys = ['Bud', 'MB (€)', 'CA win proba'];
+  for (var i = 0; i < keys.length; i++) {
+    var val = ProjectUtils.parseMontant(p[keys[i]]);
+    if (val !== null && val > 0) return val;
+  }
+  return 0;
+}
 // [CORRIGÉ v2] getBud() — source unique de vérité pour les montants
 // Remplace pCA(p[cm]) dans createAllCharts() : cm peut valoir 'ca_etudie' (champ inexistant)
-function getBud(p) { return ProjectUtils.parseMontant(p['Bud']) || 0; }
+function getBud(p) { return getAmount(p); }
 // getCAValue(p, cm) — source unique pour lire le montant selon le mode CA
 // cm = 'Bud' (étudié, tous projets) | 'ca_gagne' (gagné, filtre obtenu) | autre → Bud
 function getCAValue(p, cm) {
@@ -1777,8 +1786,8 @@ function createAllCharts(data) {
     data.forEach(p => {
       const c = AE.nv(p['Client']); if (!c) return;
       if (!cc[c]) cc[c] = { e:0, g:0 };
-      cc[c].e += pCA(p['Bud']);
-      cc[c].g += pCA(p['Bud']);
+      cc[c].e += getBud(p);
+      cc[c].g += getCAValue(p, 'ca_gagne');
     });
     const s  = Object.entries(cc).sort((a,b)=>(b[1].e+b[1].g)-(a[1].e+a[1].g)).slice(0,8);
     const l  = s.map(([c])=>c), av = af['Client'];

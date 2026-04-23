@@ -173,17 +173,3 @@ Body :
 ```
 
 Le connecteur Excel doit lire un vrai tableau Excel, par exemple `Tableau1`.
-
-## Git
-
-Le script `git_push_smart.cmd` à la racine aide à faire un push assisté vers `origin/main`.
-
-Il:
-
-- détecte les changements locaux
-- bloque ou avertit si des chemins sensibles/générés comme `data/`, `archive/`, `.netlify/internal/`, `node_modules/` ou `tools/DbToolsPortable/bin|obj|publish` sont présents dans les fichiers changés
-- fait `git add -A`
-- commit si nécessaire
-- récupère `origin/main`
-- vérifie que `main` n’a pas divergé de façon incompatible avant de pousser
-- pousse vers `origin/main` seulement si le push est safe

@@ -173,7 +173,7 @@
       const year = getProjectYear(p);
       if (!year) return;
       if (ProjectUtils.getStatus(p) === 'obtenu') {
-        const bud = ProjectUtils.parseMontant(p['Bud']) || 0;
+        const bud = _resolveAmount(p);
         map[year] = (map[year] || 0) + bud;
       }
     });
@@ -227,17 +227,24 @@
       out = out.filter(p => (parseFloat(p['Puissance (MWc)']) || 0) >= filters.minPower);
     }
     if (filters.minCA) {
-      out = out.filter(p => (ProjectUtils.parseMontant(p['Bud']) || 0) >= filters.minCA);
+      out = out.filter(p => _resolveAmount(p) >= filters.minCA);
     }
     return out;
   }
 
-  /** Parse montant robuste — délègue à ProjectUtils */
-  /** Lire le Bud d'un projet (toujours la source de vérité) */
+  function _resolveAmount(project) {
+    if (!project) return 0;
+    const keys = ['Bud', 'MB (€)', 'CA win proba'];
+    for (const key of keys) {
+      const v = ProjectUtils.parseMontant(project[key]);
+      if (v !== null && v > 0) return v;
+    }
+    return 0;
+  }
+
+  /** Lire le montant d'un projet avec fallback sur les champs disponibles */
   function _ca(project, mode) {
-    // Toujours lire Bud — les modes historiques sont abandonnés
-    const v = ProjectUtils.parseMontant(project['Bud']);
-    return (v !== null && v > 0) ? v : 0;
+    return _resolveAmount(project);
   }
 
   /* ──────────────────────────────────────────────────────
@@ -248,13 +255,13 @@
 
   /** CA Étudié = Bud brut du projet */
   function getCAEtudie(project) {
-    return ProjectUtils.parseMontant(project['Bud']) || 0;
+    return _resolveAmount(project);
   }
 
   /** CA Gagné = Bud si statut obtenu, sinon 0 */
   function getCAGagne(project) {
     return ProjectUtils.getStatus(project) === 'obtenu'
-      ? (ProjectUtils.parseMontant(project['Bud']) || 0)
+      ? _resolveAmount(project)
       : 0;
   }
 
@@ -268,7 +275,7 @@
    */
   function getCAWinProba(project, globalRate) {
     const status = ProjectUtils.getStatus(project);
-    const bud    = ProjectUtils.parseMontant(project['Bud']) || 0;
+    const bud    = _resolveAmount(project);
     if (status === 'obtenu') return bud;
     if (status === 'perdu')  return 0;
     // offre en cours
@@ -297,7 +304,7 @@
       map[key].total++;
       if (ProjectUtils.getStatus(p) === 'obtenu') {
         map[key].obtenu++;
-        map[key].ca_gagne += ProjectUtils.parseMontant(p['Bud']) || 0;
+        map[key].ca_gagne += _resolveAmount(p);
       }
     });
     return Object.entries(map)

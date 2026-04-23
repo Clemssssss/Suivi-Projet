@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" style="color-scheme: dark;" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
+<html lang="fr" class="auth-pending" style="color-scheme: dark;" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,11 +8,16 @@
 <title>Analytics Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="js/console-policy.js"></script>
+<script src="js/AuthClient.js"></script>
+<script src="js/chart-auth-guard.js"></script>
+<script src="js/DashboardServerData.js"></script>
+<script src="js/DashboardLocalData.js"></script>
+<script src="js/DashboardDataTransparency.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 
 <link rel="stylesheet" href="css/charts-theme-layout.css">
-
 <!--[if gte mso 9]><xml>
 <mso:CustomDocumentProperties>
 <mso:xd_Signature msdt:dt="string"></mso:xd_Signature>
@@ -45,34 +50,77 @@
 <header class="hdr">
   <div class="hdr-brand">Analytics <em>Dashboard</em></div>
   <div class="hdr-sep"></div>
-  <div class="hdr-sub">📊 Tableau de bord interactif</div>
+  <div class="hdr-sub-row">
+    <div class="hdr-sub">📊 Tableau de bord interactif</div>
+    <div class="hdr-actions-status hdr-actions-status-inline">
+      <span class="hdr-pill hdr-pill-muted" id="auth-user-label">🔒 Session</span>
+      <button class="btn-hdr" id="btn-logout" type="button">Se déconnecter</button>
+      <div class="hdr-pill" id="project-count">-- projets</div>
+    </div>
+  </div>
   <div class="hdr-right">
-    <a href="../index/index.html" class="btn-back-map">← Cartographie</a>
-    <button class="btn-hdr" id="btn-refresh-page" title="Rafraîchir la page">🔄 Rafraîchir</button>
-    <button class="btn-hdr" id="btn-share">🔗 Partager</button>
-    <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
-    <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
-    <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
-    <label class="btn-hdr" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV">
-      📥 Import CSV
-      <input type="file" id="csv-import-input" accept=".csv" style="display:none">
-    </label>
-    <div class="hdr-pill" id="project-count">-- projets</div>
-    <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
+    <div class="hdr-actions-main">
+      <button class="btn-hdr" id="btn-refresh-page" title="Rafraîchir la page">🔄 Rafraîchir</button>
+      <button class="btn-hdr" id="btn-share">🔗 Partager</button>
+      <button class="btn-hdr" id="btn-open-table-view" title="Ouvrir les projets visibles dans un tableau plein écran">🧾 Tableau Excel</button>
+      <details class="hdr-menu" data-menu="exports">
+        <summary class="btn-hdr hdr-menu-toggle">📤 Exports</summary>
+        <div class="hdr-menu-panel" data-header-menu-panel="exports">
+          <button class="btn-hdr" id="btn-export-html" title="Exporter une synthèse HTML autonome sans données projet brutes">🌐 Export HTML</button>
+          <button class="btn-hdr" id="btn-csv">📤 Export CSV</button>
+          <button class="btn-hdr" id="btn-excel" title="Exporter en Excel (.xlsx) avec toutes les colonnes">📊 Export Excel</button>
+          <button class="btn-hdr" id="btn-export-json">📄 Export JSON</button>
+        </div>
+      </details>
+      <details class="hdr-menu" data-menu="tools">
+        <summary class="btn-hdr hdr-menu-toggle">🧰 Outils</summary>
+        <div class="hdr-menu-panel" data-header-menu-panel="tools">
+          <button class="btn-hdr" id="btn-quick-help" type="button" title="Explication rapide des filtres et de la lecture du dashboard">❓ Aide rapide</button>
+          <button class="btn-hdr" id="btn-email-report" type="button" title="Créer un brouillon d'email avec synthèse et graphiques">✉️ Créer email</button>
+          <button class="btn-hdr" id="btn-open-manual" type="button" title="Ouvrir le manuel utilisateur du dashboard">📘 Manuel</button>
+          <button class="btn-hdr" id="btn-toggle-values" type="button" title="Afficher ou masquer les valeurs sur les graphiques">🔢 Valeurs : off</button>
+        </div>
+      </details>
+      <details class="hdr-menu" data-menu="admin">
+        <summary class="btn-hdr hdr-menu-toggle" data-admin-only="1" hidden>🗂️ Admin</summary>
+        <div class="hdr-menu-panel" data-header-menu-panel="admin">
+          <label class="btn-hdr" id="csv-import-trigger" data-admin-only="1" hidden style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;" title="Importer un fichier CSV ou Excel">
+            📥 Import CSV/Excel
+            <input type="file" id="csv-import-input" accept=".csv,.xlsx" style="display:none">
+          </label>
+          <a class="btn-hdr" id="btn-data-admin" data-admin-only="1" hidden href="/chart/data-admin.html" style="text-decoration:none;">🗄️ Admin données</a>
+          <a class="btn-hdr" id="btn-db-upload" data-admin-only="1" hidden href="/chart/dataset-upload.html" style="text-decoration:none;">⬆️ Import Excel</a>
+          <button class="btn-hdr" id="btn-sharepoint-refresh" data-admin-only="1" hidden type="button">🔄 Refresh SharePoint</button>
+          <a class="btn-hdr" id="btn-sharepoint-source" data-admin-only="1" hidden href="/chart/source-sync.html" style="text-decoration:none;">⚙️ Source SharePoint</a>
+        </div>
+      </details>
+    </div>
+    <div class="hdr-actions-meta">
+      <span class="filter-micro-badge" id="filter-micro">🔍 Filtré</span>
+    </div>
   </div>
 </header>
 
 <!-- ── BARRE FILTRES (fixed, hors shell) ── -->
 <div id="ctrl-bars-sticky">
+<div class="ctrl-bars-head">
+  <div class="ctrl-bars-head-copy">
+    <div class="ctrl-bars-kicker">Filtres du dashboard</div>
+    <div class="ctrl-bars-title">Pilotage global du périmètre et des graphiques</div>
+  </div>
+  <button type="button" class="btn-hdr ctrl-bars-toggle" id="ctrl-bars-essential-toggle" aria-pressed="false">⚙ Filtres essentiels : off</button>
+  <button type="button" class="btn-hdr ctrl-bars-toggle" id="ctrl-bars-toggle" aria-expanded="true">▾ Réduire</button>
+</div>
+<div class="ctrl-bars-body">
 <div class="ctrl-bar">
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Année commerciale</label>
+    <label class="ctrl-lbl">Année commerciale <span class="info-icon" data-info="Filtre l'ensemble du dashboard sur une année commerciale précise. En mode <strong>Toutes les années</strong>, les graphiques utilisent tout le périmètre visible au lieu de forcer une année de référence.">ⓘ</span></label>
     <select id="year-filter" class="ctrl-inp">
       <option value="">Toutes les années</option>
     </select>
   </div>
   <div class="ctrl-div"></div>
-  <div class="ctrl-grp" id="date-field-ctrl" title="Choisir le champ date utilisé pour le calcul des années et des KPIs">
+  <div class="ctrl-grp ctrl-advanced" id="date-field-ctrl" title="Choisir le champ date utilisé pour le calcul des années et des KPIs">
     <label class="ctrl-lbl">Champ date <span class="info-icon" data-info="Définit le champ utilisé pour calculer l'<strong>année commerciale</strong> de chaque projet. Ce choix impacte <em>tous les graphiques, KPIs et barres de progression</em>.">ⓘ</span></label>
     <select id="date-field-selector" class="ctrl-inp" style="min-width:195px;">
       <option value="Date réception" selected>Date réception</option>
@@ -93,42 +141,7 @@
   </div>
   <div class="ctrl-div"></div>
   <div class="ctrl-grp">
-    <label class="ctrl-lbl">Objectif €</label>
-    <input type="number" id="target-amount" class="ctrl-inp" value="3000000" style="width:135px">
-  </div>
-  <div class="ctrl-div"></div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl">Recherche</label>
-    <input type="text" id="search-input" class="ctrl-inp" placeholder="🔎 Société, projet, N°AO..." style="width:210px">
-  </div>
-  <div class="ctrl-div"></div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="color:#0099ff;">Année A</label>
-    <select id="compare-year-a" class="ctrl-inp" style="border-color:rgba(0,153,255,.45);min-width:90px;">
-      <option value="">—</option>
-    </select>
-  </div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="color:#8b78f8;">Année B</label>
-    <select id="compare-year-b" class="ctrl-inp" style="border-color:rgba(139,120,248,.45);min-width:90px;">
-      <option value="">—</option>
-    </select>
-  </div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="opacity:0;pointer-events:none;">⠀</label>
-    <button id="btn-compare" class="ctrl-inp" style="cursor:pointer;background:linear-gradient(135deg,rgba(0,153,255,.2),rgba(139,120,248,.2));border-color:rgba(139,120,248,.5);color:var(--snow);font-weight:600;white-space:nowrap;">
-      ⚖️ Comparer
-    </button>
-  </div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="opacity:0;pointer-events:none;">⠀</label>
-    <button id="btn-positive-only" class="ctrl-inp" style="cursor:pointer;background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.3);color:var(--brand);font-weight:600;white-space:nowrap;transition:all .2s;">
-      ✦ Positif
-    </button>
-  </div>
-  <div class="ctrl-div"></div>
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl">⚡ Énergie</label>
+    <label class="ctrl-lbl">⚡ Énergie <span class="info-icon" data-info="Filtre tout le dashboard par type d'énergie détecté sur les projets. Permet d'isoler <strong>Éolien</strong> ou <strong>Photovoltaïque</strong> sur l'ensemble des KPI et graphiques.">ⓘ</span></label>
     <select id="energy-type-filter" class="ctrl-inp" title="Filtrer par type d'énergie — détecté sur le nom du projet">
       <option value="">Tous types</option>
       <option value="eolien">🌬️ Éolien</option>
@@ -137,8 +150,8 @@
   </div>
 </div>
 <div class="ctrl-bar" id="timeline-filter-bar">
-  <div class="ctrl-grp">
-    <label class="ctrl-lbl" style="white-space:nowrap;">🕒 Période</label>
+  <div class="ctrl-grp ctrl-advanced">
+    <label class="ctrl-lbl" style="white-space:nowrap;">🕒 Période <span class="info-icon" data-info="Applique une fenêtre temporelle glissante sur le <strong>champ date</strong> choisi. Exemple : <strong>6 derniers mois</strong> inclut bien la fin d'année précédente si nécessaire.">ⓘ</span></label>
     <select id="timeline-preset" class="ctrl-inp">
       <option value="">Toutes les périodes</option>
       <option value="ytd">YTD — Année en cours</option>
@@ -152,18 +165,48 @@
     </select>
   </div>
   <div class="ctrl-div"></div>
-  <div class="ctrl-grp" id="timeline-custom-range" style="display:none;gap:.5rem;flex-wrap:wrap;">
+  <div class="ctrl-grp ctrl-grp-inline" id="timeline-custom-range" style="display:none;gap:.5rem;flex-wrap:wrap;">
     <label class="ctrl-lbl">Du</label>
     <input type="date" id="timeline-start" class="ctrl-inp" style="width:145px">
     <label class="ctrl-lbl">Au</label>
     <input type="date" id="timeline-end" class="ctrl-inp" style="width:145px">
   </div>
-  <div class="ctrl-grp" style="margin-left:auto;">
+  <div class="ctrl-div"></div>
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Mesure <span class="info-icon" data-info="Choisit la mesure principale de la section <strong>Prise d’affaires / Performance</strong> : montant Bud, nombre de dossiers, taux de transfo en € ou taux de transfo en dossiers.">ⓘ</span></label>
+    <select id="biz-performance-view" class="ctrl-inp">
+      <option value="amount">Montant (€ Bud)</option>
+      <option value="count">Nombre de dossiers</option>
+      <option value="won_rate_amount">Taux de transfo (€)</option>
+      <option value="won_rate_count">Taux de transfo (dossiers)</option>
+    </select>
+  </div>
+  <div class="ctrl-div"></div>
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Graphique zone × client <span class="info-icon" data-info="Ce filtre concerne uniquement le graphique <strong>Comparatif € par zone × client</strong>.<br><strong>Année sélectionnée seulement</strong> : le graphique montre uniquement l'année choisie (ex : 2026).<br><strong>Toutes les années</strong> : le graphique affiche tout l'historique visible, même si 2026 est sélectionnée.">ⓘ</span></label>
+    <select id="biz-performance-combo-scope" class="ctrl-inp">
+      <option value="block">Année sélectionnée seulement</option>
+      <option value="all">Toutes les années</option>
+    </select>
+  </div>
+  <div class="ctrl-div"></div>
+  <div class="ctrl-grp">
+    <label class="ctrl-lbl">Statut affiché <span class="info-icon" data-info="Définit quelles séries sont visibles dans la performance : <strong>Gagné</strong>, <strong>Perdu</strong>, <strong>Gagné + Perdu</strong> ou <strong>Offre</strong>. En mode taux de transfo, ce filtre est neutralisé automatiquement.">ⓘ</span></label>
+    <select id="biz-performance-status-filter" class="ctrl-inp">
+      <option value="all">Tout</option>
+      <option value="won">Gagné</option>
+      <option value="lost">Perdu</option>
+      <option value="decided">Gagné + Perdu</option>
+      <option value="offer">Offre</option>
+    </select>
+  </div>
+  <div class="ctrl-grp ctrl-grp-actions" id="timeline-actions-group" style="display:none;">
     <span id="timeline-active-badge" style="display:none;background:rgba(0,153,255,.15);border:1px solid rgba(0,153,255,.3);color:var(--brand2);font-family:var(--mono);font-size:.7rem;padding:.22rem .65rem;border-radius:99px;">
       🕒 <span id="timeline-badge-text">Filtre actif</span>
     </span>
     <button id="timeline-clear" class="btn-hdr" style="display:none;">✕ Réinitialiser</button>
   </div>
+</div>
 </div>
 </div><!-- /#ctrl-bars-sticky -->
 
@@ -319,6 +362,41 @@
     <div class="vel-sub">obtenus récents</div>
   </div>
 </div>
+
+<section id="dashboard-data-banner" aria-live="polite">
+  <div class="data-banner-head">
+    <div>
+      <div class="data-banner-kicker">Transparence Data</div>
+      <div class="data-banner-title">Lecture des chiffres et provenance du dataset</div>
+    </div>
+    <div class="data-banner-status" id="data-banner-status">Initialisation…</div>
+  </div>
+  <div class="data-banner-grid" id="data-banner-grid">
+    <div class="data-banner-card">
+      <span class="data-banner-label">Source</span>
+      <strong id="data-banner-source">Dataset non documenté</strong>
+      <span id="data-banner-storage">Mode de chargement inconnu</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Fraîcheur</span>
+      <strong id="data-banner-updated">Mise à jour inconnue</strong>
+      <span id="data-banner-key">Dataset: —</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Volume</span>
+      <strong id="data-banner-volume">0 ligne</strong>
+      <span id="data-banner-visible">0 projet visible</span>
+    </div>
+    <div class="data-banner-card">
+      <span class="data-banner-label">Périmètre de lecture</span>
+      <strong id="data-banner-scope">Filtres en cours d’analyse</strong>
+      <span id="data-banner-date-field">Champ date: —</span>
+    </div>
+  </div>
+  <div class="data-banner-foot" id="data-banner-foot">
+    Chaque graphique affiche ensuite un bloc “Analyse” pour expliquer ce qu’il mesure, sur quel périmètre, et comment ouvrir le tableau de lecture.
+  </div>
+</section>
 
 <!-- ── CONTRÔLES — déplacé hors du shell, injecté par JS ── -->
 <div class="filter-panel" id="filter-panel">
@@ -497,7 +575,162 @@
 </div>
 
 <!-- ── ENTONNOIR ── -->
-<div class="section-div" onclick="this.classList.toggle('collapsed');var next=this.nextElementSibling;if(next&&next.classList.contains('section-collapsible'))next.classList.toggle('collapsed');"><span class="section-toggle">▼</span><span class="section-lbl">Pipeline de conversion</span></div>
+<div id="business-dashboard-root" class="business-dashboard-root">
+  <div class="section-div business-section-head">
+    <span class="section-lbl">Pilotage métier — Performance & Pipe commercial <span class="info-icon" data-info="Bloc métier principal : suivi de la <strong>prise d’affaires</strong> sur base Bud et du <strong>pipe commercial</strong> sur base Bud, CA win proba et ratio pondéré.">ⓘ</span></span>
+    <span class="business-section-pill">Bud / CA win proba / taux / dossiers</span>
+  </div>
+
+  <div class="section-collapsible business-section-collapsible">
+    <section class="business-block" data-business-block="performance">
+      <div class="business-block-header">
+        <div>
+          <div class="business-block-title">Prise d’affaires / Performance <span class="info-icon" data-info="Analyse métier sur base <strong>Bud</strong> : gagné, perdu, gagné + perdu, taux de transfo et nombre de dossiers. Les réglages globaux sont dans la barre sticky.">ⓘ</span></div>
+          <div class="business-block-subtitle">Base Bud, statuts gagnés / perdus / décidés, taux de transformation en € et en nombre. Réglages disponibles dans la barre sticky.</div>
+        </div>
+      </div>
+
+      <div class="business-kpi-grid" id="biz-performance-kpis">
+        <button class="business-kpi" id="biz-kpi-won-year" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-lost-year" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-decided-year" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-rate-year" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-count-year" type="button"></button>
+      </div>
+
+      <div class="charts-grid business-charts-grid">
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-month">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-month">Performance par mois <span class="info-icon" data-info="Vue mensuelle de la mesure sélectionnée. En période glissante, le graphe peut traverser plusieurs années.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint" id="biz-hint-perf-month">Périmètre du bloc</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-month"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-zone">Performance par zone géographique <span class="info-icon" data-info="Compare la mesure choisie par <strong>zone géographique</strong> sur le périmètre actuellement filtré.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top zones sur le périmètre filtré</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-zone"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-client">Performance par client <span class="info-icon" data-info="Compare la mesure choisie par <strong>client</strong>. Les libellés sont normalisés pour fusionner les variantes de casse.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top clients sur le périmètre filtré</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-client"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-type">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-type">Performance par type de projet <span class="info-icon" data-info="Répartition de la mesure métier par <strong>type de projet / activité</strong> sur le périmètre visible.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Répartition métier par activité</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-perf-type"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-zone-client">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-zone-client">Performance zone / client <span class="info-icon" data-info="Affiche les couples <strong>zone géographique + client</strong>. Le sélecteur de périmètre permet de rester sur le bloc courant ou d'étendre la vue au fichier visible.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint" id="biz-hint-perf-zone-client">Top couples zone + client</div>
+          <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-zone-client"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-perf-client-type">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-perf-client-type">Performance client / type de projet <span class="info-icon" data-info="Affiche les couples <strong>client + type de projet</strong> pour repérer les combinaisons les plus performantes.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top couples client + type</div>
+          <div class="chart-container" style="height:340px"><canvas id="biz-chart-perf-client-type"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="business-block" data-business-block="pipeline">
+      <div class="business-block-header">
+        <div>
+          <div class="business-block-title">Pipe commercial — Remis + En études <span class="info-icon" data-info="Bloc dédié aux projets en <strong>Remis</strong> et <strong>En étude</strong>. Les KPI et graphiques se déclinent en Bud, CA win proba et ratio CA win proba / Bud.">ⓘ</span></div>
+          <div class="business-block-subtitle">Offres en cours normalisées via les statuts métier existants.</div>
+        </div>
+        <div class="business-control-row">
+          <label class="business-control">
+            <span>Base pipe <span class="info-icon" data-info="Sélectionne la base de lecture du pipe : <strong>Bud</strong>, <strong>CA win proba</strong> ou <strong>% CA win proba / Bud</strong>.">ⓘ</span></span>
+            <select id="biz-pipe-view">
+              <option value="pipe_bud">Bud</option>
+              <option value="pipe_weighted">CA win proba</option>
+              <option value="pipe_ratio">% CA win proba / Bud</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="business-kpi-grid business-kpi-grid-pipe" id="biz-pipe-kpis">
+        <button class="business-kpi" id="biz-kpi-pipe-bud" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-pipe-weighted" type="button"></button>
+        <button class="business-kpi" id="biz-kpi-pipe-ratio" type="button"></button>
+      </div>
+
+      <div class="charts-grid business-charts-grid">
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-pipe-zone">Pipe commercial par zone <span class="info-icon" data-info="Répartit le pipe commercial par zone géographique selon la base sélectionnée.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Offres en cours, pondérées selon la base choisie</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-zone"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-pipe-client">Pipe commercial par client <span class="info-icon" data-info="Classe les clients du pipe actif selon la base choisie. Le mode <strong>Top + Autres</strong> regroupe les clients secondaires pour garder une lecture claire.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top clients sur le pipe actif</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-client"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-type">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-pipe-type">Pipe commercial par type de chantier <span class="info-icon" data-info="Répartition des projets <strong>Remis + En étude</strong> par type de chantier / activité.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Répartition par activité en cours</div>
+          <div class="chart-container" style="height:320px"><canvas id="biz-chart-pipe-type"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-zone-client">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-pipe-zone-client">Pipe commercial zone / client <span class="info-icon" data-info="Compare les couples <strong>zone + client</strong> sur le pipe commercial actif.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top couples zone + client en cours</div>
+          <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-zone-client"></canvas></div>
+        </div>
+
+        <div class="chart-card business-chart-card" data-chart-id="biz-chart-pipe-client-type">
+          <div class="chart-header">
+            <div class="chart-title" id="biz-title-pipe-client-type">Pipe commercial client / type <span class="info-icon" data-info="Compare les couples <strong>client + type de chantier</strong> sur les projets Remis + En étude.">ⓘ</span></div>
+            <div class="chart-title-actions"></div>
+          </div>
+          <div class="chart-hint">Top couples client + type sur le pipe</div>
+          <div class="chart-container" style="height:340px"><canvas id="biz-chart-pipe-client-type"></canvas></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ── ENTONNOIR ── -->
+<div class="section-div" data-section-toggle="1"><span class="section-toggle">▼</span><span class="section-lbl">Pipeline de conversion</span></div>
 <div class="section-collapsible">
 <div class="funnel-section">
   <div class="funnel-card">
@@ -514,7 +747,7 @@
 </div><!-- /section-collapsible Pipeline -->
 
 <!-- Statuts métier + Conversion par type -->
-<div class="section-div" onclick="this.classList.toggle('collapsed');var next=this.nextElementSibling;if(next&&next.classList.contains('section-collapsible'))next.classList.toggle('collapsed');"><span class="section-toggle">▼</span><span class="section-lbl">Analyse métier</span></div>
+<div class="section-div" data-section-toggle="1"><span class="section-toggle">▼</span><span class="section-lbl">Analyse métier</span></div>
 <div class="section-collapsible">
 <div class="charts-grid">
   <div class="chart-card" data-chart-id="chart-statuts-reels">
@@ -543,7 +776,7 @@
 </div><!-- /section-collapsible Analyse -->
 
 <!-- ── HEATMAP ── -->
-<div class="section-div" onclick="this.classList.toggle('collapsed');var next=this.nextElementSibling;if(next&&next.classList.contains('section-collapsible'))next.classList.toggle('collapsed');"><span class="section-toggle">▼</span><span class="section-lbl">Performance zone × statut</span></div>
+<div class="section-div" data-section-toggle="1"><span class="section-toggle">▼</span><span class="section-lbl">Performance zone × statut</span></div>
 <div class="section-collapsible">
 <div class="heatmap-section">
   <div class="heatmap-card">
@@ -581,6 +814,13 @@
       <button class="btn-close" id="btn-close-table">✕ Fermer</button>
     </div>
   </div>
+  <div class="detail-toolbar">
+    <input id="detail-search" class="detail-search" type="text" placeholder="Rechercher dans toutes les colonnes...">
+    <div class="detail-toolbar-right">
+      <span class="detail-results-count" id="detail-results-count">0 ligne affichée</span>
+      <button class="btn-hdr" id="btn-detail-reset-filters" title="Réinitialiser recherche et filtres colonnes">Réinitialiser filtres</button>
+    </div>
+  </div>
   <div class="dtable-wrap">
     <table class="dtable" id="dtable">
       <thead>
@@ -593,14 +833,134 @@
           <th data-sort="echeance">Échéance ↕</th>
           <th data-sort="Puissance (MWc)">MW ↕</th>
         </tr>
+        <tr class="dtable-filter-row"></tr>
       </thead>
       <tbody id="dtable-body"></tbody>
     </table>
   </div>
 </div>
 
+<div class="manual-modal" id="manual-modal" aria-hidden="true">
+  <div class="manual-modal-backdrop" data-manual-close="1"></div>
+  <div class="manual-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="manual-modal-title">
+    <div class="manual-modal-header">
+      <div>
+        <div class="manual-modal-kicker">Aide intégrée</div>
+        <div class="manual-modal-title" id="manual-modal-title">Manuel Suivi4Me</div>
+      </div>
+      <div class="manual-modal-actions">
+        <a class="btn-hdr" href="manual.html" target="_blank" rel="noopener noreferrer">↗ Ouvrir dans un onglet</a>
+        <a class="btn-hdr" href="docs/Manuel_Dashboard_Analytics_v3.pdf" download rel="noopener noreferrer">⬇ Télécharger PDF</a>
+        <button class="btn-hdr" id="btn-close-manual" type="button">✕ Fermer</button>
+      </div>
+    </div>
+    <div class="manual-modal-body">
+      <div class="manual-doc">
+        <section class="manual-hero">
+          <div>
+            <div class="manual-pill">Tableau de bord commercial</div>
+            <h2>Guide rapide Suivi4Me</h2>
+            <p>Le dashboard centralise le suivi des AO, la performance commerciale, le pipe actif et les outils d’analyse. Les vues changent selon vos droits : <strong>admin</strong>, <strong>user</strong> ou <strong>consultation</strong>.</p>
+          </div>
+          <div class="manual-hero-grid">
+            <div class="manual-card">
+              <span class="manual-card-kicker">1</span>
+              <strong>Filtrer</strong>
+              <p>Année, champ date, énergie, période et mesure pilotent toute la lecture métier.</p>
+            </div>
+            <div class="manual-card">
+              <span class="manual-card-kicker">2</span>
+              <strong>Analyser</strong>
+              <p>Les KPI, textes d’analyse et graphes se mettent à jour selon le périmètre visible.</p>
+            </div>
+            <div class="manual-card">
+              <span class="manual-card-kicker">3</span>
+              <strong>Partager</strong>
+              <p>Export, email et PDF permettent de diffuser la synthèse selon votre rôle.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Lecture de la page</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>Barre sticky</h4>
+              <ul>
+                <li><strong>Année commerciale</strong> : restreint la vue à une année ou garde tout le périmètre.</li>
+                <li><strong>Champ date</strong> : choisit la date de référence métier.</li>
+                <li><strong>Mode CA</strong> : bascule entre Bud total et CA gagné.</li>
+                <li><strong>Période</strong> : applique des fenêtres glissantes ou des trimestres.</li>
+              </ul>
+            </article>
+            <article class="manual-panel">
+              <h4>Bloc métier</h4>
+              <ul>
+                <li><strong>Prise d’affaires / Performance</strong> : gagné, perdu, gagné + perdu, taux, dossiers.</li>
+                <li><strong>Pipe commercial</strong> : remis + en étude, en Bud, CA win proba et ratio.</li>
+                <li>Le bouton <strong>🎛</strong> permet de personnaliser certains graphes par utilisateur.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Comprendre les indicateurs</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>KPIs haut de page</h4>
+              <p>Ils résument les projets visibles : volume total, obtenus, perdus, offres en cours, CA, taux de conversion, puissance, délai, pipeline et top société.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>Texte d’analyse</h4>
+              <p>Chaque bloc ajoute maintenant un résumé du périmètre actif <strong>et</strong> une lecture du graphique affiché : top catégorie, série dominante ou nombre de catégories visibles.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Droits d’accès</h3>
+          <div class="manual-columns">
+            <article class="manual-panel">
+              <h4>Consultation</h4>
+              <p>Lecture seule : visualisation, manuel et déconnexion. Aucun export, aucun filtre éditable, aucune action métier.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>User</h4>
+              <p>Utilisation normale du dashboard sans accès aux zones d’administration, logs, whitelist ni source SharePoint.</p>
+            </article>
+            <article class="manual-panel">
+              <h4>Admin</h4>
+              <p>Accès complet : import, source SharePoint, refresh, logs, whitelist et maintenance du dataset.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="manual-section">
+          <h3>Cas d’usage rapides</h3>
+          <div class="manual-steps">
+            <div class="manual-step"><span>01</span><div><strong>Faire un bilan annuel</strong><p>Choisir l’année, vérifier les KPI, puis lire les blocs performance et pipe.</p></div></div>
+            <div class="manual-step"><span>02</span><div><strong>Comparer les clients</strong><p>Ouvrir les graphes par client, appliquer si besoin un type de graphe plus lisible, puis lire les analyses.</p></div></div>
+            <div class="manual-step"><span>03</span><div><strong>Partager une synthèse</strong><p>Utiliser l’email, le PDF ou les exports selon les droits du profil connecté.</p></div></div>
+          </div>
+        </section>
+
+        <section class="manual-section manual-section-accent">
+          <h3>Bonnes pratiques</h3>
+          <ul>
+            <li>Faire un <strong>hard refresh</strong> après déploiement ou changement de source.</li>
+            <li>Vérifier le <strong>champ date</strong> avant d’interpréter une année ou un trimestre.</li>
+            <li>Lire les bulles <strong>ⓘ</strong> pour comprendre le calcul exact d’un KPI ou d’un graphe.</li>
+            <li>En cas de dataset indisponible, la session peut réutiliser la dernière copie chargée.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── GRAPHIQUES ── -->
-<div class="section-div" onclick="this.classList.toggle('collapsed');var next=this.nextElementSibling;if(next&&next.classList.contains('section-collapsible'))next.classList.toggle('collapsed');"><span class="section-toggle">▼</span><span class="section-lbl">Graphiques interactifs — cliquez pour filtrer</span></div>
+<div class="section-div" data-section-toggle="1"><span class="section-toggle">▼</span><span class="section-lbl">Graphiques interactifs — cliquez pour filtrer</span></div>
 <div class="section-collapsible">
 <div class="charts-grid">
 
@@ -1415,19 +1775,31 @@
 
 <!-- ── Boutons utilitaires v3 ── -->
 <div style="margin:0 2.5rem .8rem;display:flex;gap:.5rem;flex-wrap:wrap;">
-  <button onclick="if(typeof DashboardUX!=='undefined')DashboardUX.copyShareLink();" style="
+  <button id="btn-bottom-share" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,153,255,.08);border:1px solid rgba(0,153,255,.25);
     color:#0099ff;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Copier le lien avec filtres actifs">🔗 Partager</button>
-  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.save();" style="
+  <a href="/chart/logs.html" data-admin-only="1" hidden style="
+    display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;
+    background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
+    color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
+    font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
+  " title="Consulter les journaux d'accès">🧾 Logs</a>
+  <a href="/chart/whitelist.html" data-admin-only="1" hidden style="
+    display:inline-flex;align-items:center;gap:.3rem;text-decoration:none;
+    background:rgba(159,217,255,.08);border:1px solid rgba(159,217,255,.25);
+    color:#9fd9ff;border-radius:8px;padding:.35rem .8rem;
+    font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
+  " title="Gérer la whitelist IP">🛡️ Whitelist</a>
+  <button id="btn-bottom-save" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.25);
     color:#00d4aa;border-radius:8px;padding:.35rem .8rem;
     font-size:.75rem;cursor:pointer;font-family:var(--mono);transition:all .15s;
   " title="Sauvegarder l'état du dashboard">💾 Sauvegarder</button>
-  <button onclick="if(typeof DashboardState!=='undefined')DashboardState.reset();" style="
+  <button id="btn-bottom-reset" style="
     display:inline-flex;align-items:center;gap:.3rem;
     background:rgba(245,183,64,.08);border:1px solid rgba(245,183,64,.25);
     color:#f5b740;border-radius:8px;padding:.35rem .8rem;
@@ -1439,54 +1811,54 @@
 
 </div><!-- /.shell -->
 
-<script src="js/data.js"></script>
-<script src="js/projectUtils.js"></script>
+<script src="./js/data-empty.js"></script>
+<script src="./js/projectUtils.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      FilterManager — gestionnaire central des filtres interactifs
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-filter-manager-inline.js"></script>
+<script src="js/charts-filter-manager-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      ChartFilterController v2.1 — architecture centralisée
      Règle absolue : AUCUN onclick direct sur canvas ailleurs
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-filter-controller-inline.js"></script>
+<script src="js/charts-filter-controller-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      DataFilterEngine v2.1 — moteur de filtrage centralisé
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-data-filter-engine-inline.js"></script>
+<script src="js/charts-data-filter-engine-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      ChartDrillDown v2.1 — tableau contextuel inline
      Positionnement : DANS la chart-card (jamais document.body)
      Données : lecture pure via DataFilterEngine (aucun re-filtrage)
 ══════════════════════════════════════════════════════════ -->
-<link rel="stylesheet" href="./css/charts-drilldown-panel.css">
-<script src="./js/charts-drilldown-inline.js"></script>
+<link rel="stylesheet" href="css/charts-drilldown-panel.css">
+<script src="js/charts-drilldown-inline.js"></script>
 
-<script src="js/analytics.js"></script>
+<script src="./js/analytics.js"></script>
 <!-- ── MODULE 9 — analytics-patch avant charts ── -->
-<script src="./js/analytics-patch.js"></script>
-<script src="./js/charts-enrichis.js"></script>
+<script src="js/analytics-patch.js"></script>
+<script src="js/charts-enrichis.js"></script>
 <!-- ── MODULES 4, 5, 7 — ChartDrillDown v3.0 + ChartConfigManager v2.0 ── -->
-<script src="js/ChartDrillDown.js"></script>
 <script src="js/ChartConfigManager.js"></script>
 <!-- ── MODULE 9 — Nouveaux graphiques ── -->
-<script src="./js/charts-nouveaux.js"></script>
+<script src="js/charts-nouveaux.js"></script>
 <!-- ── MODULE 2 — PDF v2.0 UTF-8 ── -->
 <script src="js/DashboardPDF.js"></script>
+<script src="js/DashboardEmail.js"></script>
 <!-- ── MODULE 1 — Barre de filtres unique ── -->
-<script src="./js/FloatingFilterBar.js"></script>
+<script src="js/FloatingFilterBar.js"></script>
 <!-- ── MODULE 3 — Explications dynamiques ── -->
-<script src="./js/ChartAnalysis.js"></script>
+<script src="js/ChartAnalysis.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : KPI STRATÉGIQUES
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-strategic-kpis-inline.js"></script>
-<script src="./js/charts-analytics-engine-inline.js"></script>
+<script src="js/charts-strategic-kpis-inline.js"></script>
+<script src="js/charts-analytics-engine-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : IMPORT CSV v4.0 — Anti-redéclaration robuste
@@ -1508,22 +1880,22 @@
 <!-- ══════════════════════════════════════════════════════════
      MODULE : EXPORT JSON
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-export-json-inline.js"></script>
+<script src="js/charts-export-json-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : MODE STRATÉGIQUE (Volume ↔ Valeur)
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-strategic-mode-toggle-inline.js"></script>
+<script src="js/charts-strategic-mode-toggle-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : SCORE DE SANTÉ COMMERCIALE /100
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-health-score-inline.js"></script>
+<script src="js/charts-health-score-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE : INSIGHTS AUTOMATIQUES
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-insights-inline.js"></script>
+<script src="js/charts-insights-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      HOOK v2.0 — Intégration Analytics.js + ChartsEnrichis
@@ -1532,12 +1904,13 @@
      alimentés par ChartsEnrichis via Analytics.js.
 ══════════════════════════════════════════════════════════ -->
 <script src="js/charts-renderer-inline.js"></script>
+<script src="js/charts-business-dashboard-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v3.0 — INTELLIGENCE DÉCISIONNELLE
      Diagnostics, Projection, Comparaison, Score Performance
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-diagnostics-inline.js"></script>
+<script src="js/charts-diagnostics-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v4.0 — COMPARAISON ANNÉES
@@ -1546,7 +1919,7 @@
        ChartsEnrichis → createYearComparisonChart(), renderDeltaKPIs(), renderZoneComparisonTable()
        Ce module   → logique UI, état, événements
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-year-compare-inline.js"></script>
+<script src="js/charts-year-compare-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v4.2 — BARRE OBJECTIF MULTI-ANNÉES
@@ -1555,20 +1928,20 @@
        renderObjectiveBars()         → rendu HTML, zéro Analytics direct dans la boucle
        Modes : normal / comparaison / positif uniquement
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-objectives-config-inline.js"></script>
+<script src="js/charts-objectives-config-inline.js"></script>
 
 <!-- ── MODULE : TABLEAU DÉTAIL OBJECTIF PAR ANNÉE ── -->
-<script src="./js/charts-target-tracker-inline.js"></script>
+<script src="js/charts-target-tracker-inline.js"></script>
 
-<script src="./js/TooltipInfo.js"></script>
+<script src="js/TooltipInfo.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULE v5.0 — WIDGETS DÉCISIONNELS + FILTRES PREMIUM + CHART VISIBILITY
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-floating-filters-inline.js"></script>
-<script src="./js/charts-tooltip-bootstrap-inline.js"></script>
+<script src="js/charts-floating-filters-inline.js"></script>
+<script src="js/charts-tooltip-bootstrap-inline.js"></script>
 
-<script src="./js/charts-drill-map-inline.js"></script>
+<script src="js/charts-drill-map-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      MODULES v3.0 — Éditeur, State, UX
@@ -1578,8 +1951,12 @@
 <script src="js/DashboardUX.js"></script>
 <script src="js/DashboardDnD.js"></script>
 <script src="js/DashboardSections.js"></script>
-<script src="js/DashboardPDF.js"></script>
+<script src="js/DashboardNotes.js"></script>
+<script src="js/DashboardChartPreferences.js"></script>
+<script src="js/DashboardManual.js"></script>
+<script src="js/DashboardHTMLExport.js"></script>
 <script src="js/charts-modules-init-inline.js"></script>
+<script src="js/charts-mobile-shell-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      POINT 8 — Audit de registration des graphiques Chart.js
@@ -1587,13 +1964,13 @@
      et affiche un warning console. Délai 2s pour laisser tous les graphiques
      se créer (ChartEditor, lazy render, etc.)
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-registration-audit-inline.js"></script>
+<script src="js/charts-registration-audit-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      NORMALISATION DES BOUTONS — Uniformise info/focus/cfg sur toutes les cartes
      S'assure que chaque chart-card a exactement les mêmes boutons dans le même ordre
 ══════════════════════════════════════════════════════════ -->
-<script src="./js/charts-card-actions-normalizer-inline.js"></script>
+<script src="js/charts-card-actions-normalizer-inline.js"></script>
 
 <!-- ══════════════════════════════════════════════════════════
      SYNC PADDING-TOP DU SHELL
@@ -1601,9 +1978,6 @@
      On mesure leur hauteur totale et on l'applique au shell.
 ══════════════════════════════════════════════════════════ -->
 <script src="js/charts-shell-padding-sync-inline.js"></script>
+<script src="js/sharepoint-source-controls.js"></script>
 </body>
 </html>
-
-
-
-

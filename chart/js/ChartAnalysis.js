@@ -34,6 +34,9 @@ window.ChartAnalysis = (() => {
   function _getCA(p, mode) {
     if (typeof Analytics !== 'undefined' && Analytics.getCAValue)
       return Analytics.getCAValue(p, mode || 'ca_etudie');
+    if (typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount) {
+      return ProjectUtils.getProjectAmount(p) || 0;
+    }
     return parseFloat(p['Bud']) || 0;
   }
 
