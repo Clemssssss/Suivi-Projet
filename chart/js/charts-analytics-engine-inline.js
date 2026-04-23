@@ -504,7 +504,7 @@ function fmt(v)   { return ProjectUtils.formatMontant(v, true); }
 function pCA(v)   { return ProjectUtils.parseMontant(v) || 0; }
 function getAmount(p) {
   if (!p) return 0;
-  var keys = ['Bud', 'MB (€)', 'CA win proba'];
+  var keys = ['Bud', 'MB (€)', 'MB ()', 'CA win proba'];
   for (var i = 0; i < keys.length; i++) {
     var val = ProjectUtils.parseMontant(p[keys[i]]);
     if (val !== null && val > 0) return val;
@@ -2994,3 +2994,4 @@ function update() {
     bindChartInfoBtns();
   }
 })();
+

@@ -234,7 +234,7 @@
 
   function _resolveAmount(project) {
     if (!project) return 0;
-    const keys = ['Bud', 'MB (€)', 'CA win proba'];
+    const keys = ['Bud', 'MB (€)', 'MB ()', 'CA win proba'];
     for (const key of keys) {
       const v = ProjectUtils.parseMontant(project[key]);
       if (v !== null && v > 0) return v;
@@ -3179,3 +3179,4 @@ function caByYearAllModes(projects, filters = {}) {
   console.log('%c📊 Analytics.js v9.0 chargé — Sélecteur date global + Bud/Statut/WinProba source unique', 'color:#00d4aa;font-weight:700');
 
 })(typeof window !== 'undefined' ? window : global);
+

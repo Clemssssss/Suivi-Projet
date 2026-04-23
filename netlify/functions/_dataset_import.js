@@ -52,8 +52,9 @@ function parseDate(v) {
 function parseMontant(v) {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  let s = String(v).trim().replace(/[\u20AC\$\u00A3\u00A0\u202F\s]/g, '');
+  let s = String(v).trim().replace(/[\u20AC\u0080\$\u00A3\u00A0\u202F\s]/g, '');
   if (!s || s === '-') return null;
+  s = s.replace(/[^0-9,.\-]/g, '');
   const lc = s.lastIndexOf(',');
   const ld = s.lastIndexOf('.');
   if (lc === -1 && ld === -1) {
@@ -128,6 +129,7 @@ function normalizeZone(v) {
 
 function headerNorm(h) {
   return String(h || '')
+    .replace(/[\u0080]/g, '€')
     .replace(/[\uFEFF\u200B\u200C\u200D\u00A0\u2060]/g, '')
     .replace(/\u2019|\u2018|\u201C|\u201D/g, "'")
     .replace(/\s+/g, ' ')
@@ -160,6 +162,7 @@ function findHeaderRowIndex(matrix) {
 
 function sanitizeHeader(raw) {
   return canonicalHeader(String(raw || '')
+    .replace(/[\u0080]/g, '€')
     .replace(/^["'\u201C\u201D]/g, '')
     .replace(/["'\u201C\u201D]$/g, '')
     .replace(/[\u200B\u200C\u200D\u00A0\uFEFF]/g, '')
@@ -209,6 +212,15 @@ function loadWorkbookRowsFromCsvText(text) {
   const headers = (matrix[headerIndex] || []).map(sanitizeHeader);
   const rows = buildRows(headers, matrix.slice(headerIndex + 1), headerIndex + 1);
   return { score: scoreHeaderCandidate(matrix[headerIndex] || []), rows, sheetName: 'CSV' };
+}
+
+function loadCsvRowsFromBuffer(buffer) {
+  const raw = Buffer.from(buffer || []);
+  const utf8 = loadWorkbookRowsFromCsvText(raw.toString('utf8'));
+  const latin1 = loadWorkbookRowsFromCsvText(raw.toString('latin1'));
+  if ((latin1.score || -1) > (utf8.score || -1)) return latin1;
+  if ((utf8.score || -1) > (latin1.score || -1)) return utf8;
+  return (latin1.rows && latin1.rows.length > utf8.rows.length) ? latin1 : utf8;
 }
 
 function bufferLooksLikeHtml(buffer) {
@@ -365,8 +377,8 @@ async function loadWorkbookRowsFromFile(filePath) {
   const ext = path.extname(resolvedPath).toLowerCase();
 
   if (ext === '.csv' || ext === '.tsv' || ext === '.txt') {
-    const text = fs.readFileSync(resolvedPath, 'utf8');
-    return loadWorkbookRowsFromCsvText(text);
+    const raw = fs.readFileSync(resolvedPath);
+    return loadCsvRowsFromBuffer(raw);
   }
 
   if (ext === '.xlsx' || ext === '.xlsm' || ext === '.xlsb' || ext === '.xltx' || ext === '.xltm' || ext === '.xls') {
@@ -385,7 +397,7 @@ async function loadWorkbookRowsFromFile(filePath) {
     return loadWorkbookRowsFromWorkbook(workbook);
   }
   if (bufferLooksLikeCsv(raw, '')) {
-    return loadWorkbookRowsFromCsvText(raw.toString('utf8'));
+    return loadCsvRowsFromBuffer(raw);
   }
 
   throw new Error('Format local non pris en charge : attendu .xlsx ou CSV');
@@ -409,7 +421,7 @@ async function loadRowsFromRemoteBuffer(buffer, meta) {
     return loadWorkbookRowsFromBuffer(buffer);
   }
   if (bufferLooksLikeCsv(buffer, contentType)) {
-    return loadWorkbookRowsFromCsvText(Buffer.from(buffer).toString('utf8'));
+    return loadCsvRowsFromBuffer(buffer);
   }
   throw new Error('Format distant non pris en charge : attendu .xlsx ou CSV exploitable');
 }
@@ -430,3 +442,4 @@ module.exports = {
   normalizeImportedRowObjects,
   assertExistingFile
 };
+
