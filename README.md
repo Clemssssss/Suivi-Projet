@@ -191,5 +191,7 @@ Comportement :
 - détecte la branche courante
 - affiche l’état du dépôt
 - fait `git add -A` puis `git commit` si des fichiers ont changé
+- récupère `origin/main` avant le push
+- fait un `git rebase origin/main` pour éviter les rejets non-fast-forward
 - pousse toujours vers `origin/main`
 - utilise `git push origin HEAD:main` pour publier l’état courant sur `main`
