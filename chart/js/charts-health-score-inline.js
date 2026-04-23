@@ -6,14 +6,19 @@
     var lost   = data.filter(function(p){ return ProjectUtils.getStatus(p) === 'perdu';  });
     var offers = data.filter(function(p){ return ProjectUtils.getStatus(p) === 'offre';  });
     var decided = won.length + lost.length;
-    var pCA = function(v){ return (typeof v === 'number' ? v : parseFloat(String(v||'').replace(/[^\d.]/g,''))||0); };
+    var pCA = function(v){
+      if (typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount && typeof v === 'object') {
+        return ProjectUtils.getProjectAmount(v) || 0;
+      }
+      return (typeof v === 'number' ? v : parseFloat(String(v||'').replace(/[^\d.]/g,''))||0);
+    };
 
     // 1. Taux de conversion → 35 pts
     var convRate = decided > 0 ? won.length / decided : 0;
     var sc1 = Math.round(convRate * 35);
 
     // 2. Pipeline CA normalisé sur 5M€ → 25 pts
-    var pipeCA = offers.reduce(function(s,p){ return s + pCA(p['Bud']); }, 0) * convRate;
+    var pipeCA = offers.reduce(function(s,p){ return s + pCA(p); }, 0) * convRate;
     var sc2 = Math.min(25, Math.round((pipeCA / 3000000) * 25));
 
     // 3. Délai décision inversé (90j=0, 14j=20) → 20 pts

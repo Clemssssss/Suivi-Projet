@@ -190,9 +190,11 @@
     // CA = Bud des projets obtenus (source unique de vérité — pas ca_facture_YYYY)
     var wonAll = all.filter(function(p) { return _status(p) === 'obtenu'; });
     var caTotal = wonAll.reduce(function(sum, p) {
-      return sum + ((typeof ProjectUtils !== 'undefined'
-        ? ProjectUtils.parseMontant(p['Bud'])
-        : parseFloat(p['Bud'])) || 0);
+      return sum + ((typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount)
+        ? ProjectUtils.getProjectAmount(p)
+        : ((typeof ProjectUtils !== 'undefined'
+          ? ProjectUtils.parseMontant(p['Bud'])
+          : parseFloat(p['Bud'])) || 0));
     }, 0);
 
     var countEl = document.getElementById('obj-detail-count');

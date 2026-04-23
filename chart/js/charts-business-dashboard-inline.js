@@ -253,9 +253,11 @@
   }
 
   function getBud(project) {
-    return (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseMontant)
-      ? (ProjectUtils.parseMontant(project['Bud']) || 0)
-      : (parseFloat(project['Bud']) || 0);
+    return (typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount)
+      ? (ProjectUtils.getProjectAmount(project) || 0)
+      : ((typeof ProjectUtils !== 'undefined' && ProjectUtils.parseMontant)
+        ? (ProjectUtils.parseMontant(project['Bud']) || 0)
+        : (parseFloat(project['Bud']) || 0));
   }
 
   function getWeighted(project) {

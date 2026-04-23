@@ -2,7 +2,9 @@
   'use strict';
 
   function _pca(p, field) {
-    // Toujours lire depuis 'Bud' (nouveau format data.js)
+    if (typeof ProjectUtils !== 'undefined' && ProjectUtils.getProjectAmount) {
+      return ProjectUtils.getProjectAmount(p) || 0;
+    }
     return (typeof ProjectUtils !== 'undefined' ? ProjectUtils.parseMontant(p['Bud']) : parseFloat(p['Bud'])) || 0;
   }
   function _fmt(v) {

@@ -361,9 +361,34 @@ async function loadWorkbookRowsFromWorkbook(workbook) {
 }
 
 async function loadWorkbookRowsFromFile(filePath) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(filePath);
-  return loadWorkbookRowsFromWorkbook(workbook);
+  const resolvedPath = path.resolve(filePath);
+  const ext = path.extname(resolvedPath).toLowerCase();
+
+  if (ext === '.csv' || ext === '.tsv' || ext === '.txt') {
+    const text = fs.readFileSync(resolvedPath, 'utf8');
+    return loadWorkbookRowsFromCsvText(text);
+  }
+
+  if (ext === '.xlsx' || ext === '.xlsm' || ext === '.xlsb' || ext === '.xltx' || ext === '.xltm' || ext === '.xls') {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(resolvedPath);
+    return loadWorkbookRowsFromWorkbook(workbook);
+  }
+
+  const raw = fs.readFileSync(resolvedPath);
+  if (bufferLooksLikeHtml(raw)) {
+    throw new Error('Le fichier semble etre une page HTML, pas un import Excel/CSV');
+  }
+  if (bufferLooksLikeZip(raw)) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(raw);
+    return loadWorkbookRowsFromWorkbook(workbook);
+  }
+  if (bufferLooksLikeCsv(raw, '')) {
+    return loadWorkbookRowsFromCsvText(raw.toString('utf8'));
+  }
+
+  throw new Error('Format local non pris en charge : attendu .xlsx ou CSV');
 }
 
 async function loadWorkbookRowsFromBuffer(buffer) {

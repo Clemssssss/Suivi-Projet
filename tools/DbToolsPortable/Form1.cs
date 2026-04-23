@@ -97,7 +97,7 @@ public partial class Form1 : Form
         btnTestDb.Click += async (_, _) => await RunActionAsync("Test connexion DB", TestDbAsync);
 
         btnBrowseExcel.Click += (_, _) => BrowseExcel();
-        btnImport.Click += async (_, _) => await RunActionAsync("Import Excel", ImportAsync);
+        btnImport.Click += async (_, _) => await RunActionAsync("Import Excel/CSV", ImportAsync);
 
         btnSaveSharepointUrl.Click += (_, _) => SaveSharepointUrl();
         btnOpenSharepointUrl.Click += (_, _) => OpenSharepointUrl();
