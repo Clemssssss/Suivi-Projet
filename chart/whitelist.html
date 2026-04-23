@@ -9,7 +9,8 @@
   <script src="js/console-policy.js"></script>
   <script src="js/AuthClient.js"></script>
   <style>
-    body{margin:0;background:#08111d;color:#dce8f5;font-family:'DM Sans',system-ui,sans-serif;}
+    *{box-sizing:border-box;}
+    body{margin:0;background:#08111d;color:#dce8f5;font-family:'DM Sans',system-ui,sans-serif;overflow-x:hidden;}
     .wrap{max-width:1380px;margin:0 auto;padding:1.2rem;}
     .nav{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap;}
     .title{font-family:'Fraunces',serif;font-size:2rem;font-weight:900;color:#fff;}
@@ -19,20 +20,20 @@
     .pill{font-family:'DM Mono',monospace;color:#9ff3e1;}
     .btn{cursor:pointer;}
     .btn-primary{background:rgba(0,212,170,.12);border-color:rgba(0,212,170,.34);color:#9ff3e1;font-weight:700;}
-    .layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:1rem;}
+    .layout{display:grid;grid-template-columns:1fr;gap:1rem;}
     .card{background:rgba(15,23,35,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:1rem 1rem 1.2rem;box-shadow:0 20px 60px rgba(0,0,0,.35);}
     .card h2{margin:.1rem 0 .4rem;font-family:'Fraunces',serif;font-size:1.4rem;}
     .meta{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.78rem;margin-bottom:.9rem;}
     .status{font-family:'DM Mono',monospace;color:#8ea6bc;font-size:.8rem;margin:.2rem 0 1rem;}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.75rem;align-items:end;margin-bottom:1rem;}
+    .form-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:.75rem;align-items:end;margin-bottom:1rem;}
     .field{display:flex;flex-direction:column;gap:.3rem;}
     .field label{font-family:'DM Mono',monospace;font-size:.73rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.04em;}
     .field input,.field textarea,.field select{width:100%;background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:12px;padding:.8rem .9rem;font:inherit;box-sizing:border-box;}
     .field textarea{min-height:88px;resize:vertical;}
     .stack{display:grid;gap:1rem;}
-    .table-wrap{overflow:auto;}
-    table{width:100%;border-collapse:collapse;min-width:920px;}
-    th,td{padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:top;font-size:.82rem;}
+    .table-wrap{overflow:auto;max-width:100%;border-radius:14px;}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:0;}
+    th,td{padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:top;font-size:.82rem;overflow-wrap:anywhere;word-break:break-word;}
     th{font-family:'DM Mono',monospace;font-size:.72rem;color:#8ea6bc;text-transform:uppercase;letter-spacing:.04em;}
     .tag{display:inline-flex;align-items:center;border-radius:999px;padding:.22rem .55rem;font-family:'DM Mono',monospace;font-size:.72rem;border:1px solid transparent;}
     .tag-pending{background:rgba(255,196,77,.12);color:#ffd98b;border-color:rgba(255,196,77,.25);}
@@ -40,15 +41,26 @@
     .tag-rejected{background:rgba(255,99,132,.12);color:#ffb7c6;border-color:rgba(255,99,132,.24);}
     .tag-active{background:rgba(0,212,170,.12);color:#9ff3e1;border-color:rgba(0,212,170,.24);}
     .tag-inactive{background:rgba(142,166,188,.14);color:#bdd0e2;border-color:rgba(142,166,188,.24);}
-    .row-actions{display:flex;gap:.45rem;flex-wrap:wrap;}
-    .row-actions button{background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:10px;padding:.5rem .7rem;cursor:pointer;font:inherit;}
+    .row-actions{display:flex;gap:.45rem;flex-wrap:wrap;position:relative;z-index:2;}
+    .row-actions button{background:#0c1523;border:1px solid rgba(255,255,255,.08);color:#e8f4ff;border-radius:10px;padding:.5rem .7rem;cursor:pointer;font:inherit;position:relative;z-index:2;pointer-events:auto;}
+    .table-wrap table tbody td:last-child{min-width:170px;}
     .row-actions .approve{border-color:rgba(0,212,170,.34);color:#9ff3e1;}
     .row-actions .reject{border-color:rgba(255,99,132,.25);color:#ffb7c6;}
     .row-actions .toggle{border-color:rgba(159,217,255,.25);color:#b9e7ff;}
     .muted{color:#8ea6bc;}
     .mono{font-family:'DM Mono',monospace;}
-    @media (max-width:1100px){.layout{grid-template-columns:1fr;}.form-grid{grid-template-columns:1fr 1fr;}}
-    @media (max-width:640px){.form-grid{grid-template-columns:1fr;}.title{font-size:1.55rem;}}
+    @media (max-width:1100px){.form-grid{grid-template-columns:1fr 1fr;}}
+    @media (max-width:760px){
+      .form-grid{grid-template-columns:1fr;}
+      .title{font-size:1.55rem;}
+      .nav-actions{width:100%;}
+      .nav-actions > *{flex:1 1 0;}
+      .nav-actions a,.nav-actions button,.pill{text-align:center;justify-content:center;}
+      .row-actions{flex-direction:column;align-items:stretch;}
+      .row-actions button{width:100%;}
+      .table-wrap{overflow-x:auto;}
+      .table-wrap table{min-width:760px;}
+    }
   </style>
 </head>
 <body>
@@ -65,72 +77,68 @@
     </div>
 
     <div class="layout">
-      <div class="stack">
-        <div class="card">
-          <h2>Demandes d'accès</h2>
-          <div class="meta">Validation admin en base avec historique des demandes et notes de revue.</div>
-          <div class="status" id="whitelist-requests-status">Chargement...</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Statut</th>
-                  <th>IP</th>
-                  <th>Demandeur</th>
-                  <th>Motif</th>
-                  <th>Contexte</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="requests-tbody"></tbody>
-            </table>
-          </div>
+      <div class="card">
+        <h2>Demandes d'accès</h2>
+        <div class="meta">Validation admin en base avec historique des demandes et notes de revue.</div>
+        <div class="status" id="whitelist-requests-status">Chargement...</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Statut</th>
+                <th>IP</th>
+                <th>Demandeur</th>
+                <th>Motif</th>
+                <th>Contexte</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requests-tbody"></tbody>
+          </table>
         </div>
       </div>
 
-      <div class="stack">
-        <div class="card">
-          <h2>Ajouter une IP</h2>
-          <div class="meta">Ajout manuel d'une IP ou d'un CIDR dans la whitelist active.</div>
-          <form id="manual-whitelist-form">
-            <div class="form-grid">
-              <div class="field">
-                <label for="manual-ip-rule">IP ou CIDR</label>
-                <input id="manual-ip-rule" type="text" placeholder="90.82.197.132 ou 90.82.197.0/24" required>
-              </div>
-              <div class="field">
-                <label for="manual-ip-label">Label</label>
-                <input id="manual-ip-label" type="text" placeholder="Admin bureau">
-              </div>
-              <div class="field">
-                <label for="manual-ip-notes">Notes</label>
-                <input id="manual-ip-notes" type="text" placeholder="Accès validé">
-              </div>
-              <button class="btn btn-primary" type="submit" id="manual-ip-submit">Ajouter</button>
+      <div class="card">
+        <h2>Ajouter une IP</h2>
+        <div class="meta">Ajout manuel d'une IP ou d'un CIDR dans la whitelist active.</div>
+        <form id="manual-whitelist-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="manual-ip-rule">IP ou CIDR</label>
+              <input id="manual-ip-rule" type="text" placeholder="90.82.197.132 ou 90.82.197.0/24" required>
             </div>
-          </form>
-          <div class="status" id="manual-whitelist-status">Prêt</div>
-        </div>
-
-        <div class="card">
-          <h2>Whitelist active</h2>
-          <div class="meta">Activation ou désactivation rapide sans suppression historique.</div>
-          <div class="status" id="whitelist-status">Chargement...</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>État</th>
-                  <th>IP / règle</th>
-                  <th>Label</th>
-                  <th>Notes</th>
-                  <th>Ajouté par</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="whitelist-tbody"></tbody>
-            </table>
+            <div class="field">
+              <label for="manual-ip-label">Label</label>
+              <input id="manual-ip-label" type="text" placeholder="Admin bureau">
+            </div>
+            <div class="field">
+              <label for="manual-ip-notes">Notes</label>
+              <input id="manual-ip-notes" type="text" placeholder="Accès validé">
+            </div>
+            <button class="btn btn-primary" type="submit" id="manual-ip-submit">Ajouter</button>
           </div>
+        </form>
+        <div class="status" id="manual-whitelist-status">Prêt</div>
+      </div>
+
+      <div class="card">
+        <h2>Whitelist active</h2>
+        <div class="meta">Activation ou désactivation rapide sans suppression historique.</div>
+        <div class="status" id="whitelist-status">Chargement...</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>État</th>
+                <th>IP / règle</th>
+                <th>Label</th>
+                <th>Notes</th>
+                <th>Ajouté par</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="whitelist-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>

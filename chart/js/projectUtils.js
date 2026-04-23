@@ -165,11 +165,12 @@
     const str = String(raw).trim();
     if (!str) return null;
     
-    // Supprimer espaces et symboles, garder virgule décimale
+    // Supprimer espaces, devises et caractères parasites, garder virgule décimale
     const normalized = str
-      .replace(/\s/g, '')
+      .replace(/[\u20AC\u0080\$\u00A3\u00A0\u202F\s]/g, '')
+      .replace(/[^\d,.\-]/g, '')
       .replace(/\.(?=\d{3})/g, '') // Supprimer points de milliers
-      .replace(',', '.');            // Remplacer virgule décimale
+      .replace(',', '.');           // Remplacer virgule décimale
     
     const num = parseFloat(normalized);
     return isFinite(num) ? num : null;
@@ -181,7 +182,7 @@
    */
   function getProjectAmount(project) {
     if (!project) return 0;
-    const keys = ['Bud', 'MB (€)', 'CA win proba'];
+    const keys = ['Bud', 'MB (€)', 'MB ()', 'CA win proba'];
     for (const key of keys) {
       const value = parseMontant(project[key]);
       if (value !== null && value > 0) return value;

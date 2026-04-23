@@ -234,7 +234,7 @@
 
   function _resolveAmount(project) {
     if (!project) return 0;
-    const keys = ['Bud', 'MB (€)', 'CA win proba'];
+    const keys = ['Bud', 'MB (€)', 'MB ()', 'CA win proba'];
     for (const key of keys) {
       const v = ProjectUtils.parseMontant(project[key]);
       if (v !== null && v > 0) return v;

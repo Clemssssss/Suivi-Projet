@@ -205,12 +205,23 @@ async function ensureSchema() {
     $$ LANGUAGE plpgsql;
   `);
 
-  await query(`DROP TRIGGER IF EXISTS trg_dashboard_ip_request_sync ON dashboard_ip_access_requests;`);
   await query(`
-    CREATE TRIGGER trg_dashboard_ip_request_sync
-    BEFORE INSERT OR UPDATE ON dashboard_ip_access_requests
-    FOR EACH ROW
-    EXECUTE FUNCTION dashboard_sync_ip_whitelist_from_request();
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger t
+          JOIN pg_class c ON c.oid = t.tgrelid
+         WHERE t.tgname = 'trg_dashboard_ip_request_sync'
+           AND c.relname = 'dashboard_ip_access_requests'
+      ) THEN
+        CREATE TRIGGER trg_dashboard_ip_request_sync
+        BEFORE INSERT OR UPDATE ON dashboard_ip_access_requests
+        FOR EACH ROW
+        EXECUTE FUNCTION dashboard_sync_ip_whitelist_from_request();
+      END IF;
+    END;
+    $$;
   `);
 
   await query(`

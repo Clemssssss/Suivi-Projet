@@ -275,8 +275,8 @@
 
   function getMargin(project) {
     var value = (typeof ProjectUtils !== 'undefined' && ProjectUtils.parseMontant)
-      ? ProjectUtils.parseMontant(project['MB (€)'])
-      : parseFloat(project['MB (€)']);
+      ? ProjectUtils.parseMontant(project['MB (€)'] != null ? project['MB (€)'] : project['MB ()'])
+      : parseFloat(project['MB (€)'] != null ? project['MB (€)'] : project['MB ()']);
     return (value != null && isFinite(value)) ? value : null;
   }
 
