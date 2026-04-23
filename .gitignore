@@ -10,6 +10,7 @@ Desktop.ini
 !/netlify.toml
 !/package.json
 !/package-lock.json
+!/git_push_smart.cmd
 !/chart/
 !/chart/**
 !/netlify/

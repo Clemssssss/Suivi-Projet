@@ -184,4 +184,6 @@ Il:
 - bloque ou avertit si des chemins sensibles/générés comme `data/`, `archive/`, `.netlify/internal/`, `node_modules/` ou `tools/DbToolsPortable/bin|obj|publish` sont présents dans les fichiers changés
 - fait `git add -A`
 - commit si nécessaire
-- récupère `origin/main`, fait un `git rebase origin/main`, puis pousse vers `main`
+- récupère `origin/main`
+- vérifie que `main` n’a pas divergé de façon incompatible avant de pousser
+- pousse vers `origin/main` seulement si le push est safe
