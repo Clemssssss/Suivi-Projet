@@ -191,5 +191,5 @@ Comportement :
 - détecte la branche courante
 - affiche l’état du dépôt
 - fait `git add -A` puis `git commit` si des fichiers ont changé
-- pousse la branche courante sur `origin`
-- utilise `git push -u origin <branche>` au premier push de la branche
+- pousse toujours vers `origin/main`
+- utilise `git push origin HEAD:main` pour publier l’état courant sur `main`
